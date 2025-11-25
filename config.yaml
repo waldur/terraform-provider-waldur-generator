@@ -1,0 +1,18 @@
+generator:
+  openapi_schema: "path/to/waldur-openapi.yaml"
+  output_dir: "./output/terraform-waldur-provider"
+  provider_name: "waldur"
+
+resources:
+  - name: "structure_project"
+    base_operation_id: "projects"
+    
+  - name: "openstack_instance"
+    base_operation_id: "openstack_instances"
+    
+data_sources:
+  - name: "structure_project"
+    base_operation_id: "projects"
+    
+  - name: "openstack_instance"
+    base_operation_id: "openstack_instances"

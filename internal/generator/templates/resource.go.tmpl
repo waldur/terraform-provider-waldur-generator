@@ -1,0 +1,139 @@
+package resources
+
+import (
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/waldur/terraform-waldur-provider/internal/client"
+)
+
+// Ensure provider defined types fully satisfy framework interfaces.
+var _ resource.Resource = &{{ .Name | title }}Resource{}
+var _ resource.ResourceWithImportState = &{{ .Name | title }}Resource{}
+
+func New{{ .Name | title }}Resource() resource.Resource {
+	return &{{ .Name | title }}Resource{}
+}
+
+// {{ .Name | title }}Resource defines the resource implementation.
+type {{ .Name | title }}Resource struct {
+	client *client.Client
+}
+
+// {{ .Name | title }}ResourceModel describes the resource data model.
+type {{ .Name | title }}ResourceModel struct {
+	UUID types.String `tfsdk:"id"`
+	// TODO: Add fields based on OpenAPI schema
+}
+
+func (r *{{ .Name | title }}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_{{ .Name }}"
+}
+
+func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "{{ .Name | title }} resource",
+
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Resource UUID (used as Terraform ID)",
+			},
+			// TODO: Add attributes from OpenAPI schema
+		},
+	}
+}
+
+func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*client.Client)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			"Expected *client.Client, got something else. Please report this issue to the provider developers.",
+		)
+		return
+	}
+
+	r.client = client
+}
+
+func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data {{ .Name | title }}ResourceModel
+
+	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// TODO: Call API to create resource
+	// operationID: {{ .Operations.Create }}
+
+	// For demonstration purposes, we're setting a dummy UUID
+	data.UUID = types.StringValue("placeholder-uuid")
+
+	// Save data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data {{ .Name | title }}ResourceModel
+
+	// Read Terraform prior state data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// TODO: Call API to read resource
+	// operationID: {{ .Operations.Retrieve }}
+
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data {{ .Name | title }}ResourceModel
+
+	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// TODO: Call API to update resource
+	// operationID: {{ .Operations.PartialUpdate }}
+
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data {{ .Name | title }}ResourceModel
+
+	// Read Terraform prior state data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// TODO: Call API to delete resource
+	// operationID: {{ .Operations.Destroy }}
+}
+
+func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// TODO: Implement import logic
+	resp.Diagnostics.AddError("Not Implemented", "Import is not yet implemented for this resource")
+}

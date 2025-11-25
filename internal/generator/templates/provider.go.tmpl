@@ -1,0 +1,106 @@
+package provider
+
+import (
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+{{- if .Resources }}
+	"github.com/waldur/terraform-{{ .ProviderName }}-provider/internal/resources"
+{{- end }}
+{{- if .DataSources }}
+	"github.com/waldur/terraform-{{ .ProviderName }}-provider/internal/datasources"
+{{- end }}
+	"github.com/waldur/terraform-{{ .ProviderName }}-provider/internal/client"
+)
+
+// Ensure {{ .ProviderName }}Provider satisfies various provider interfaces.
+var _ provider.Provider = &{{ .ProviderName }}Provider{}
+
+// {{ .ProviderName }}Provider defines the provider implementation.
+type {{ .ProviderName }}Provider struct {
+	// version is set to the provider version on release, "dev" when the
+	// provider is built and ran locally, and "test" when running acceptance testing.
+	version string
+}
+
+// {{ .ProviderName }}ProviderModel describes the provider data model.
+type {{ .ProviderName }}ProviderModel struct {
+	Endpoint types.String `tfsdk:"endpoint"`
+	Token    types.String `tfsdk:"token"`
+}
+
+func (p *{{ .ProviderName }}Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "{{ .ProviderName }}"
+	resp.Version = p.version
+}
+
+func (p *{{ .ProviderName }}Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"endpoint": schema.StringAttribute{
+				MarkdownDescription: "{{ .ProviderName | title }} API endpoint URL",
+				Required:            true,
+			},
+			"token": schema.StringAttribute{
+				MarkdownDescription: "API authentication token",
+				Required:            true,
+				Sensitive:           true,
+			},
+		},
+	}
+}
+
+func (p *{{ .ProviderName }}Provider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var data {{ .ProviderName }}ProviderModel
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Create API client
+	apiClient, err := client.NewClient(&client.Config{
+		Endpoint: data.Endpoint.ValueString(),
+		Token:    data.Token.ValueString(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create API Client",
+			"An error occurred when creating the API client: "+err.Error(),
+		)
+		return
+	}
+
+	// Make client available to resources and data sources
+	resp.DataSourceData = apiClient
+	resp.ResourceData = apiClient
+}
+
+func (p *{{ .ProviderName }}Provider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		{{- range .Resources }}
+		resources.New{{ .Name | title }}Resource,
+		{{- end }}
+	}
+}
+
+func (p *{{ .ProviderName }}Provider) DataSources(ctx context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		{{- range .DataSources }}
+		datasources.New{{ .Name | title }}DataSource,
+		{{- end }}
+	}
+}
+
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &{{ .ProviderName }}Provider{
+			version: version,
+		}
+	}
+}

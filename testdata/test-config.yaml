@@ -1,0 +1,12 @@
+generator:
+  openapi_schema: "minimal-waldur-openapi.yaml"
+  output_dir: "./output"
+  provider_name: "waldur"
+
+resources:
+  - name: "structure_project"
+    base_operation_id: "projects"
+
+data_sources:
+  - name: "structure_project"
+    base_operation_id: "projects"

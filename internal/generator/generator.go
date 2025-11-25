@@ -222,40 +222,80 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 
 	ops := dataSource.OperationIDs()
 
-	// Extract API path from OpenAPI operations
-	apiPath := ""
+	// Extract API paths from OpenAPI operations
+	listPath := ""
+	retrievePath := ""
 
-	// Try to get the retrieve operation path first (for single resource lookup)
-	// Check if there's a retrieve operation we can use
+	// Use list path as primary since it's needed for filtering
+	// The client will handle adding {uuid} suffix for UUID lookups
+	if _, path, _, err := g.parser.GetOperation(ops.List); err == nil {
+		listPath = path
+	} else {
+		// Fall back to retrieve path if list doesn't exist
+		baseOpID := dataSource.BaseOperationID
+		retrieveOpID := baseOpID + "_retrieve"
+		if _, retPath, _, err := g.parser.GetOperation(retrieveOpID); err == nil {
+			listPath = retPath
+		}
+	}
+
+	// Also get retrieve path separately for tests
 	baseOpID := dataSource.BaseOperationID
 	retrieveOpID := baseOpID + "_retrieve"
-	if _, retrievePath, _, err := g.parser.GetOperation(retrieveOpID); err == nil {
-		apiPath = retrievePath
-	} else if _, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
-		// Fall back to list path
-		apiPath = listPath
+	if _, retPath, _, err := g.parser.GetOperation(retrieveOpID); err == nil {
+		retrievePath = retPath
 	}
 
 	// Extract query parameters from list operation
 	queryParams := make(map[string]string) // param name -> description
+	supportsNameExact := false
 	if operation, _, _, err := g.parser.GetOperation(ops.List); err == nil {
 		for _, param := range operation.Parameters {
 			if param.Value != nil && param.Value.In == "query" {
 				paramName := param.Value.Name
 				description := param.Value.Description
 				queryParams[paramName] = description
+				if paramName == "name_exact" {
+					supportsNameExact = true
+				}
 			}
 		}
 	}
 
 	data := map[string]interface{}{
-		"Name":        dataSource.Name,
-		"Operations":  ops,
-		"APIPath":     apiPath,
-		"QueryParams": queryParams,
+		"Name":              dataSource.Name,
+		"Operations":        ops,
+		"ListPath":          listPath,
+		"RetrievePath":      retrievePath,
+		"QueryParams":       queryParams,
+		"SupportsNameExact": supportsNameExact,
 	}
 
-	return tmpl.Execute(f, data)
+	if err := tmpl.Execute(f, data); err != nil {
+		return err
+	}
+
+	// Also generate data source tests
+	return g.generateDataSourceTests(dataSource, data)
+}
+
+// generateDataSourceTests creates the datasource test file
+func (g *Generator) generateDataSourceTests(dataSource *config.DataSource, templateData map[string]interface{}) error {
+	tmpl, err := template.New("datasource_test.go.tmpl").Funcs(template.FuncMap{
+		"title": toTitle,
+	}).ParseFS(templates, "templates/datasource_test.go.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse datasource test template: %w", err)
+	}
+
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "datasources", fmt.Sprintf("%s_test.go", dataSource.Name))
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return tmpl.Execute(f, templateData)
 }
 
 // generateSupportingFiles generates go.mod, README, etc.

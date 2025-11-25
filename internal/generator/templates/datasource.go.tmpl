@@ -82,14 +82,21 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		return
 	}
 
-	{{- if .APIPath }}
-	apiPath := "{{ .APIPath }}"
+	{{- if .ListPath }}
+	listPath := "{{ .ListPath }}"
 	{{- else }}
 	resp.Diagnostics.AddError(
 		"Configuration Error",
 		"API path not found in OpenAPI schema for {{ .Name }}. Please check the base_operation_id configuration.",
 	)
 	return
+	{{- end }}
+	
+	{{- if .RetrievePath }}
+	retrievePath := "{{ .RetrievePath }}"
+	{{- else }}
+	// No separate retrieve path, use list path
+	retrievePath := listPath
 	{{- end }}
 
 	// Check if UUID is provided for direct lookup
@@ -98,7 +105,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		// operationID: {{ .Operations.List }} (retrieve by UUID)
 		var result map[string]interface{}
 		
-		err := d.client.GetByUUID(ctx, apiPath, data.UUID.ValueString(), &result)
+		err := d.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to Read {{ .Name | title }}",
@@ -132,7 +139,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			{{- end }}
 		}
 		
-		err := d.client.ListWithFilter(ctx, apiPath, filters, &results)
+		err := d.client.ListWithFilter(ctx, listPath, filters, &results)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to List {{ .Name | title }}",

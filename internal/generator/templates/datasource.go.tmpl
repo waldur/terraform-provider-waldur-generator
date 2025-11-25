@@ -125,7 +125,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 
-		// Map response fields		// Extract data from single result
+		// Extract data from single result
 		if uuid, ok := item["uuid"].(string); ok {
 			data.UUID = types.StringValue(uuid)
 		}

@@ -1,3 +1,28 @@
+{{- define "mapResponseFields" }}
+	// Map response fields to data model
+	{{- range .ResponseFields }}
+	if val, ok := result["{{ .Name }}"]; ok && val != nil {
+		{{- if eq .Type "string" }}
+		if str, ok := val.(string); ok {
+			data.{{ .Name | title }} = types.StringValue(str)
+		}
+		{{- else if eq .Type "integer" }}
+		if num, ok := val.(float64); ok {
+			data.{{ .Name | title }} = types.Int64Value(int64(num))
+		}
+		{{- else if eq .Type "boolean" }}
+		if b, ok := val.(bool); ok {
+			data.{{ .Name | title }} = types.BoolValue(b)
+		}
+		{{- else if eq .Type "number" }}
+		if num, ok := val.(float64); ok {
+			data.{{ .Name | title }} = types.Float64Value(num)
+		}
+		{{- end }}
+	}
+	{{- end }}
+{{- end }}
+
 package resources
 
 import (
@@ -123,28 +148,7 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 		data.UUID = types.StringValue(uuid)
 	}
 
-	// Map response fields to data model
-	{{- range .ResponseFields }}
-	if val, ok := result["{{ .Name }}"]; ok && val != nil {
-		{{- if eq .Type "string" }}
-		if str, ok := val.(string); ok {
-			data.{{ .Name | title }} = types.StringValue(str)
-		}
-		{{- else if eq .Type "integer" }}
-		if num, ok := val.(float64); ok {
-			data.{{ .Name | title }} = types.Int64Value(int64(num))
-		}
-		{{- else if eq .Type "boolean" }}
-		if b, ok := val.(bool); ok {
-			data.{{ .Name | title }} = types.BoolValue(b)
-		}
-		{{- else if eq .Type "number" }}
-		if num, ok := val.(float64); ok {
-			data.{{ .Name | title }} = types.Float64Value(num)
-		}
-		{{- end }}
-	}
-	{{- end }}
+{{- template "mapResponseFields" . }}
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -179,28 +183,7 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 		data.UUID = types.StringValue(uuid)
 	}
 
-	// Map response fields to data model
-	{{- range .ResponseFields }}
-	if val, ok := result["{{ .Name }}"]; ok && val != nil {
-		{{- if eq .Type "string" }}
-		if str, ok := val.(string); ok {
-			data.{{ .Name | title }} = types.StringValue(str)
-		}
-		{{- else if eq .Type "integer" }}
-		if num, ok := val.(float64); ok {
-			data.{{ .Name | title }} = types.Int64Value(int64(num))
-		}
-		{{- else if eq .Type "boolean" }}
-		if b, ok := val.(bool); ok {
-			data.{{ .Name | title }} = types.BoolValue(b)
-		}
-		{{- else if eq .Type "number" }}
-		if num, ok := val.(float64); ok {
-			data.{{ .Name | title }} = types.Float64Value(num)
-		}
-		{{- end }}
-	}
-	{{- end }}
+{{- template "mapResponseFields" . }}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -256,28 +239,7 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 		data.UUID = types.StringValue(uuid)
 	}
 
-	// Map response fields to data model
-	{{- range .ResponseFields }}
-	if val, ok := result["{{ .Name }}"]; ok && val != nil {
-		{{- if eq .Type "string" }}
-		if str, ok := val.(string); ok {
-			data.{{ .Name | title }} = types.StringValue(str)
-		}
-		{{- else if eq .Type "integer" }}
-		if num, ok := val.(float64); ok {
-			data.{{ .Name | title }} = types.Int64Value(int64(num))
-		}
-		{{- else if eq .Type "boolean" }}
-		if b, ok := val.(bool); ok {
-			data.{{ .Name | title }} = types.BoolValue(b)
-		}
-		{{- else if eq .Type "number" }}
-		if num, ok := val.(float64); ok {
-			data.{{ .Name | title }} = types.Float64Value(num)
-		}
-		{{- end }}
-	}
-	{{- end }}
+{{- template "mapResponseFields" . }}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

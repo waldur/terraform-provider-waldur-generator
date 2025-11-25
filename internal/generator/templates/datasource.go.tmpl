@@ -27,7 +27,11 @@ type {{ .Name | title }}DataSource struct {
 type {{ .Name | title }}DataSourceModel struct {
 	UUID types.String `tfsdk:"id"`
 	Name types.String `tfsdk:"name"`
-	// TODO: Add fields based on OpenAPI schema
+	{{- range .ResponseFields }}
+	{{- if ne .Name "name" }}
+	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
+	{{- end }}
+	{{- end }}
 }
 
 func (d *{{ .Name | title }}DataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -47,9 +51,16 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 			"name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "Resource name. Used for filtering when id is not provided.",
+				MarkdownDescription: "Resource name",
 			},
-			// TODO: Add attributes from OpenAPI schema
+			{{- range .ResponseFields }}
+			{{- if ne .Name "name" }}
+			"{{ .TFSDKName }}": schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
+				Computed:            true,
+				MarkdownDescription: "{{ .Description }}",
+			},
+			{{- end }}
+			{{- end }}
 		},
 	}
 }
@@ -103,9 +114,9 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 	if !data.UUID.IsNull() && data.UUID.ValueString() != "" {
 		// Direct UUID lookup
 		// operationID: {{ .Operations.List }} (retrieve by UUID)
-		var result map[string]interface{}
+		var item map[string]interface{}
 		
-		err := d.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
+		err := d.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &item)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to Read {{ .Name | displayName }}",
@@ -114,14 +125,38 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 
-		// Map response fields to data model
-		if uuid, ok := result["uuid"].(string); ok {
+		// Map response fields		// Extract data from single result
+		if uuid, ok := item["uuid"].(string); ok {
 			data.UUID = types.StringValue(uuid)
 		}
-		if name, ok := result["name"].(string); ok {
+		if name, ok := item["name"].(string); ok {
 			data.Name = types.StringValue(name)
 		}
-		// TODO: Map other response fields to data model based on OpenAPI schema
+
+		// Map response fields
+		{{- range .ResponseFields }}
+		{{- if ne .Name "name" }}
+		if val, ok := item["{{ .Name }}"]; ok && val != nil {
+			{{- if eq .Type "string" }}
+			if str, ok := val.(string); ok {
+				data.{{ .Name | title }} = types.StringValue(str)
+			}
+			{{- else if eq .Type "integer" }}
+			if num, ok := val.(float64); ok {
+				data.{{ .Name | title }} = types.Int64Value(int64(num))
+			}
+			{{- else if eq .Type "boolean" }}
+			if b, ok := val.(bool); ok {
+				data.{{ .Name | title }} = types.BoolValue(b)
+			}
+			{{- else if eq .Type "number" }}
+			if num, ok := val.(float64); ok {
+				data.{{ .Name | title }} = types.Float64Value(num)
+			}
+			{{- end }}
+		}
+		{{- end }}
+		{{- end }}
 
 	} else if !data.Name.IsNull() && data.Name.ValueString() != "" {
 		// Filter by name
@@ -166,14 +201,38 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		}
 
 		// Extract data from the single result
-		result := results[0]
-		if uuid, ok := result["uuid"].(string); ok {
-			data.UUID = types.StringValue(uuid)
+		// Extract data from result
+	if uuid, ok := results[0]["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
+	if name, ok := results[0]["name"].(string); ok {
+		data.Name = types.StringValue(name)
+	}
+
+	// Map response fields
+	{{- range .ResponseFields }}
+	{{- if ne .Name "name" }}
+	if val, ok := results[0]["{{ .Name }}"]; ok && val != nil {
+		{{- if eq .Type "string" }}
+		if str, ok := val.(string); ok {
+			data.{{ .Name | title }} = types.StringValue(str)
 		}
-		if name, ok := result["name"].(string); ok {
-			data.Name = types.StringValue(name)
+		{{- else if eq .Type "integer" }}
+		if num, ok := val.(float64); ok {
+			data.{{ .Name | title }} = types.Int64Value(int64(num))
 		}
-		// TODO: Map other response fields to data model based on OpenAPI schema
+		{{- else if eq .Type "boolean" }}
+		if b, ok := val.(bool); ok {
+			data.{{ .Name | title }} = types.BoolValue(b)
+		}
+		{{- else if eq .Type "number" }}
+		if num, ok := val.(float64); ok {
+			data.{{ .Name | title }} = types.Float64Value(num)
+		}
+		{{- end }}
+	}
+	{{- end }}
+	{{- end }}
 
 	} else {
 		resp.Diagnostics.AddError(

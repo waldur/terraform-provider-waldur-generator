@@ -212,6 +212,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	// Extract fields from Create and Update request schemas
 	var createFields []FieldInfo
 	var updateFields []FieldInfo
+	var responseFields []FieldInfo
 
 	// Extract Create fields
 	if createSchema, err := g.parser.GetOperationRequestSchema(ops.Create); err == nil {
@@ -227,12 +228,29 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		}
 	}
 
+	// Extract Response fields (prefer Retrieve operation as it's usually most complete)
+	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
+		if fields, err := ExtractFields(responseSchema); err == nil {
+			responseFields = fields
+		}
+	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Create); err == nil {
+		// Fallback to Create response
+		if fields, err := ExtractFields(responseSchema); err == nil {
+			responseFields = fields
+		}
+	}
+
+	// Merge fields for the model (Create + Response)
+	modelFields := MergeFields(createFields, responseFields)
+
 	data := map[string]interface{}{
-		"Name":         resource.Name,
-		"Operations":   ops,
-		"APIPaths":     apiPaths,
-		"CreateFields": createFields,
-		"UpdateFields": updateFields,
+		"Name":           resource.Name,
+		"Operations":     ops,
+		"APIPaths":       apiPaths,
+		"CreateFields":   createFields,
+		"UpdateFields":   updateFields,
+		"ResponseFields": responseFields,
+		"ModelFields":    modelFields,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {
@@ -318,6 +336,21 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
+	// Extract Response fields from Retrieve operation
+	var responseFields []FieldInfo
+	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
+		if fields, err := ExtractFields(responseSchema); err == nil {
+			responseFields = fields
+		}
+	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.List); err == nil {
+		// For list, the schema is usually an array of items. We need the item schema.
+		if responseSchema.Value.Type != nil && (*responseSchema.Value.Type)[0] == "array" && responseSchema.Value.Items != nil {
+			if fields, err := ExtractFields(responseSchema.Value.Items); err == nil {
+				responseFields = fields
+			}
+		}
+	}
+
 	data := map[string]interface{}{
 		"Name":              dataSource.Name,
 		"Operations":        ops,
@@ -325,6 +358,7 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		"RetrievePath":      retrievePath,
 		"QueryParams":       queryParams,
 		"SupportsNameExact": supportsNameExact,
+		"ResponseFields":    responseFields,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

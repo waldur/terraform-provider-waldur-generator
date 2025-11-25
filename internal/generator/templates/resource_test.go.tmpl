@@ -23,6 +23,19 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 func TestAcc{{ .Name | title }}Resource_Basic(t *testing.T) {
 	uuid := "550e8400-e29b-41d4-a716-446655440000"
 	
+	// Initialize state variables to track resource state across requests
+	{{- range .ModelFields }}
+	{{- if and (not .ReadOnly) (ne .Name "uuid") }}
+	{{- if eq .Type "string" }}
+	{{ .Name }} := "test-{{ .Name }}"
+	{{- else if eq .Type "integer" }}
+	{{ .Name }} := 123
+	{{- else if eq .Type "boolean" }}
+	{{ .Name }} := true
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("Request: %s %s", r.Method, r.URL.Path)
@@ -46,51 +59,119 @@ func TestAcc{{ .Name | title }}Resource_Basic(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			w.Write([]byte(fmt.Sprintf(`{
-				"uuid": "%s",
-				{{- range $i, $field := .CreateFields }}
+				{{- range $i, $field := .ModelFields }}
+				{{- if eq $field.Name "uuid" }}
+				"{{ $field.Name }}": "%s"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if $field.ReadOnly }}
 				{{- if eq $field.Type "string" }}
-				"{{ $field.Name }}": "test-{{ $field.Name }}"{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": "dummy-{{ $field.Name }}"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- else if eq $field.Type "integer" }}
-				"{{ $field.Name }}": 123{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": 123{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- else if eq $field.Type "boolean" }}
-				"{{ $field.Name }}": true{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": true{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- end }}
+				{{- else }}
+				{{- if eq $field.Type "string" }}
+				"{{ $field.Name }}": "%s"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "integer" }}
+				"{{ $field.Name }}": %d{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "boolean" }}
+				"{{ $field.Name }}": %t{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- end }}
 				{{- end }}
-			}`, uuid)))
+				{{- end }}
+			}`, 
+			{{- range .ModelFields }}
+			{{- if eq .Name "uuid" }}
+			uuid,
+			{{- else if not .ReadOnly }}
+			{{ .Name }},
+			{{- end }}
+			{{- end }}
+			)))
 			
 		case r.Method == "GET" && r.URL.Path == retrievePath:
-			// Read operation
+			// Read operation - returns current state
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(fmt.Sprintf(`{
-				"uuid": "%s",
-				{{- range $i, $field := .CreateFields }}
+				{{- range $i, $field := .ModelFields }}
+				{{- if eq $field.Name "uuid" }}
+				"{{ $field.Name }}": "%s"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if $field.ReadOnly }}
 				{{- if eq $field.Type "string" }}
-				"{{ $field.Name }}": "test-{{ $field.Name }}"{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": "dummy-{{ $field.Name }}"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- else if eq $field.Type "integer" }}
-				"{{ $field.Name }}": 123{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": 123{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- else if eq $field.Type "boolean" }}
-				"{{ $field.Name }}": true{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": true{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- end }}
+				{{- else }}
+				{{- if eq $field.Type "string" }}
+				"{{ $field.Name }}": "%s"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "integer" }}
+				"{{ $field.Name }}": %d{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "boolean" }}
+				"{{ $field.Name }}": %t{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- end }}
 				{{- end }}
-			}`, uuid)))
+				{{- end }}
+			}`, 
+			{{- range .ModelFields }}
+			{{- if eq .Name "uuid" }}
+			uuid,
+			{{- else if not .ReadOnly }}
+			{{ .Name }},
+			{{- end }}
+			{{- end }}
+			)))
 			
 		case r.Method == "PATCH" && r.URL.Path == retrievePath:
 			// Update operation
+			// Update state variables
+			{{- range .UpdateFields }}
+			{{- if eq .Type "string" }}
+			{{ .Name }} = "updated-{{ .Name }}"
+			{{- else if eq .Type "integer" }}
+			{{ .Name }} = 456
+			{{- else if eq .Type "boolean" }}
+			{{ .Name }} = false
+			{{- end }}
+			{{- end }}
+
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(fmt.Sprintf(`{
-				"uuid": "%s",
-				{{- range $i, $field := .UpdateFields }}
+				{{- range $i, $field := .ModelFields }}
+				{{- if eq $field.Name "uuid" }}
+				"{{ $field.Name }}": "%s"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if $field.ReadOnly }}
 				{{- if eq $field.Type "string" }}
-				"{{ $field.Name }}": "updated-{{ $field.Name }}"{{ if ne $i (sub (len $.UpdateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": "dummy-{{ $field.Name }}"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- else if eq $field.Type "integer" }}
-				"{{ $field.Name }}": 456{{ if ne $i (sub (len $.UpdateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": 123{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- else if eq $field.Type "boolean" }}
-				"{{ $field.Name }}": false{{ if ne $i (sub (len $.UpdateFields) 1) }},{{ end }}
+				"{{ $field.Name }}": true{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- end }}
+				{{- else }}
+				{{- if eq $field.Type "string" }}
+				"{{ $field.Name }}": "%s"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "integer" }}
+				"{{ $field.Name }}": %d{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "boolean" }}
+				"{{ $field.Name }}": %t{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
 				{{- end }}
 				{{- end }}
-			}`, uuid)))
+				{{- end }}
+			}`, 
+			{{- range .ModelFields }}
+			{{- if eq .Name "uuid" }}
+			uuid,
+			{{- else if not .ReadOnly }}
+			{{ .Name }},
+			{{- end }}
+			{{- end }}
+			)))
 			
 		case r.Method == "DELETE" && r.URL.Path == retrievePath:
 			// Delete operation
@@ -110,13 +191,19 @@ func TestAcc{{ .Name | title }}Resource_Basic(t *testing.T) {
 				Config: testAcc{{ .Name | title }}ResourceConfig_Create(server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("waldur_{{ .Name }}.test", "id"),
-					{{- range .CreateFields }}
+					{{- range .ModelFields }}
+					{{- if ne .Name "uuid" }}
+					{{- if .ReadOnly }}
+					resource.TestCheckResourceAttrSet("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}"),
+					{{- else }}
 					{{- if eq .Type "string" }}
 					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "test-{{ .Name }}"),
 					{{- else if eq .Type "integer" }}
 					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "123"),
 					{{- else if eq .Type "boolean" }}
 					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "true"),
+					{{- end }}
+					{{- end }}
 					{{- end }}
 					{{- end }}
 				),
@@ -126,13 +213,19 @@ func TestAcc{{ .Name | title }}Resource_Basic(t *testing.T) {
 				Config: testAcc{{ .Name | title }}ResourceConfig_Update(server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("waldur_{{ .Name }}.test", "id"),
-					{{- range .UpdateFields }}
+					{{- range .ModelFields }}
+					{{- if ne .Name "uuid" }}
+					{{- if .ReadOnly }}
+					resource.TestCheckResourceAttrSet("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}"),
+					{{- else }}
 					{{- if eq .Type "string" }}
 					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "updated-{{ .Name }}"),
 					{{- else if eq .Type "integer" }}
 					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "456"),
 					{{- else if eq .Type "boolean" }}
 					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "false"),
+					{{- end }}
+					{{- end }}
 					{{- end }}
 					{{- end }}
 				),

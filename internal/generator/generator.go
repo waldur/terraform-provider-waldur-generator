@@ -163,9 +163,42 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	}
 	defer f.Close()
 
+	ops := resource.OperationIDs()
+
+	// Extract API paths from OpenAPI operations
+	apiPaths := make(map[string]string)
+
+	// Get path from list operation (used as base path)
+	if _, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
+		// Remove trailing slash and {uuid} if present for base path
+		basePath := listPath
+		apiPaths["Base"] = basePath
+	}
+
+	// Get path from create operation
+	if _, createPath, _, err := g.parser.GetOperation(ops.Create); err == nil {
+		apiPaths["Create"] = createPath
+	}
+
+	// Get path from retrieve operation (includes UUID parameter)
+	if _, retrievePath, _, err := g.parser.GetOperation(ops.Retrieve); err == nil {
+		apiPaths["Retrieve"] = retrievePath
+	}
+
+	// Get path from update operation
+	if _, updatePath, _, err := g.parser.GetOperation(ops.PartialUpdate); err == nil {
+		apiPaths["Update"] = updatePath
+	}
+
+	// Get path from delete operation
+	if _, deletePath, _, err := g.parser.GetOperation(ops.Destroy); err == nil {
+		apiPaths["Delete"] = deletePath
+	}
+
 	data := map[string]interface{}{
 		"Name":       resource.Name,
-		"Operations": resource.OperationIDs(),
+		"Operations": ops,
+		"APIPaths":   apiPaths,
 	}
 
 	return tmpl.Execute(f, data)
@@ -187,9 +220,26 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	}
 	defer f.Close()
 
+	ops := dataSource.OperationIDs()
+
+	// Extract API path from OpenAPI operations
+	apiPath := ""
+
+	// Try to get the retrieve operation path first (for single resource lookup)
+	// Check if there's a retrieve operation we can use
+	baseOpID := dataSource.BaseOperationID
+	retrieveOpID := baseOpID + "_retrieve"
+	if _, retrievePath, _, err := g.parser.GetOperation(retrieveOpID); err == nil {
+		apiPath = retrievePath
+	} else if _, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
+		// Fall back to list path
+		apiPath = listPath
+	}
+
 	data := map[string]interface{}{
 		"Name":       dataSource.Name,
-		"Operations": dataSource.OperationIDs(),
+		"Operations": ops,
+		"APIPath":    apiPath,
 	}
 
 	return tmpl.Execute(f, data)

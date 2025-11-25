@@ -74,9 +74,34 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		return
 	}
 
-	// TODO: Call API to read data source
-	// operationID: {{ .Operations.List }}
-	// Use data.UUID to lookup the resource
+	// Call Waldur API to get resource by UUID
+	// operationID: {{ .Operations.List }} (we use retrieve for single resource lookup)
+	var result map[string]interface{}
+	
+	{{- if .APIPath }}
+	apiPath := "{{ .APIPath }}"
+	{{- else }}
+	resp.Diagnostics.AddError(
+		"Configuration Error",
+		"API path not found in OpenAPI schema for {{ .Name }}. Please check the base_operation_id configuration.",
+	)
+	return
+	{{- end }}
+	
+	err := d.client.GetByUUID(ctx, apiPath, data.UUID.ValueString(), &result)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read {{ .Name | title }}",
+			"An error occurred while reading the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+
+	// TODO: Map response fields to data model based on OpenAPI schema
+	// For now, we just ensure UUID is set from the response
+	if uuid, ok := result["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

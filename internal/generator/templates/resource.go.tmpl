@@ -75,11 +75,43 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	// TODO: Call API to create resource
-	// operationID: {{ .Operations.Create }}
+	// Prepare request body
+	// TODO: Map data model to API request based on OpenAPI schema
+	requestBody := map[string]interface{}{
+		// Add fields from data model here
+	}
 
-	// For demonstration purposes, we're setting a dummy UUID
-	data.UUID = types.StringValue("placeholder-uuid")
+	// Call Waldur API to create resource
+	// operationID: {{ .Operations.Create }}
+	var result map[string]interface{}
+	
+	{{- if .APIPaths.Create }}
+	apiPath := "{{ .APIPaths.Create }}"
+	{{- else if .APIPaths.Base }}
+	apiPath := "{{ .APIPaths.Base }}"
+	{{- else }}
+	resp.Diagnostics.AddError(
+		"Configuration Error",
+		"API path not found in OpenAPI schema for {{ .Name }} create operation. Please check the base_operation_id configuration.",
+	)
+	return
+	{{- end }}
+	
+	err := r.client.Create(ctx, apiPath, requestBody, &result)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create {{ .Name | title }}",
+			"An error occurred while creating the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+
+	// Extract UUID from response
+	if uuid, ok := result["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
+
+	// TODO: Map other response fields to data model based on OpenAPI schema
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -95,8 +127,37 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	// TODO: Call API to read resource
+	// Call Waldur API to read resource
 	// operationID: {{ .Operations.Retrieve }}
+	var result map[string]interface{}
+	
+	{{- if .APIPaths.Retrieve }}
+	apiPath := "{{ .APIPaths.Retrieve }}"
+	{{- else if .APIPaths.Base }}
+	apiPath := "{{ .APIPaths.Base }}"
+	{{- else }}
+	resp.Diagnostics.AddError(
+		"Configuration Error",
+		"API path not found in OpenAPI schema for {{ .Name }} retrieve operation. Please check the base_operation_id configuration.",
+	)
+	return
+	{{- end }}
+	
+	err := r.client.GetByUUID(ctx, apiPath, data.UUID.ValueString(), &result)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read {{ .Name | title }}",
+			"An error occurred while reading the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+
+	// Update UUID from response
+	if uuid, ok := result["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
+
+	// TODO: Map other response fields to data model based on OpenAPI schema
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -112,8 +173,43 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	// TODO: Call API to update resource
+	// Prepare request body
+	// TODO: Map data model to API request based on OpenAPI schema
+	requestBody := map[string]interface{}{
+		// Add fields from data model here
+	}
+
+	// Call Waldur API to update resource
 	// operationID: {{ .Operations.PartialUpdate }}
+	var result map[string]interface{}
+	
+	{{- if .APIPaths.Update }}
+	apiPath := "{{ .APIPaths.Update }}"
+	{{- else if .APIPaths.Base }}
+	apiPath := "{{ .APIPaths.Base }}"
+	{{- else }}
+	resp.Diagnostics.AddError(
+		"Configuration Error",
+		"API path not found in OpenAPI schema for {{ .Name }} update operation. Please check the base_operation_id configuration.",
+	)
+	return
+	{{- end }}
+	
+	err := r.client.Update(ctx, apiPath, data.UUID.ValueString(), requestBody, &result)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Update {{ .Name | title }}",
+			"An error occurred while updating the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+
+	// Update UUID from response
+	if uuid, ok := result["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
+
+	// TODO: Map other response fields to data model based on OpenAPI schema
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -129,8 +225,29 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 		return
 	}
 
-	// TODO: Call API to delete resource
+	// Call Waldur API to delete resource
 	// operationID: {{ .Operations.Destroy }}
+	
+	{{- if .APIPaths.Delete }}
+	apiPath := "{{ .APIPaths.Delete }}"
+	{{- else if .APIPaths.Base }}
+	apiPath := "{{ .APIPaths.Base }}"
+	{{- else }}
+	resp.Diagnostics.AddError(
+		"Configuration Error",
+		"API path not found in OpenAPI schema for {{ .Name }} delete operation. Please check the base_operation_id configuration.",
+	)
+	return
+	{{- end }}
+	
+	err := r.client.DeleteByUUID(ctx, apiPath, data.UUID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Delete {{ .Name | title }}",
+			"An error occurred while deleting the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
 }
 
 func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

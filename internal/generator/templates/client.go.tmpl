@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -186,7 +187,12 @@ func (c *Client) List(ctx context.Context, path string, result interface{}) erro
 
 // GetByUUID retrieves a single resource by UUID
 func (c *Client) GetByUUID(ctx context.Context, path string, uuid string, result interface{}) error {
-	fullPath := fmt.Sprintf("%s%s/", path, uuid)
+	// Replace {uuid} placeholder in path, or append if not present
+	fullPath := strings.Replace(path, "{uuid}", uuid, 1)
+	// Ensure trailing slash
+	if !strings.HasSuffix(fullPath, "/") {
+		fullPath += "/"
+	}
 	return c.Get(ctx, fullPath, result)
 }
 
@@ -197,12 +203,22 @@ func (c *Client) Create(ctx context.Context, path string, body interface{}, resu
 
 // Update updates a resource
 func (c *Client) Update(ctx context.Context, path string, uuid string, body interface{}, result interface{}) error {
-	fullPath := fmt.Sprintf("%s%s/", path, uuid)
+	// Replace {uuid} placeholder in path, or append if not present
+	fullPath := strings.Replace(path, "{uuid}", uuid, 1)
+	// Ensure trailing slash
+	if !strings.HasSuffix(fullPath, "/") {
+		fullPath += "/"
+	}
 	return c.Patch(ctx, fullPath, body, result)
 }
 
 // DeleteByUUID deletes a resource by UUID
 func (c *Client) DeleteByUUID(ctx context.Context, path string, uuid string) error {
-	fullPath := fmt.Sprintf("%s%s/", path, uuid)
+	// Replace {uuid} placeholder in path, or append if not present
+	fullPath := strings.Replace(path, "{uuid}", uuid, 1)
+	// Ensure trailing slash
+	if !strings.HasSuffix(fullPath, "/") {
+		fullPath += "/"
+	}
 	return c.Delete(ctx, fullPath)
 }

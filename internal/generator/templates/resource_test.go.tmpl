@@ -1,0 +1,187 @@
+package resources_test
+
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	"github.com/waldur/terraform-waldur-provider/internal/provider"
+)
+
+// testAccProtoV6ProviderFactories are used to instantiate a provider during
+// acceptance testing.
+var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"waldur": providerserver.NewProtocol6WithError(provider.New("test")()),
+}
+
+func TestAcc{{ .Name | title }}Resource_Basic(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440000"
+	
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Request: %s %s", r.Method, r.URL.Path)
+		
+		{{- if .APIPaths.Create }}
+		createPath := "{{ .APIPaths.Create }}"
+		{{- else }}
+		createPath := "/api/{{ .Name }}s/"
+		{{- end }}
+		
+		{{- if .APIPaths.Retrieve }}
+		retrievePathTemplate := "{{ .APIPaths.Retrieve }}"
+		retrievePath := strings.Replace(retrievePathTemplate, "{uuid}", uuid, 1)
+		{{- else }}
+		retrievePath := "/api/{{ .Name }}s/" + uuid + "/"
+		{{- end }}
+		
+		switch {
+		case r.Method == "POST" && r.URL.Path == createPath:
+			// Create operation
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(fmt.Sprintf(`{
+				"uuid": "%s",
+				{{- range $i, $field := .CreateFields }}
+				{{- if eq $field.Type "string" }}
+				"{{ $field.Name }}": "test-{{ $field.Name }}"{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "integer" }}
+				"{{ $field.Name }}": 123{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "boolean" }}
+				"{{ $field.Name }}": true{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				{{- end }}
+				{{- end }}
+			}`, uuid)))
+			
+		case r.Method == "GET" && r.URL.Path == retrievePath:
+			// Read operation
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(fmt.Sprintf(`{
+				"uuid": "%s",
+				{{- range $i, $field := .CreateFields }}
+				{{- if eq $field.Type "string" }}
+				"{{ $field.Name }}": "test-{{ $field.Name }}"{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "integer" }}
+				"{{ $field.Name }}": 123{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "boolean" }}
+				"{{ $field.Name }}": true{{ if ne $i (sub (len $.CreateFields) 1) }},{{ end }}
+				{{- end }}
+				{{- end }}
+			}`, uuid)))
+			
+		case r.Method == "PATCH" && r.URL.Path == retrievePath:
+			// Update operation
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(fmt.Sprintf(`{
+				"uuid": "%s",
+				{{- range $i, $field := .UpdateFields }}
+				{{- if eq $field.Type "string" }}
+				"{{ $field.Name }}": "updated-{{ $field.Name }}"{{ if ne $i (sub (len $.UpdateFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "integer" }}
+				"{{ $field.Name }}": 456{{ if ne $i (sub (len $.UpdateFields) 1) }},{{ end }}
+				{{- else if eq $field.Type "boolean" }}
+				"{{ $field.Name }}": false{{ if ne $i (sub (len $.UpdateFields) 1) }},{{ end }}
+				{{- end }}
+				{{- end }}
+			}`, uuid)))
+			
+		case r.Method == "DELETE" && r.URL.Path == retrievePath:
+			// Delete operation
+			w.WriteHeader(http.StatusNoContent)
+			
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create and Read testing
+			{
+				Config: testAcc{{ .Name | title }}ResourceConfig_Create(server.URL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("waldur_{{ .Name }}.test", "id"),
+					{{- range .CreateFields }}
+					{{- if eq .Type "string" }}
+					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "test-{{ .Name }}"),
+					{{- else if eq .Type "integer" }}
+					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "123"),
+					{{- else if eq .Type "boolean" }}
+					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "true"),
+					{{- end }}
+					{{- end }}
+				),
+			},
+			// Update testing
+			{
+				Config: testAcc{{ .Name | title }}ResourceConfig_Update(server.URL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("waldur_{{ .Name }}.test", "id"),
+					{{- range .UpdateFields }}
+					{{- if eq .Type "string" }}
+					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "updated-{{ .Name }}"),
+					{{- else if eq .Type "integer" }}
+					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "456"),
+					{{- else if eq .Type "boolean" }}
+					resource.TestCheckResourceAttr("waldur_{{ $.Name }}.test", "{{ .TFSDKName }}", "false"),
+					{{- end }}
+					{{- end }}
+				),
+			},
+			// Delete testing automatically happens via Terraform
+		},
+	})
+}
+
+// testAcc{{ .Name | title }}ResourceConfig_Create returns a Terraform config for testing create
+func testAcc{{ .Name | title }}ResourceConfig_Create(endpoint string) string {
+	return fmt.Sprintf(`
+provider "waldur" {
+  endpoint = %[1]q
+  token    = "test-token"
+}
+
+resource "waldur_{{ .Name }}" "test" {
+  {{- range .CreateFields }}
+  {{- if eq .Type "string" }}
+  {{ .TFSDKName }} = "test-{{ .Name }}"
+  {{- else if eq .Type "integer" }}
+  {{ .TFSDKName }} = 123
+  {{- else if eq .Type "boolean" }}
+  {{ .TFSDKName }} = true
+  {{- end }}
+  {{- end }}
+}
+`, endpoint)
+}
+
+// testAcc{{ .Name | title }}ResourceConfig_Update returns a Terraform config for testing update
+func testAcc{{ .Name | title }}ResourceConfig_Update(endpoint string) string {
+	return fmt.Sprintf(`
+provider "waldur" {
+  endpoint = %[1]q
+  token    = "test-token"
+}
+
+resource "waldur_{{ .Name }}" "test" {
+  {{- range .UpdateFields }}
+  {{- if eq .Type "string" }}
+  {{ .TFSDKName }} = "updated-{{ .Name }}"
+  {{- else if eq .Type "integer" }}
+  {{ .TFSDKName }} = 456
+  {{- else if eq .Type "boolean" }}
+  {{ .TFSDKName }} = false
+  {{- end }}
+  {{- end }}
+}
+`, endpoint)
+}

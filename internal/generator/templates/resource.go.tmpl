@@ -26,7 +26,9 @@ type {{ .Name | title }}Resource struct {
 // {{ .Name | title }}ResourceModel describes the resource data model.
 type {{ .Name | title }}ResourceModel struct {
 	UUID types.String `tfsdk:"id"`
-	// TODO: Add fields based on OpenAPI schema
+	{{- range .CreateFields }}
+	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
+	{{- end }}
 }
 
 func (r *{{ .Name | title }}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -42,7 +44,17 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 				Computed:            true,
 				MarkdownDescription: "Resource UUID (used as Terraform ID)",
 			},
-			// TODO: Add attributes from OpenAPI schema
+			{{- range .CreateFields }}
+			"{{ .TFSDKName }}": schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
+				{{- if .Required }}
+				Required:            true,
+				{{- else }}
+				Optional:            true,
+				Computed:            true,
+				{{- end }}
+				MarkdownDescription: "{{ .Description }}",
+			},
+			{{- end }}
 		},
 	}
 }
@@ -76,9 +88,18 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	}
 
 	// Prepare request body
-	// TODO: Map data model to API request based on OpenAPI schema
 	requestBody := map[string]interface{}{
-		// Add fields from data model here
+		{{- range .CreateFields }}
+		{{- if eq .Type "string" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueString(),
+		{{- else if eq .Type "integer" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueInt64(),
+		{{- else if eq .Type "boolean" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueBool(),
+		{{- else if eq .Type "number" }}
+		"{{ .Name }}": data.{{ .Name |title }}.ValueFloat64(),
+		{{- end }}
+		{{- end }}
 	}
 
 	// Call Waldur API to create resource
@@ -165,18 +186,34 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 
 func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data {{ .Name | title }}ResourceModel
+	var state {{ .Name | title }}ResourceModel
 
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	
+	// Read current state to get the UUID (which is computed and not in plan)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	
+	// Use UUID from state
+	data.UUID = state.UUID
 
 	// Prepare request body
-	// TODO: Map data model to API request based on OpenAPI schema
 	requestBody := map[string]interface{}{
-		// Add fields from data model here
+		{{- range .UpdateFields }}
+		{{- if eq .Type "string" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueString(),
+		{{- else if eq .Type "integer" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueInt64(),
+		{{- else if eq .Type "boolean" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueBool(),
+		{{- else if eq .Type "number" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueFloat64(),
+		{{- end }}
+		{{- end }}
 	}
 
 	// Call Waldur API to update resource

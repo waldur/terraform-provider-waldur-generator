@@ -136,8 +136,10 @@ components:
         name:
           type: string
           maxLength: 150
+          description: Project name
         description:
           type: string
+          description: Project description
     
     ProjectUpdate:
       type: object

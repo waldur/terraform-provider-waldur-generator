@@ -209,13 +209,61 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		apiPaths["Delete"] = deletePath
 	}
 
-	data := map[string]interface{}{
-		"Name":       resource.Name,
-		"Operations": ops,
-		"APIPaths":   apiPaths,
+	// Extract fields from Create and Update request schemas
+	var createFields []FieldInfo
+	var updateFields []FieldInfo
+
+	// Extract Create fields
+	if createSchema, err := g.parser.GetOperationRequestSchema(ops.Create); err == nil {
+		if fields, err := ExtractFields(createSchema); err == nil {
+			createFields = fields
+		}
 	}
 
-	return tmpl.Execute(f, data)
+	// Extract Update fields
+	if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
+		if fields, err := ExtractFields(updateSchema); err == nil {
+			updateFields = fields
+		}
+	}
+
+	data := map[string]interface{}{
+		"Name":         resource.Name,
+		"Operations":   ops,
+		"APIPaths":     apiPaths,
+		"CreateFields": createFields,
+		"UpdateFields": updateFields,
+	}
+
+	if err := tmpl.Execute(f, data); err != nil {
+		return err
+	}
+
+	// Also generate resource tests
+	return g.generateResourceTests(resource, data)
+}
+
+// generateResourceTests creates the resource test file
+func (g *Generator) generateResourceTests(resource *config.Resource, templateData map[string]interface{}) error {
+	tmpl, err := template.New("resource_test.go.tmpl").Funcs(template.FuncMap{
+		"title":       toTitle,
+		"displayName": displayName,
+		"sub": func(a, b int) int {
+			return a - b
+		},
+	}).ParseFS(templates, "templates/resource_test.go.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse resource test template: %w", err)
+	}
+
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "resources", fmt.Sprintf("%s_test.go", resource.Name))
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return tmpl.Execute(f, templateData)
 }
 
 // generateDataSource generates a data source file

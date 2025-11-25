@@ -109,19 +109,7 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	// operationID: {{ .Operations.Create }}
 	var result map[string]interface{}
 	
-	{{- if .APIPaths.Create }}
-	apiPath := "{{ .APIPaths.Create }}"
-	{{- else if .APIPaths.Base }}
-	apiPath := "{{ .APIPaths.Base }}"
-	{{- else }}
-	resp.Diagnostics.AddError(
-		"Configuration Error",
-		"API path not found in OpenAPI schema for {{ .Name }} create operation. Please check the base_operation_id configuration.",
-	)
-	return
-	{{- end }}
-	
-	err := r.client.Create(ctx, apiPath, requestBody, &result)
+	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", requestBody, &result)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create {{ .Name | title }}",
@@ -175,13 +163,7 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 	// Call Waldur API to read resource
 	// operationID: {{ .Operations.Retrieve }}
 	var result map[string]interface{}
-	// Use RetrievePath if available, otherwise construct from ListPath
-	retrievePath := "{{ .APIPaths.Retrieve }}"
-	if retrievePath == "" {
-		retrievePath = "{{ .APIPaths.List }}" + data.UUID.ValueString() + "/"
-	} else {
-		retrievePath = strings.Replace(retrievePath, "{uuid}", data.UUID.ValueString(), 1)
-	}
+	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
 	
 	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
 	if err != nil {
@@ -260,19 +242,7 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	// operationID: {{ .Operations.PartialUpdate }}
 	var result map[string]interface{}
 	
-	{{- if .APIPaths.Update }}
-	apiPath := "{{ .APIPaths.Update }}"
-	{{- else if .APIPaths.Base }}
-	apiPath := "{{ .APIPaths.Base }}"
-	{{- else }}
-	resp.Diagnostics.AddError(
-		"Configuration Error",
-		"API path not found in OpenAPI schema for {{ .Name }} update operation. Please check the base_operation_id configuration.",
-	)
-	return
-	{{- end }}
-	
-	err := r.client.Update(ctx, apiPath, data.UUID.ValueString(), requestBody, &result)
+	err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), requestBody, &result)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Update {{ .Name | title }}",
@@ -326,19 +296,7 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 	// Call Waldur API to delete resource
 	// operationID: {{ .Operations.Destroy }}
 	
-	{{- if .APIPaths.Delete }}
-	apiPath := "{{ .APIPaths.Delete }}"
-	{{- else if .APIPaths.Base }}
-	apiPath := "{{ .APIPaths.Base }}"
-	{{- else }}
-	resp.Diagnostics.AddError(
-		"Configuration Error",
-		"API path not found in OpenAPI schema for {{ .Name }} delete operation. Please check the base_operation_id configuration.",
-	)
-	return
-	{{- end }}
-	
-	err := r.client.DeleteByUUID(ctx, apiPath, data.UUID.ValueString())
+	err := r.client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", data.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Delete {{ .Name | title }}",

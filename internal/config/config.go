@@ -47,7 +47,8 @@ func (r *Resource) OperationIDs() OperationSet {
 // OperationIDs returns the inferred operation IDs for a data source
 func (d *DataSource) OperationIDs() OperationSet {
 	return OperationSet{
-		List: d.BaseOperationID + "_list",
+		List:     d.BaseOperationID + "_list",
+		Retrieve: d.BaseOperationID + "_retrieve",
 	}
 }
 

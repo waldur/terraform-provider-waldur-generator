@@ -242,22 +242,15 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	retrievePath := ""
 
 	// Use list path as primary since it's needed for filtering
-	// The client will handle adding {uuid} suffix for UUID lookups
 	if _, path, _, err := g.parser.GetOperation(ops.List); err == nil {
 		listPath = path
-	} else {
+	} else if _, retPath, _, err := g.parser.GetOperation(ops.Retrieve); err == nil {
 		// Fall back to retrieve path if list doesn't exist
-		baseOpID := dataSource.BaseOperationID
-		retrieveOpID := baseOpID + "_retrieve"
-		if _, retPath, _, err := g.parser.GetOperation(retrieveOpID); err == nil {
-			listPath = retPath
-		}
+		listPath = retPath
 	}
 
-	// Also get retrieve path separately for tests
-	baseOpID := dataSource.BaseOperationID
-	retrieveOpID := baseOpID + "_retrieve"
-	if _, retPath, _, err := g.parser.GetOperation(retrieveOpID); err == nil {
+	// Also get retrieve path separately for UUID lookups
+	if _, retPath, _, err := g.parser.GetOperation(ops.Retrieve); err == nil {
 		retrievePath = retPath
 	}
 

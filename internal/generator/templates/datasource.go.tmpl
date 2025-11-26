@@ -111,30 +111,11 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		return
 	}
 
-	{{- if .ListPath }}
-	listPath := "{{ .ListPath }}"
-	{{- else }}
-	resp.Diagnostics.AddError(
-		"Configuration Error",
-		"API path not found in OpenAPI schema for {{ .Name }}. Please check the base_operation_id configuration.",
-	)
-	return
-	{{- end }}
-	
-	{{- if .RetrievePath }}
-	retrievePath := "{{ .RetrievePath }}"
-	{{- else }}
-	// No separate retrieve path, use list path
-	retrievePath := listPath
-	{{- end }}
-
 	// Check if UUID is provided for direct lookup
 	if !data.UUID.IsNull() && data.UUID.ValueString() != "" {
-		// Direct UUID lookup
-		// operationID: {{ .Operations.List }} (retrieve by UUID)
 		var item map[string]interface{}
 		
-		err := d.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &item)
+		err := d.client.GetByUUID(ctx, "{{ .RetrievePath }}", data.UUID.ValueString(), &item)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to Read {{ .Name | displayName }}",
@@ -151,7 +132,6 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			data.Name = types.StringValue(name)
 		}
 
-	// Map response fields
 	sourceMap := item
 {{- template "mapResponseFields" . }}
 
@@ -171,7 +151,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			{{- end }}
 		}
 		
-		err := d.client.ListWithFilter(ctx, listPath, filters, &results)
+		err := d.client.ListWithFilter(ctx, "{{ .ListPath }}", filters, &results)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to List {{ .Name | displayName }}",
@@ -197,8 +177,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 
-		// Extract data from the single result
-		// Extract data from result
+	// Extract data from the single result
 	if uuid, ok := results[0]["uuid"].(string); ok {
 		data.UUID = types.StringValue(uuid)
 	}
@@ -206,7 +185,6 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		data.Name = types.StringValue(name)
 	}
 
-	// Map response fields
 	sourceMap := results[0]
 {{- template "mapResponseFields" . }}
 

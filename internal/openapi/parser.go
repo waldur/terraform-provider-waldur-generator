@@ -47,18 +47,12 @@ func (p *Parser) ValidateOperationExists(operationID string) error {
 	return err
 }
 
-// GetSchema retrieves a schema by its reference
-func (p *Parser) GetSchema(ref string) (*openapi3.SchemaRef, error) {
-	schemaRef, err := p.doc.Components.Schemas.JSONLookup(ref)
-	if err != nil {
-		return nil, fmt.Errorf("schema not found: %s: %w", ref, err)
+// GetSchema retrieves a schema by its name from Components.Schemas
+func (p *Parser) GetSchema(name string) (*openapi3.SchemaRef, error) {
+	if schemaRef, ok := p.doc.Components.Schemas[name]; ok {
+		return schemaRef, nil
 	}
-
-	if sr, ok := schemaRef.(*openapi3.SchemaRef); ok {
-		return sr, nil
-	}
-
-	return nil, fmt.Errorf("invalid schema reference: %s", ref)
+	return nil, fmt.Errorf("schema not found: %s", name)
 }
 
 // GetOperationRequestSchema returns the request body schema for an operation

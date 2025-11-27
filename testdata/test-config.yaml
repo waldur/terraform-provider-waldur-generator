@@ -6,7 +6,17 @@ generator:
 resources:
   - name: "structure_project"
     base_operation_id: "projects"
-
+  - name: openstack_instance
+    base_operation_id: openstack_instances
+    plugin: order
+    offering_type: OpenStack.Instance
+    update_actions:
+      set_rules:
+        param: security_groups
+        operation: set_rules
+    termination_attributes:
+      - name: delete_volumes
+        type: boolean
 data_sources:
   - name: "structure_project"
     base_operation_id: "projects"

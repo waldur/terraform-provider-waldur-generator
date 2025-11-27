@@ -3,7 +3,14 @@
 	{{- range .ResponseFields }}
 	{{- if ne .Name "name" }}
 	if val, ok := sourceMap["{{ .Name }}"]; ok && val != nil {
-		{{- if eq .Type "string" }}
+		{{- if or (eq .Name "project") (eq .Name "offering") }}
+		if str, ok := val.(string); ok {
+			// Normalize URL to UUID
+			parts := strings.Split(strings.TrimRight(str, "/"), "/")
+			uuid := parts[len(parts)-1]
+			data.{{ .Name | title }} = types.StringValue(uuid)
+		}
+		{{- else if eq .Type "string" }}
 		if str, ok := val.(string); ok {
 			data.{{ .Name | title }} = types.StringValue(str)
 		}
@@ -21,12 +28,23 @@
 		}
 		{{- else if eq .Type "array" }}
 		{{- if eq .ItemType "string" }}
-		// List of strings
+		// List of strings (or flattened objects)
 		if arr, ok := val.([]interface{}); ok {
 			items := make([]attr.Value, 0, len(arr))
 			for _, item := range arr {
 				if str, ok := item.(string); ok {
 					items = append(items, types.StringValue(str))
+				} else if obj, ok := item.(map[string]interface{}); ok {
+					// Flattening logic: extract URL or UUID
+					if url, ok := obj["url"].(string); ok {
+						parts := strings.Split(strings.TrimRight(url, "/"), "/")
+						uuid := parts[len(parts)-1]
+						items = append(items, types.StringValue(uuid))
+					} else if uuid, ok := obj["uuid"].(string); ok {
+						items = append(items, types.StringValue(uuid))
+					} else if name, ok := obj["name"].(string); ok {
+						items = append(items, types.StringValue(name))
+					}
 				}
 			}
 			listVal, _ := types.ListValue(types.StringType, items)

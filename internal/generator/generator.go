@@ -116,7 +116,15 @@ func (g *Generator) Generate() error {
 func (g *Generator) validateOperations() error {
 	for _, resource := range g.config.Resources {
 		ops := resource.OperationIDs()
-		for _, opID := range []string{ops.List, ops.Create, ops.Retrieve, ops.PartialUpdate, ops.Destroy} {
+
+		// For order resources, create and destroy operations don't exist
+		// (they use marketplace-orders API instead)
+		operationsToCheck := []string{ops.List, ops.Retrieve, ops.PartialUpdate}
+		if resource.Plugin != "order" {
+			operationsToCheck = append(operationsToCheck, ops.Create, ops.Destroy)
+		}
+
+		for _, opID := range operationsToCheck {
 			if err := g.parser.ValidateOperationExists(opID); err != nil {
 				return fmt.Errorf("resource %s: %w", resource.Name, err)
 			}
@@ -244,48 +252,105 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		apiPaths["Delete"] = deletePath
 	}
 
-	// Extract fields from Create and Update request schemas
+	// Extract fields
 	var createFields []FieldInfo
 	var updateFields []FieldInfo
 	var responseFields []FieldInfo
+	var modelFields []FieldInfo
 
-	// Extract Create fields
-	if createSchema, err := g.parser.GetOperationRequestSchema(ops.Create); err == nil {
-		if fields, err := ExtractFields(createSchema); err == nil {
+	isOrder := resource.Plugin == "order"
+
+	if isOrder {
+		// Order resource logic
+		// 1. Get Offering Schema (Input)
+		// Remove dots from offering type for schema name (e.g. OpenStack.Instance -> OpenStackInstanceCreateOrderAttributes)
+		schemaName := strings.ReplaceAll(resource.OfferingType, ".", "") + "CreateOrderAttributes"
+
+		offeringSchema, err := g.parser.GetSchema(schemaName)
+		if err != nil {
+			return fmt.Errorf("failed to find offering schema %s: %w", schemaName, err)
+		}
+
+		if fields, err := ExtractFields(offeringSchema); err == nil {
 			createFields = fields
 		}
-	}
 
-	// Extract Update fields
-	if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
-		if fields, err := ExtractFields(updateSchema); err == nil {
-			updateFields = fields
+		// 2. Get Resource Schema (Output) from Retrieve operation
+		if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
+			if fields, err := ExtractFields(responseSchema); err == nil {
+				responseFields = fields
+			}
 		}
-	}
 
-	// Extract Response fields (prefer Retrieve operation as it's usually most complete)
-	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-		if fields, err := ExtractFields(responseSchema); err == nil {
-			responseFields = fields
-		}
-	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Create); err == nil {
-		// Fallback to Create response
-		if fields, err := ExtractFields(responseSchema); err == nil {
-			responseFields = fields
-		}
-	}
+		// 3. Merge fields
+		modelFields = MergeOrderFields(createFields, responseFields)
 
-	// Merge fields for the model (Create + Response)
-	modelFields := MergeFields(createFields, responseFields)
+		// 4. Add Termination Attributes
+		for _, term := range resource.TerminationAttributes {
+			goType := "types.String"
+			switch term.Type {
+			case "boolean":
+				goType = "types.Bool"
+			case "integer":
+				goType = "types.Int64"
+			case "number":
+				goType = "types.Float64"
+			}
+
+			modelFields = append(modelFields, FieldInfo{
+				Name:        term.Name,
+				Type:        term.Type,
+				Description: "Termination attribute",
+				GoType:      goType,
+				TFSDKName:   ToSnakeCase(term.Name),
+				// Required: false, ReadOnly: false -> Optional: true
+			})
+		}
+
+	} else {
+		// Standard resource logic
+		// Extract Create fields
+		if createSchema, err := g.parser.GetOperationRequestSchema(ops.Create); err == nil {
+			if fields, err := ExtractFields(createSchema); err == nil {
+				createFields = fields
+			}
+		}
+
+		// Extract Update fields
+		if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
+			if fields, err := ExtractFields(updateSchema); err == nil {
+				updateFields = fields
+			}
+		}
+
+		// Extract Response fields (prefer Retrieve operation as it's usually most complete)
+		if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
+			if fields, err := ExtractFields(responseSchema); err == nil {
+				responseFields = fields
+			}
+		} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Create); err == nil {
+			// Fallback to Create response
+			if fields, err := ExtractFields(responseSchema); err == nil {
+				responseFields = fields
+			}
+		}
+
+		// Merge fields for the model (Create + Response)
+		modelFields = MergeFields(createFields, responseFields)
+	}
 
 	data := map[string]interface{}{
-		"Name":           resource.Name,
-		"Operations":     ops,
-		"APIPaths":       apiPaths,
-		"CreateFields":   createFields,
-		"UpdateFields":   updateFields,
-		"ResponseFields": responseFields,
-		"ModelFields":    modelFields,
+		"Name":                  resource.Name,
+		"Operations":            ops,
+		"APIPaths":              apiPaths,
+		"CreateFields":          createFields,
+		"UpdateFields":          updateFields,
+		"ResponseFields":        responseFields,
+		"ModelFields":           modelFields,
+		"IsOrder":               isOrder,
+		"OfferingType":          resource.OfferingType,
+		"UpdateActions":         resource.UpdateActions,
+		"TerminationAttributes": resource.TerminationAttributes,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {
@@ -459,6 +524,23 @@ func (g *Generator) generateSupportingFiles() error {
 	}
 
 	return nil
+}
+
+// generateTestHelpers creates the shared test helpers file
+func (g *Generator) generateTestHelpers() error {
+	tmpl, err := template.ParseFS(templates, "templates/test_helpers.go.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse test helpers template: %w", err)
+	}
+
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "resources", "test_helpers.go")
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return tmpl.Execute(f, nil)
 }
 
 // generateClient creates the API client file

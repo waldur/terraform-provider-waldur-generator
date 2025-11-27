@@ -3,10 +3,15 @@ package resources
 import (
 	"context"
     "strings"
+    {{ if .IsOrder }}"fmt"
+    "time"
+    "github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"{{ end }}
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/waldur/terraform-waldur-provider/internal/client"
@@ -45,6 +50,9 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 			"id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Resource UUID (used as Terraform ID)",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			{{- range .ModelFields }}
 			"{{ .TFSDKName }}": {{- if eq .GoType "types.List" }}schema.ListAttribute{
@@ -75,6 +83,11 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 				Computed:            true,
 				{{- else if .Required }}
 				Required:            true,
+				{{- if or (eq .Name "project") (eq .Name "offering") }}
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				{{- end }}
 				{{- else }}
 				Optional:            true,
 				Computed:            true,
@@ -115,6 +128,109 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 		return
 	}
 
+	{{- if .IsOrder }}
+	// Phase 1: Payload Construction
+	attributes := map[string]interface{}{}
+	{{- range .CreateFields }}
+	{{- if and (ne .Name "project") (ne .Name "offering") }}
+	{{- if eq .Type "string" }}
+	if !data.{{ .Name | title }}.IsNull() {
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+	}
+	{{- else if eq .Type "integer" }}
+	if !data.{{ .Name | title }}.IsNull() {
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+	}
+	{{- else if eq .Type "boolean" }}
+	if !data.{{ .Name | title }}.IsNull() {
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+	}
+	{{- else if eq .Type "number" }}
+	if !data.{{ .Name | title }}.IsNull() {
+		attributes["{{ .Name }}"] = data.{{ .Name |title }}.ValueFloat64()
+	}
+	{{- else if eq .Type "array" }}
+	if !data.{{ .Name | title }}.IsNull() {
+		var items []interface{}
+		for _, elem := range data.{{ .Name | title }}.Elements() {
+			{{- if eq .ItemType "string" }}
+			if strVal, ok := elem.(types.String); ok {
+				items = append(items, strVal.ValueString())
+			}
+			{{- end }}
+		}
+		attributes["{{ .Name }}"] = items
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
+	payload := map[string]interface{}{
+		"project": fmt.Sprintf("/api/projects/%s/", data.Project.ValueString()),
+		"offering": data.Offering.ValueString(), // Assuming offering is passed as URL or UUID handled by API
+		"attributes": attributes,
+	}
+
+	// Phase 2: Submit Order
+	var orderRes map[string]interface{}
+	err := r.client.Post(ctx, "/api/marketplace-orders/", payload, &orderRes)
+	if err != nil {
+		resp.Diagnostics.AddError("Order Submission Failed", err.Error())
+		return
+	}
+	
+	orderUUID, ok := orderRes["uuid"].(string)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Response", "Order UUID not found")
+		return
+	}
+
+	// Phase 3: Poll for Completion
+	stateConf := &retry.StateChangeConf{
+		Pending: []string{"pending", "executing", "created"},
+		Target:  []string{"done"},
+		Refresh: func() (interface{}, string, error) {
+			var res map[string]interface{}
+			err := r.client.GetByUUID(ctx, "/api/marketplace-orders/{uuid}/", orderUUID, &res)
+			if err != nil {
+				return nil, "", err
+			}
+			
+			state, _ := res["state"].(string)
+			if state == "erred" || state == "rejected" {
+				msg, _ := res["error_message"].(string)
+				return res, "failed", fmt.Errorf("order failed: %s", msg)
+			}
+			return res, state, nil
+		},
+		Timeout: 45 * time.Minute,
+		Delay: 10 * time.Second,
+		MinTimeout: 5 * time.Second,
+	}
+
+	rawResult, err := stateConf.WaitForStateContext(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Order Failed", err.Error())
+		return
+	}
+	
+	result := rawResult.(map[string]interface{})
+	if resourceUUID, ok := result["marketplace_resource_uuid"].(string); ok {
+		data.UUID = types.StringValue(resourceUUID)
+	} else {
+		resp.Diagnostics.AddError("Resource UUID Missing", "Order completed but marketplace_resource_uuid is missing")
+		return
+	}
+
+	// Fetch final resource state
+	var finalState map[string]interface{}
+	err = r.client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", data.UUID.ValueString(), &finalState)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to Read Resource", err.Error())
+		return
+	}
+	sourceMap := finalState
+	{{- else }}
 	// Prepare request body
 	requestBody := map[string]interface{}{
 		{{- range .CreateFields }}
@@ -148,7 +264,8 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	}
 
 	sourceMap := result
-{{- template "mapResponseFields" . }}
+	{{- end }}
+	{{- template "mapResponseFields" . }}
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -206,6 +323,58 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	// Use UUID from state
 	data.UUID = state.UUID
 
+	{{- if .IsOrder }}
+	// Phase 1: Standard PATCH (Simple fields)
+	patchPayload := map[string]interface{}{}
+	{{- range .UpdateFields }}
+	{{- $fieldName := .Name }}
+	{{- $isAction := false }}
+	{{- range $key, $val := $.UpdateActions }}
+		{{- if eq $val.Param $fieldName }}{{ $isAction = true }}{{ end }}
+	{{- end }}
+	{{- if not $isAction }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.Equal(state.{{ .Name | title }}) {
+		{{- if eq .Type "string" }}
+		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+		{{- else if eq .Type "integer" }}
+		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+		{{- else if eq .Type "boolean" }}
+		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+		{{- else if eq .Type "number" }}
+		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
+		{{- end }}
+	}
+	{{- end }}
+	{{- end }}
+
+	if len(patchPayload) > 0 {
+		var result map[string]interface{}
+		err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), patchPayload, &result)
+		if err != nil {
+			resp.Diagnostics.AddError("Update Failed", err.Error())
+			return
+		}
+	}
+
+	// Phase 2: RPC Actions
+	{{- range $actionName, $actionConfig := .UpdateActions }}
+	if !data.{{ $actionConfig.Param | title }}.Equal(state.{{ $actionConfig.Param | title }}) {
+		// TODO: Implement RPC action support for complex field types
+		// Action: {{ $actionName }}, Param: {{ $actionConfig.Param }}, Operation: {{ $actionConfig.Operation }}
+		// This requires custom conversion logic for lists and complex types
+		_ = fmt.Sprintf("/api/marketplace-resources/%s/{{ $actionConfig.Operation }}/", data.UUID.ValueString())
+	}
+	{{- end }}
+
+	// Fetch updated state
+	var result map[string]interface{}
+	err := r.client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", data.UUID.ValueString(), &result)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
+		return
+	}
+	sourceMap := result
+	{{- else }}
 	// Prepare request body
 	requestBody := map[string]interface{}{
 		{{- range .UpdateFields }}
@@ -239,7 +408,8 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	}
 
 	sourceMap := result
-{{- template "mapResponseFields" . }}
+	{{- end }}
+	{{- template "mapResponseFields" . }}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -255,6 +425,55 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 		return
 	}
 
+	{{- if .IsOrder }}
+	// Order-based Delete
+	payload := map[string]interface{}{}
+	{{- range .TerminationAttributes }}
+	if !data.{{ .Name | title }}.IsNull() {
+		{{- if eq .Type "boolean" }}
+		payload["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+		{{- else if eq .Type "string" }}
+		payload["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+		{{- end }}
+	}
+	{{- end }}
+
+	url := fmt.Sprintf("/api/marketplace-resources/%s/terminate/", data.UUID.ValueString())
+	var res map[string]interface{}
+	err := r.client.Post(ctx, url, payload, &res)
+	if err != nil {
+		resp.Diagnostics.AddError("Termination Failed", err.Error())
+		return
+	}
+	
+	// Wait for deletion if order UUID is returned
+	if orderUUID, ok := res["uuid"].(string); ok {
+		stateConf := &retry.StateChangeConf{
+			Pending: []string{"pending", "executing", "created"},
+			Target:  []string{"done"},
+			Refresh: func() (interface{}, string, error) {
+				var res map[string]interface{}
+				err := r.client.GetByUUID(ctx, "/api/marketplace-orders/{uuid}/", orderUUID, &res)
+				if err != nil {
+					return nil, "", err
+				}
+				state, _ := res["state"].(string)
+				if state == "erred" || state == "rejected" {
+					return res, "failed", fmt.Errorf("termination order failed")
+				}
+				return res, state, nil
+			},
+			Timeout: 45 * time.Minute,
+			Delay: 10 * time.Second,
+			MinTimeout: 5 * time.Second,
+		}
+		_, err := stateConf.WaitForStateContext(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Termination Order Failed", err.Error())
+			return
+		}
+	}
+	{{- else }}
 	// Call Waldur API to delete resource
 	err := r.client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", data.UUID.ValueString())
 	if err != nil {
@@ -264,6 +483,7 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 		)
 		return
 	}
+	{{- end }}
 }
 
 func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

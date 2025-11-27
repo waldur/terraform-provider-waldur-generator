@@ -106,6 +106,118 @@ paths:
         '204':
           description: Project deleted
 
+  /api/openstack-instances/:
+    get:
+      operationId: openstack_instances_list
+      responses:
+        '200':
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OpenStackInstance'
+  /api/openstack-instances/{uuid}/:
+    get:
+      operationId: openstack_instances_retrieve
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenStackInstance'
+    patch:
+      operationId: openstack_instances_partial_update
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenStackInstance'
+      responses:
+        '200':
+          description: Instance updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenStackInstance'
+  /api/openstack-instances/{uuid}/set_rules/:
+    post:
+      operationId: openstack_instances_set_rules
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: OK
+  /api/marketplace-orders/:
+    post:
+      operationId: marketplace_orders_create
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid: {type: string}
+
+  /api/marketplace-orders/{uuid}/:
+    get:
+      operationId: marketplace_orders_retrieve
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid: {type: string}
+                  state: {type: string}
+                  marketplace_resource_uuid: {type: string}
+                  error_message: {type: string}
+
+  /api/marketplace-resources/{uuid}/terminate/:
+    post:
+      operationId: marketplace_resources_terminate
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Termination order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid: {type: string} # Order UUID
+
+
 components:
   schemas:
     Project:
@@ -163,3 +275,53 @@ components:
           maxLength: 150
         description:
           type: string
+
+    OpenStackInstanceCreateOrderAttributes:
+      type: object
+      required:
+        - name
+        - flavor
+      properties:
+        name:
+          type: string
+        flavor:
+          type: string
+          description: Flavor URL
+        image:
+          type: string
+          description: Image URL
+        security_groups:
+          type: array
+          items:
+            type: string
+          description: List of security group URLs
+
+    OpenStackInstance:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        flavor_name:
+          type: string
+          readOnly: true
+        image_name:
+          type: string
+          readOnly: true
+        state:
+          type: string
+        security_groups:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              name:
+                type: string
+        project:
+          type: string
+          description: Project URL

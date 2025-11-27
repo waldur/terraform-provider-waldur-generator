@@ -177,6 +177,63 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 	return merged
 }
 
+// MergeOrderFields combines offering (input) and resource (output) fields for Order resources.
+// Input fields take precedence and determine writability.
+// Output fields not in input are marked as ReadOnly (Computed).
+func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
+	inputMap := make(map[string]bool)
+	var merged []FieldInfo
+
+	// Add input fields first
+	for _, f := range input {
+		// Special handling for project and offering
+		if f.Name == "project" || f.Name == "offering" {
+			f.Required = true
+			f.ReadOnly = false
+		}
+		inputMap[f.Name] = true
+		merged = append(merged, f)
+	}
+
+	// Ensure project and offering fields exist (required for Order resources)
+	if !inputMap["project"] {
+		merged = append(merged, FieldInfo{
+			Name:        "project",
+			Type:        "string",
+			Required:    true,
+			ReadOnly:    false,
+			Description: "Project UUID",
+			GoType:      "types.String",
+			TFSDKName:   "project",
+		})
+		inputMap["project"] = true
+	}
+	if !inputMap["offering"] {
+		merged = append(merged, FieldInfo{
+			Name:        "offering",
+			Type:        "string",
+			Required:    true,
+			ReadOnly:    false,
+			Description: "Offering UUID or URL",
+			GoType:      "types.String",
+			TFSDKName:   "offering",
+		})
+		inputMap["offering"] = true
+	}
+
+	// Add output fields if not present in input
+	for _, f := range output {
+		if !inputMap[f.Name] {
+			// Output-only fields are ReadOnly (Computed)
+			f.ReadOnly = true
+			f.Required = false
+			merged = append(merged, f)
+		}
+	}
+
+	return merged
+}
+
 // getSchemaType extracts the type string from openapi3.Schema
 func getSchemaType(schema *openapi3.Schema) string {
 	if schema.Type == nil {

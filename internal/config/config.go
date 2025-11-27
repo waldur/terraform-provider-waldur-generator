@@ -23,8 +23,24 @@ type GeneratorConfig struct {
 
 // Resource defines a Terraform resource to generate
 type Resource struct {
-	Name            string `yaml:"name"`
-	BaseOperationID string `yaml:"base_operation_id"`
+	Name                  string                        `yaml:"name"`
+	BaseOperationID       string                        `yaml:"base_operation_id"`
+	Plugin                string                        `yaml:"plugin"`
+	OfferingType          string                        `yaml:"offering_type"`
+	UpdateActions         map[string]UpdateActionConfig `yaml:"update_actions"`
+	TerminationAttributes []ParameterConfig             `yaml:"termination_attributes"`
+}
+
+// UpdateActionConfig defines a custom update action
+type UpdateActionConfig struct {
+	Param     string `yaml:"param"`
+	Operation string `yaml:"operation"`
+}
+
+// ParameterConfig defines a parameter configuration
+type ParameterConfig struct {
+	Name string `yaml:"name"`
+	Type string `yaml:"type"`
 }
 
 // DataSource defines a Terraform data source to generate

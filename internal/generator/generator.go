@@ -27,6 +27,18 @@ func toTitle(s string) string {
 	return strings.Join(parts, "")
 }
 
+// ToSnakeCase converts a string to snake_case
+func ToSnakeCase(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteRune('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
+}
+
 // displayName strips module prefix (anything before first underscore) and converts to title case for user-facing messages
 func displayName(s string) string {
 	// Strip everything before first underscore (e.g., "structure_project" -> "project")
@@ -37,6 +49,14 @@ func displayName(s string) string {
 
 	// Convert to title case
 	return toTitle(name)
+}
+
+// FilterParam describes a query parameter for filtering
+type FilterParam struct {
+	Name        string
+	TFSDKName   string
+	Type        string // String, Int64, Bool, Float64
+	Description string
 }
 
 // Generator orchestrates the provider code generation
@@ -327,17 +347,32 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	}
 
 	// Extract query parameters from list operation
-	queryParams := make(map[string]string) // param name -> description
-	supportsNameExact := false
+	var filterParams []FilterParam
 	if operation, _, _, err := g.parser.GetOperation(ops.List); err == nil {
 		for _, param := range operation.Parameters {
 			if param.Value != nil && param.Value.In == "query" {
 				paramName := param.Value.Name
 				description := param.Value.Description
-				queryParams[paramName] = description
-				if paramName == "name_exact" {
-					supportsNameExact = true
+
+				// Determine Terraform type
+				tfType := "String" // Default
+				if param.Value.Schema != nil && param.Value.Schema.Value != nil {
+					switch param.Value.Schema.Value.Type.Slice()[0] {
+					case "integer":
+						tfType = "Int64"
+					case "boolean":
+						tfType = "Bool"
+					case "number":
+						tfType = "Float64"
+					}
 				}
+
+				filterParams = append(filterParams, FilterParam{
+					Name:        paramName,
+					TFSDKName:   ToSnakeCase(paramName), // Ensure valid TF attribute name
+					Type:        tfType,
+					Description: description,
+				})
 			}
 		}
 	}
@@ -358,13 +393,12 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	}
 
 	data := map[string]interface{}{
-		"Name":              dataSource.Name,
-		"Operations":        ops,
-		"ListPath":          listPath,
-		"RetrievePath":      retrievePath,
-		"QueryParams":       queryParams,
-		"SupportsNameExact": supportsNameExact,
-		"ResponseFields":    responseFields,
+		"Name":           dataSource.Name,
+		"Operations":     ops,
+		"ListPath":       listPath,
+		"RetrievePath":   retrievePath,
+		"FilterParams":   filterParams,
+		"ResponseFields": responseFields,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

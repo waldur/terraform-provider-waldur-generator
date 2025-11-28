@@ -30,6 +30,17 @@ func TestAcc{{ .Name | title }}Resource_Basic(t *testing.T) {
 	{{ .Name }} := 123
 	{{- else if eq .Type "boolean" }}
 	{{ .Name }} := true
+	{{- else if eq .Type "array" }}
+	{{- if eq .ItemType "string" }}
+	{{ .Name }} := []string{"test-val"}
+	{{- else if eq .ItemType "object" }}
+	{{ .Name }} := []map[string]interface{}{
+		{
+			"url": "http://example.com/api/security-groups/uuid/",
+			"name": "test-sg",
+		},
+	}
+	{{- end }}
 	{{- end }}
 	{{- end }}
 	{{- end }}
@@ -189,6 +200,15 @@ resource "waldur_{{ .Name }}" "test" {
   {{ .TFSDKName }} = 123
   {{- else if eq .Type "boolean" }}
   {{ .TFSDKName }} = true
+  {{- else if eq .Type "array" }}
+  {{- if eq .ItemType "string" }}
+  {{ .TFSDKName }} = ["test-val"]
+  {{- else if eq .ItemType "object" }}
+  {{ .TFSDKName }} = [{
+    url = "http://example.com/api/security-groups/uuid/"
+    name = "test-sg"
+  }]
+  {{- end }}
   {{- end }}
   {{- end }}
 }
@@ -211,6 +231,15 @@ resource "waldur_{{ .Name }}" "test" {
   {{ .TFSDKName }} = 456
   {{- else if eq .Type "boolean" }}
   {{ .TFSDKName }} = false
+  {{- else if eq .Type "array" }}
+  {{- if eq .ItemType "string" }}
+  {{ .TFSDKName }} = ["updated-val"]
+  {{- else if eq .Type "object" }}
+  {{ .TFSDKName }} = [{
+    url = "http://example.com/api/security-groups/uuid-updated/"
+    name = "updated-sg"
+  }]
+  {{- end }}
   {{- end }}
   {{- end }}
 }

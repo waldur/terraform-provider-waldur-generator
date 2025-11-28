@@ -313,6 +313,7 @@ components:
           readOnly: true
         state:
           type: string
+          readOnly: true
         security_groups:
           type: array
           items:
@@ -325,3 +326,4 @@ components:
         project:
           type: string
           description: Project URL
+          readOnly: true

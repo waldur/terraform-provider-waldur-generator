@@ -239,20 +239,6 @@ components:
           type: string
           format: date-time
           readOnly: true
-        status:
-          type: string
-          enum:
-            - active
-            - pending
-            - archived
-          description: Project status
-          readOnly: true
-        tags:
-          type: array
-          items:
-            type: string
-          description: List of project tags
-          readOnly: true
     
     ProjectCreate:
       type: object

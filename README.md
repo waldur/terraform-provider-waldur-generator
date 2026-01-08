@@ -73,7 +73,7 @@ For each `base_operation_id`, the generator automatically looks for these operat
 ### 2. Run the Generator
 
 ```bash
-terraform-waldur-provider-generator -config config.yaml
+./terraform-waldur-provider-generator -config config.yaml
 ```
 
 Or if running from source:
@@ -98,11 +98,104 @@ cd ./output/terraform-waldur-provider
 TF_ACC=1 go test ./... -v
 ```
 
+### 5. Test Locally Without Publishing
+
+You can test the built provider locally without publishing it to the Terraform Registry using Terraform's [development overrides](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers).
+
+#### Step 1: Build and install the provider binary
+
+```bash
+cd ./output/terraform-waldur-provider
+go build -o terraform-provider-waldur
+
+# Create the local plugin directory
+mkdir -p ~/.terraform.d/plugins/registry.terraform.io/waldur/waldur/1.0.0/linux_amd64
+
+# Copy the provider binary with the correct naming convention
+cp terraform-provider-waldur ~/.terraform.d/plugins/registry.terraform.io/waldur/waldur/1.0.0/linux_amd64/terraform-provider-waldur_v1.0.0
+```
+
+**Note:** Adjust the platform directory (`linux_amd64`) based on your OS and architecture:
+
+- Linux AMD64: `linux_amd64`
+- macOS AMD64: `darwin_amd64`
+- macOS ARM64 (M1/M2): `darwin_arm64`
+- Windows AMD64: `windows_amd64`
+
+#### Step 2: Create or edit `~/.terraformrc`
+
+Create a Terraform CLI configuration file at `~/.terraformrc` (or `%APPDATA%/terraform.rc` on Windows) with the following content:
+
+```hcl
+provider_installation {
+  dev_overrides {
+    "registry.terraform.io/waldur/waldur" = "/home/your-username/.terraform.d/plugins/registry.terraform.io/waldur/waldur/1.0.0/linux_amd64"
+  }
+
+  # For all other providers, install them directly as normal.
+  direct {}
+}
+```
+
+**Important:**
+
+- Replace `/home/your-username/` with your actual home directory path
+- Adjust the platform directory to match your OS (see Step 1)
+
+#### Step 3: Use the provider in your Terraform configuration
+
+Create a test Terraform configuration (e.g., `test.tf`):
+
+```hcl
+terraform {
+  required_providers {
+    waldur = {
+      source = "registry.terraform.io/waldur/waldur"
+    }
+  }
+}
+
+provider "waldur" {
+  endpoint     = "https://your-waldur-instance.com/api/"
+  token = "your-api-token"
+}
+
+# Test with a data source
+data "waldur_structure_project" "test" {
+  name = "My Project"
+}
+
+output "project_uuid" {
+  value = data.waldur_structure_project.test.id
+}
+```
+
+#### Step 4: Run Terraform
+
+**Important:** When using `dev_overrides`, **skip `terraform init`** and go directly to `terraform plan`:
+
+```bash
+terraform plan
+terraform apply
+```
+
+When using `dev_overrides`, Terraform will display a warning:
+
+```text
+Warning: Provider development overrides are in effect
+```
+
+This is expected and confirms that Terraform is using your locally built provider instead of downloading from the registry.
+
+#### Step 5: Clean up (optional)
+
+When you're done testing, remove or comment out the `dev_overrides` section from `~/.terraformrc` to return to normal provider installation behavior.
+
 ## Generated Provider Structure
 
 The generator creates a complete provider with the following structure:
 
-```
+```text
 output/terraform-waldur-provider/
 ├── main.go                          # Provider entry point
 ├── go.mod                           # Go module
@@ -183,7 +276,7 @@ The GitHub Actions workflow will automatically:
 
 ### Project Structure
 
-```
+```text
 terraform-waldur-provider-generator/
 ├── main.go                      # CLI entry point
 ├── internal/

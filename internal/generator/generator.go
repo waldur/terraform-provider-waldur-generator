@@ -198,6 +198,47 @@ func (g *Generator) getFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"title":       toTitle,
 		"displayName": displayName,
+		"sanitize": func(s string) string {
+			// Replace problematic characters in descriptions
+			s = strings.ReplaceAll(s, "\\", "\\\\") // Escape backslashes first
+			s = strings.ReplaceAll(s, "\"", "\\\"") // Escape quotes
+			s = strings.ReplaceAll(s, "\n", " ")    // Replace newlines with spaces
+			s = strings.ReplaceAll(s, "\r", "")     // Remove carriage returns
+			s = strings.ReplaceAll(s, "\t", " ")    // Replace tabs with spaces
+			// Normalize multiple spaces
+			for strings.Contains(s, "  ") {
+				s = strings.ReplaceAll(s, "  ", " ")
+			}
+			return strings.TrimSpace(s)
+		},
+		"toAttrType": func(f FieldInfo) string {
+			// Convert FieldInfo to proper attr.Type expression
+			switch f.GoType {
+			case "types.String":
+				return "types.StringType"
+			case "types.Int64":
+				return "types.Int64Type"
+			case "types.Bool":
+				return "types.BoolType"
+			case "types.Float64":
+				return "types.Float64Type"
+			case "types.List":
+				// For lists, we need to specify the element type
+				if f.ItemType == "string" {
+					return "types.ListType{ElemType: types.StringType}"
+				} else if f.ItemType == "integer" {
+					return "types.ListType{ElemType: types.Int64Type}"
+				} else if f.ItemType == "object" && f.ItemSchema != nil {
+					return "types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{}}}" // Simplified
+				}
+				return "types.ListType{ElemType: types.StringType}" // Default
+			case "types.Object":
+				// For objects, return the type constructor
+				return "types.ObjectType{AttrTypes: map[string]attr.Type{}}" // Simplified, properties handled inline
+			default:
+				return "types.StringType" // Fallback
+			}
+		},
 		"len": func(v interface{}) int {
 			// Handle different types if needed, for now assume []FieldInfo
 			if fields, ok := v.([]FieldInfo); ok {
@@ -483,13 +524,25 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
+	// Deduplicate: remove ResponseFields that exist in FilterParams
+	filterNames := make(map[string]bool)
+	for _, fp := range filterParams {
+		filterNames[fp.Name] = true
+	}
+	var dedupedResponseFields []FieldInfo
+	for _, rf := range responseFields {
+		if !filterNames[rf.Name] {
+			dedupedResponseFields = append(dedupedResponseFields, rf)
+		}
+	}
+
 	data := map[string]interface{}{
 		"Name":           dataSource.Name,
 		"Operations":     ops,
 		"ListPath":       listPath,
 		"RetrievePath":   retrievePath,
 		"FilterParams":   filterParams,
-		"ResponseFields": responseFields,
+		"ResponseFields": dedupedResponseFields, // Use deduped version
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

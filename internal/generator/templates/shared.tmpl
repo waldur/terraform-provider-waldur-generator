@@ -97,7 +97,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 				if objMap, ok := item.(map[string]interface{}); ok {
 					attrTypes := map[string]attr.Type{
 						{{- range .ItemSchema.Properties }}
-						"{{ .TFSDKName }}": {{ .GoType }}Type,
+						"{{ .TFSDKName }}": {{ toAttrType . }},
 						{{- end }}
 					}
 					attrValues := map[string]attr.Value{
@@ -121,7 +121,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 			}
 			listVal, _ := types.ListValue(types.ObjectType{AttrTypes: map[string]attr.Type{
 				{{- range .ItemSchema.Properties }}
-				"{{ .TFSDKName }}": {{ .GoType }}Type,
+				"{{ .TFSDKName }}": {{ toAttrType . }},
 				{{- end }}
 			}}, items)
 			data.{{ .Name | title }} = listVal
@@ -132,7 +132,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 		if objMap, ok := val.(map[string]interface{}); ok {
 			attrTypes := map[string]attr.Type{
 				{{- range .Properties }}
-				"{{ .TFSDKName }}": {{ .GoType }}Type,
+				"{{ .TFSDKName }}": {{ toAttrType . }},
 				{{- end }}
 			}
 			attrValues := map[string]attr.Value{

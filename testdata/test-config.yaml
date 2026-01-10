@@ -1,5 +1,5 @@
 generator:
-  openapi_schema: "minimal-waldur-openapi.yaml"
+  openapi_schema: "waldur_api.yaml"
   output_dir: "./output"
   provider_name: "waldur"
 

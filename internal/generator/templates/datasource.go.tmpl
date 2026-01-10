@@ -54,7 +54,7 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 			{{- range .FilterParams }}
 			"{{ .TFSDKName }}": schema.{{ .Type }}Attribute{
 				Optional:            true,
-				MarkdownDescription: "{{ .Description }}",
+				MarkdownDescription: "{{ .Description | sanitize }}",
 			},
 			{{- end }}
 			{{- range .ResponseFields }}
@@ -64,7 +64,7 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 				ElementType: types.StringType,
 				{{- end }}
 				Computed:            true,
-				MarkdownDescription: "{{ .Description }}",
+				MarkdownDescription: "{{ .Description | sanitize }}",
 			},
 			{{- else if eq .GoType "types.Object" }}schema.ObjectAttribute{
 				Computed: true,
@@ -73,11 +73,11 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 					"{{ .TFSDKName }}": {{ .GoType }}Type,
 					{{- end }}
 				},
-				MarkdownDescription: "{{ .Description }}",
+				MarkdownDescription: "{{ .Description | sanitize }}",
 			},
 			{{- else }}schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
 				Computed:            true,
-				MarkdownDescription: "{{ .Description }}",
+				MarkdownDescription: "{{ .Description | sanitize }}",
 			},
 			{{- end }}
 			{{- end }}

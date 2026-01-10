@@ -67,16 +67,16 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 				Optional:            true,
 				Computed:            true,
 				{{- end }}
-				MarkdownDescription: "{{ .Description }}",
+				MarkdownDescription: "{{ .Description | sanitize }}",
 			},
 			{{- else if eq .GoType "types.Object" }}schema.ObjectAttribute{
 				Computed: true,
 				AttributeTypes: map[string]attr.Type{
 					{{- range .Properties }}
-					"{{ .TFSDKName }}": {{ .GoType }}Type,
+					"{{ .TFSDKName }}": {{ toAttrType . }},
 					{{- end }}
 				},
-				MarkdownDescription: "{{ .Description }}",
+				MarkdownDescription: "{{ .Description | sanitize }}",
 			},
 			{{- else }}schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
 				{{- if .ReadOnly }}
@@ -92,7 +92,7 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 				Optional:            true,
 				Computed:            true,
 				{{- end }}
-				MarkdownDescription: "{{ .Description }}",
+				MarkdownDescription: "{{ .Description | sanitize }}",
 			},
 			{{- end }}
 			{{- end }}
@@ -147,18 +147,22 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	}
 	{{- else if eq .Type "number" }}
 	if !data.{{ .Name | title }}.IsNull() {
-		attributes["{{ .Name }}"] = data.{{ .Name |title }}.ValueFloat64()
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
 	}
 	{{- else if eq .Type "array" }}
 	if !data.{{ .Name | title }}.IsNull() {
 		var items []interface{}
+		{{- if eq .ItemType "string" }}
 		for _, elem := range data.{{ .Name | title }}.Elements() {
-			{{- if eq .ItemType "string" }}
 			if strVal, ok := elem.(types.String); ok {
 				items = append(items, strVal.ValueString())
 			}
-			{{- end }}
 		}
+		{{- else }}
+		for range data.{{ .Name | title }}.Elements() {
+			// TODO: Handle non-string array items
+		}
+		{{- end }}
 		attributes["{{ .Name }}"] = items
 	}
 	{{- end }}

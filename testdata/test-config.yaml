@@ -1,6 +1,6 @@
 generator:
-  openapi_schema: "waldur_api.yaml"
-  output_dir: "./output"
+  openapi_schema: "testdata/waldur_api.yaml"
+  output_dir: "testdata/output"
   provider_name: "waldur"
 
 resources:

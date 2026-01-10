@@ -1,0 +1,280 @@
+---
+version: 2
+interactions:
+  # CREATE - POST request to create instance (Order)
+  - request:
+      body: |
+        {"attributes":{"flavor":"m1.small","image":"ubuntu-20.04","name":"test-instance","ports":[],"system_volume_size":1024},"offering":"offering-uuid","project":"/api/projects/abc123-project-uuid/"}
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+        Content-Type:
+          - application/json
+      url: https://api.waldur.example.com/api/marketplace-orders/
+      method: POST
+    response:
+      body: |
+        {"uuid":"order-uuid-123","state":"done","marketplace_resource_uuid":"resource-uuid-123"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 201
+      code: 201
+    duration: 0s
+
+  # POLL Create Order - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/marketplace-orders/order-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"order-uuid-123","state":"done","marketplace_resource_uuid":"resource-uuid-123"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # READ (Step 1 end) - GET request to retrieve instance
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z","backend_id":"openstack-id"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # READ (Step 2 start: Refresh) - GET request to retrieve instance
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z","backend_id":"openstack-id"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # UPDATE - PATCH request to update instance (Direct - Phase 1)
+  - request:
+      body: |
+        {"name":"test-instance-updated"}
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+        Content-Type:
+          - application/json
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: PATCH
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance-updated","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # UPDATE Phase 2 - POST set_rules
+  - request:
+      body: |
+        {}
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+        Content-Type:
+          - application/json
+      url: https://api.waldur.example.com/api/marketplace-resources/resource-uuid-123/set_rules/
+      method: POST
+    response:
+      body: |
+        {"uuid":"update-order-uuid-789"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # POLL Update Order - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/marketplace-orders/update-order-uuid-789/
+      method: GET
+    response:
+      body: |
+        {"uuid":"update-order-uuid-789","state":"done"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # READ After Update - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance-updated","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z","backend_id":"openstack-id"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # READ Extra 1 - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance-updated","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z","backend_id":"openstack-id"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # READ Extra 2 - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance-updated","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z","backend_id":"openstack-id"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # READ Extra 3 - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance-updated","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z","backend_id":"openstack-id"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # READ (Destroy Refresh) - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/openstack-instances/resource-uuid-123/
+      method: GET
+    response:
+      body: |
+        {"uuid":"resource-uuid-123","name":"test-instance-updated","flavor":"m1.small","image":"ubuntu-20.04","project":"abc123-project-uuid","state":"OK","created":"2026-01-11T00:00:00Z","backend_id":"openstack-id"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # DELETE - POST request to terminate (Order)
+  - request:
+      body: |
+        {}
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+        Content-Type:
+          - application/json
+      url: https://api.waldur.example.com/api/marketplace-resources/resource-uuid-123/terminate/
+      method: POST
+    response:
+      body: |
+        {"uuid":"terminate-order-uuid-456"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s
+
+  # POLL Termination Order - GET request
+  - request:
+      body: ""
+      form: {}
+      headers:
+        Authorization:
+          - Token example-api-token-sanitized
+      url: https://api.waldur.example.com/api/marketplace-orders/terminate-order-uuid-456/
+      method: GET
+    response:
+      body: |
+        {"uuid":"terminate-order-uuid-456","state":"done"}
+      headers:
+        Content-Type:
+          - application/json
+      status: 200
+      code: 200
+    duration: 0s

@@ -21,8 +21,9 @@ type Client struct {
 
 // Config holds the client configuration
 type Config struct {
-	Endpoint string
-	Token    string
+	Endpoint   string
+	Token      string
+	HTTPClient *http.Client // Optional: for testing with VCR or custom transport
 }
 
 // NewClient creates a new Waldur API client
@@ -40,12 +41,18 @@ func NewClient(config *Config) (*Client, error) {
 		return nil, fmt.Errorf("invalid endpoint URL: %w", err)
 	}
 
-	return &Client{
-		baseURL: baseURL.String(),
-		token:   config.Token,
-		httpClient: &http.Client{
+	// Use provided HTTP client or create default one
+	httpClient := config.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{
 			Timeout: 30 * time.Second,
-		},
+		}
+	}
+
+	return &Client{
+		baseURL:    baseURL.String(),
+		token:      config.Token,
+		httpClient: httpClient,
 	}, nil
 }
 

@@ -1,0 +1,2 @@
+# This directory stores VCR cassettes (recorded HTTP interactions) for E2E tests.
+# Cassettes are tracked in git so tests can run in replay mode without API access.

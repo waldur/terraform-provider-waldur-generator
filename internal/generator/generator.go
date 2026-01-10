@@ -406,6 +406,22 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		modelFields = MergeFields(createFields, responseFields)
 	}
 
+	// Update responseFields to use merged field definitions
+	// This ensures shared.tmpl uses the complete schema for nested objects
+	modelMap := make(map[string]FieldInfo)
+	for _, f := range modelFields {
+		modelMap[f.Name] = f
+	}
+	var newResponseFields []FieldInfo
+	for _, f := range responseFields {
+		if mergedF, ok := modelMap[f.Name]; ok {
+			newResponseFields = append(newResponseFields, mergedF)
+		} else {
+			newResponseFields = append(newResponseFields, f)
+		}
+	}
+	responseFields = newResponseFields
+
 	data := map[string]interface{}{
 		"Name":                  resource.Name,
 		"Operations":            ops,
@@ -543,6 +559,7 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		"RetrievePath":   retrievePath,
 		"FilterParams":   filterParams,
 		"ResponseFields": dedupedResponseFields, // Use deduped version
+		"ModelFields":    dedupedResponseFields, // Map to ModelFields for shared template compatibility
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

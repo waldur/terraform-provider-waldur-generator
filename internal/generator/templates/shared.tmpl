@@ -39,7 +39,8 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 
 {{- define "mapResponseFields" }}
 	// Map response fields to data model
-	{{- range .ResponseFields }}
+	_ = sourceMap
+	{{- range .ModelFields }}
 	{{- if ne .Name "name" }}
 	if val, ok := sourceMap["{{ .Name }}"]; ok && val != nil {
 		{{- if or (eq .Name "project") (eq .Name "offering") }}
@@ -154,6 +155,40 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 			data.{{ .Name | title }} = objVal
 		}
 		{{- end }}
+	} else {
+		if data.{{ .Name | title }}.IsUnknown() {
+			{{- if eq .Type "string" }}
+			data.{{ .Name | title }} = types.StringNull()
+			{{- else if eq .Type "integer" }}
+			data.{{ .Name | title }} = types.Int64Null()
+			{{- else if eq .Type "boolean" }}
+			data.{{ .Name | title }} = types.BoolNull()
+			{{- else if eq .Type "number" }}
+			data.{{ .Name | title }} = types.Float64Null()
+			{{- else if eq .Type "array" }}
+			{{- if eq .ItemType "string" }}
+			data.{{ .Name | title }} = types.ListNull(types.StringType)
+			{{- else if eq .ItemType "integer" }}
+			data.{{ .Name | title }} = types.ListNull(types.Int64Type)
+			{{- else if eq .ItemType "boolean" }}
+			data.{{ .Name | title }} = types.ListNull(types.BoolType)
+			{{- else if eq .ItemType "number" }}
+			data.{{ .Name | title }} = types.ListNull(types.Float64Type)
+			{{- else if eq .ItemType "object" }}
+			data.{{ .Name | title }} = types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{
+				{{- range .ItemSchema.Properties }}
+				"{{ .TFSDKName }}": {{ toAttrType . }},
+				{{- end }}
+			}})
+			{{- end }}
+			{{- else if eq .Type "object" }}
+			data.{{ .Name | title }} = types.ObjectNull(map[string]attr.Type{
+				{{- range .Properties }}
+				"{{ .TFSDKName }}": {{ toAttrType . }},
+				{{- end }}
+			})
+			{{- end }}
+		}
 	}
 	{{- end }}
 	{{- end }}

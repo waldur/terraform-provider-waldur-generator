@@ -8,6 +8,7 @@ import (
     "github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"{{ end }}
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -58,6 +59,18 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 			"{{ .TFSDKName }}": {{- if eq .GoType "types.List" }}schema.ListAttribute{
 				{{- if eq .ItemType "string" }}
 				ElementType: types.StringType,
+				{{- else if eq .ItemType "integer" }}
+				ElementType: types.Int64Type,
+				{{- else if eq .ItemType "boolean" }}
+				ElementType: types.BoolType,
+				{{- else if eq .ItemType "number" }}
+				ElementType: types.Float64Type,
+				{{- else if eq .ItemType "object" }}
+				ElementType: types.ObjectType{AttrTypes: map[string]attr.Type{
+					{{- range .ItemSchema.Properties }}
+					"{{ .TFSDKName }}": {{ toAttrType . }},
+					{{- end }}
+				}},
 				{{- end }}
 				{{- if .ReadOnly }}
 				Computed:            true,
@@ -151,7 +164,7 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	}
 	{{- else if eq .Type "array" }}
 	if !data.{{ .Name | title }}.IsNull() {
-		var items []interface{}
+		items := make([]interface{}, 0)
 		{{- if eq .ItemType "string" }}
 		for _, elem := range data.{{ .Name | title }}.Elements() {
 			if strVal, ok := elem.(types.String); ok {
@@ -541,6 +554,5 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 }
 
 func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// TODO: Implement import logic
-	resp.Diagnostics.AddError("Not Implemented", "Import is not yet implemented for this resource")
+	resource.ImportStatePassthroughID(ctx, path.Root("uuid"), req, resp)
 }

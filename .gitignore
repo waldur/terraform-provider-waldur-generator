@@ -11,6 +11,10 @@ terraform-waldur-provider-generator
 # Output directory
 output/
 dist/
+testdata/output/
+
+# VCR cassettes are tracked in git
+!testdata/fixtures/
 
 # Go workspace
 go.work

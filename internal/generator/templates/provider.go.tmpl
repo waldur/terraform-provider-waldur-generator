@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -25,6 +26,8 @@ type {{ .ProviderName }}Provider struct {
 	// version is set to the provider version on release, "dev" when the
 	// provider is built and ran locally, and "test" when running acceptance testing.
 	version string
+	// httpClient is an optional HTTP client for testing (e.g., with VCR)
+	httpClient *http.Client
 }
 
 // {{ .ProviderName }}ProviderModel describes the provider data model.
@@ -65,8 +68,9 @@ func (p *{{ .ProviderName }}Provider) Configure(ctx context.Context, req provide
 
 	// Create API client
 	apiClient, err := client.NewClient(&client.Config{
-		Endpoint: data.Endpoint.ValueString(),
-		Token:    data.Token.ValueString(),
+		Endpoint:   data.Endpoint.ValueString(),
+		Token:      data.Token.ValueString(),
+		HTTPClient: p.httpClient, // Pass through custom HTTP client for testing
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -98,9 +102,16 @@ func (p *{{ .ProviderName }}Provider) DataSources(ctx context.Context) []func() 
 }
 
 func New(version string) func() provider.Provider {
+	return NewWithHTTPClient(version, nil)
+}
+
+// NewWithHTTPClient creates a provider factory with a custom HTTP client.
+// This is primarily used for testing with VCR or other HTTP mocking libraries.
+func NewWithHTTPClient(version string, httpClient *http.Client) func() provider.Provider {
 	return func() provider.Provider {
 		return &{{ .ProviderName }}Provider{
-			version: version,
+			version:    version,
+			httpClient: httpClient,
 		}
 	}
 }

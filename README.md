@@ -93,10 +93,32 @@ go build
 ### 4. Test the Provider
 
 ```bash
-# Run acceptance tests
+# Run unit tests
 cd ./output/terraform-waldur-provider
+go test ./... -v
+
+# Run acceptance tests (requires TF_ACC=1)
 TF_ACC=1 go test ./... -v
 ```
+
+### 5. E2E Testing with go-VCR
+
+The generator includes support for End-to-End (E2E) testing using [go-VCR](https://github.com/dnaeon/go-vcr), which records and replays HTTP interactions with the Waldur API.
+
+This allows for:
+
+- ✅ **Testing without live API dependencies** (Replay mode)
+- ✅ **Deterministic and fast CI execution**
+- ✅ **Verification of full CRUD lifecycles**
+
+**Quick Start in Replay Mode:**
+
+```bash
+cd output/terraform-waldur-provider
+TF_ACC=1 go test ./internal/e2e -v
+```
+
+For detailed instructions on setup, recording new cassettes, and writing tests, please refer to the **[E2E VCR Testing Guide](docs/E2E_TEST_SETUP.md)**.
 
 ### 5. Test Locally Without Publishing
 

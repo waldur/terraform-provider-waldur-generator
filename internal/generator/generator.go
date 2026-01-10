@@ -109,6 +109,11 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate supporting files: %w", err)
 	}
 
+	// Clean up generated Go files (format and remove unused imports)
+	if err := g.cleanupImports(); err != nil {
+		return fmt.Errorf("failed to cleanup imports: %w", err)
+	}
+
 	return nil
 }
 

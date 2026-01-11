@@ -39,3 +39,14 @@ data_sources:
     base_operation_id: "keys"
     filter_params:
       - "name"
+  - name: "openstack_subnet"
+    base_operation_id: "openstack_subnets"
+    filter_params:
+      - "name"
+      - "tenant_uuid"
+  - name: "openstack_port"
+    base_operation_id: "openstack_ports"
+    filter_params:
+      - "name"
+      - "tenant_uuid"
+      - "backend_id"

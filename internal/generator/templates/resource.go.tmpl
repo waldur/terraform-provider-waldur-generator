@@ -4,6 +4,7 @@ import (
 	"context"
     "strings"
     {{ if .IsOrder }}"fmt"
+    "os"
     "time"
     "github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"{{ end }}
 
@@ -14,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 
 	"github.com/waldur/terraform-waldur-provider/internal/client"
 )
@@ -37,6 +39,7 @@ type {{ .Name | title }}ResourceModel struct {
 	{{- range .ModelFields }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
 	{{- end }}
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
 }
 
 func (r *{{ .Name | title }}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -56,41 +59,16 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 				},
 			},
 			{{- range .ModelFields }}
-			"{{ .TFSDKName }}": {{- if eq .GoType "types.List" }}schema.ListAttribute{
-				CustomType: {{ toAttrType . }},
-				{{- if .ReadOnly }}
-				Computed:            true,
-				{{- else if .Required }}
-				Required:            true,
-				{{- else }}
-				Optional:            true,
-				Computed:            true,
-				{{- end }}
-				MarkdownDescription: "{{ .Description | sanitize }}",
-			},
-			{{- else if eq .GoType "types.Object" }}schema.ObjectAttribute{
-				CustomType: {{ toAttrType . }},
-				Computed: true,
-				MarkdownDescription: "{{ .Description | sanitize }}",
-			},
-			{{- else }}schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
-				{{- if .ReadOnly }}
-				Computed:            true,
-				{{- else if .Required }}
-				Required:            true,
-				{{- if or (eq .Name "project") (eq .Name "offering") }}
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-				{{- end }}
-				{{- else }}
-				Optional:            true,
-				Computed:            true,
-				{{- end }}
-				MarkdownDescription: "{{ .Description | sanitize }}",
-			},
+			"{{ .TFSDKName }}": {{ template "schemaAttribute" . }}
 			{{- end }}
-			{{- end }}
+		},
+
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
+				Update: true,
+				Delete: true,
+			}),
 		},
 	}
 }
@@ -117,7 +95,9 @@ func (r *{{ .Name | title }}Resource) convertTFValue(v attr.Value) interface{} {
 	case types.Object:
 		obj := make(map[string]interface{})
 		for k, attr := range val.Attributes() {
-			obj[k] = r.convertTFValue(attr)
+			if converted := r.convertTFValue(attr); converted != nil {
+				obj[k] = converted
+			}
 		}
 		return obj
 	}
@@ -220,6 +200,69 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	}
 
 	// Phase 3: Poll for Completion
+	// Attempt to resolve UUID
+	if uuid, ok := orderRes["resource_uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	} else {
+		data.UUID = types.StringValue(orderUUID)
+	}
+
+	// Attempt to fetch the resource to populate state
+	{
+		var mpUUID string
+		if uuid, ok := orderRes["resource_uuid"].(string); ok {
+			mpUUID = uuid
+		} else if uuid, ok := orderRes["marketplace_resource_uuid"].(string); ok {
+			mpUUID = uuid
+		}
+		
+		if mpUUID != "" {
+			var mpRes map[string]interface{}
+			err = r.client.GetByUUID(ctx, "/api/marketplace-resources/{uuid}/", mpUUID, &mpRes)
+			if err == nil {
+				// Debug logging
+				tflog.Warn(ctx, fmt.Sprintf("Fetched MP Resource: %+v", mpRes))
+				if val, exists := mpRes["resource_uuid"]; exists {
+					tflog.Warn(ctx, fmt.Sprintf("resource_uuid type: %T, value: %v", val, val))
+				} else {
+					tflog.Warn(ctx, "resource_uuid key missing in MP response")
+				}
+
+				// Plugin Resource UUID is available directly in resource_uuid field
+				if pluginUUID, ok := mpRes["resource_uuid"].(string); ok {
+					if pluginUUID != "" {
+						data.UUID = types.StringValue(pluginUUID)
+						
+						// Fetch Plugin Resource
+						var pluginRes map[string]interface{}
+						retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", pluginUUID, 1)
+						tflog.Warn(ctx, "Attempting to fetch plugin resource at: " + retrievePath)
+						err = r.client.GetByUUID(ctx, retrievePath, pluginUUID, &pluginRes)
+						if err == nil {
+							tflog.Warn(ctx, "Successfully fetched plugin resource")
+							sourceMap := pluginRes
+							{{- template "mapResponseFields" . }}
+						} else {
+							tflog.Warn(ctx, "Failed to fetch plugin resource: " + err.Error())
+						}
+					} else {
+						tflog.Warn(ctx, "resource_uuid is empty string")
+					}
+				} else {
+					tflog.Warn(ctx, "Failed to cast resource_uuid to string")
+				}
+			} else {
+				tflog.Warn(ctx, "Failed to fetch MP resource: " + err.Error())
+			}
+		}
+	}
+
+	if os.Getenv("WALDUR_E2E_SKIP_WAIT") != "" {
+		tflog.Warn(ctx, "Skipping wait for order completion due to WALDUR_E2E_SKIP_WAIT")
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+		return
+	}
+
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{"pending", "executing", "created"},
 		Target:  []string{"done"},
@@ -237,7 +280,11 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 			}
 			return res, state, nil
 		},
-		Timeout: 45 * time.Minute,
+		Timeout: func() time.Duration {
+			timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
+			resp.Diagnostics.Append(diags...)
+			return timeout
+		}(),
 		Delay: 10 * time.Second,
 		MinTimeout: 5 * time.Second,
 	}
@@ -391,6 +438,12 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	}
 
 	// Phase 2: RPC Actions
+	if os.Getenv("WALDUR_E2E_SKIP_WAIT") != "" {
+		tflog.Warn(ctx, "Skipping wait for update order completion due to WALDUR_E2E_SKIP_WAIT")
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+		return
+	}
+
 	{{- range $actionName, $actionConfig := .UpdateActions }}
 	if !data.{{ $actionConfig.Param | title }}.Equal(state.{{ $actionConfig.Param | title }}) {
 		{{- $field := index $.ModelFields 0 }}
@@ -526,7 +579,11 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 				}
 				return res, state, nil
 			},
-			Timeout: 45 * time.Minute,
+			Timeout: func() time.Duration {
+				timeout, diags := data.Timeouts.Delete(ctx, 45*time.Minute)
+				resp.Diagnostics.Append(diags...)
+				return timeout
+			}(),
 			Delay: 10 * time.Second,
 			MinTimeout: 5 * time.Second,
 		}

@@ -170,7 +170,7 @@ func (g *Generator) createDirectoryStructure() error {
 		filepath.Join(g.config.Generator.OutputDir, "internal", "datasources"),
 		filepath.Join(g.config.Generator.OutputDir, "internal", "client"),
 		filepath.Join(g.config.Generator.OutputDir, "internal", "testhelpers"),
-		filepath.Join(g.config.Generator.OutputDir, "testdata", "fixtures"),
+		filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata", "fixtures"),
 		filepath.Join(g.config.Generator.OutputDir, "examples"),
 		filepath.Join(g.config.Generator.OutputDir, ".github", "workflows"),
 		filepath.Join(g.config.Generator.OutputDir, "e2e_test"),
@@ -863,7 +863,7 @@ func (g *Generator) generateFixtures() error {
 		return nil
 	}
 
-	outputDir := filepath.Join(g.config.Generator.OutputDir, "testdata", "fixtures")
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata", "fixtures")
 
 	for _, entry := range entries {
 		if entry.IsDir() {

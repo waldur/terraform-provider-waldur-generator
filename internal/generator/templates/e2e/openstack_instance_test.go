@@ -84,6 +84,10 @@ data "waldur_core_ssh_public_key" "test" {
   name = "my-ssh-key"
 }
 
+data "waldur_openstack_port" "test" {
+  backend_id = "31771cfe-dc77-417a-bacb-460bf8fa0791"
+}
+
 resource "waldur_openstack_instance" "test" {
   name    = "test-instance"
   flavor  = data.waldur_openstack_flavor.test.url
@@ -95,13 +99,7 @@ resource "waldur_openstack_instance" "test" {
   data_volume_size = 1024
   ports = [
     {
-       subnet = "waldur-dev-sub-net"
-       fixed_ips = [
-         {
-           ip_address = "192.168.42.11"
-           subnet_id = "c807fbd9-f469-4e8e-8d4c-489a4959f433"
-         }
-       ]
+       port = data.waldur_openstack_port.test.url
     }
   ]
 }

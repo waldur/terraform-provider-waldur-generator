@@ -298,3 +298,86 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 	{{- end }}
 }
 {{- end }}
+
+{{- define "schemaNestedAttribute" }}
+{{- if eq .GoType "types.List" }}
+schema.ListNestedAttribute{
+    NestedObject: schema.NestedAttributeObject{
+        Attributes: map[string]schema.Attribute{
+            {{- range .ItemSchema.Properties }}
+                "{{ .TFSDKName }}": {{ template "schemaAttribute" . }}
+            {{- end }}
+        },
+    },
+    {{- if .ReadOnly }}
+    Computed: true,
+    {{- else if .Required }}
+    Required: true,
+    {{- else }}
+    Optional: true,
+    Computed: true,
+    {{- end }}
+    MarkdownDescription: "{{ .Description | sanitize }}",
+},
+{{- else if eq .GoType "types.Object" }}
+schema.SingleNestedAttribute{
+    Attributes: map[string]schema.Attribute{
+        {{- range .Properties }}
+            "{{ .TFSDKName }}": {{ template "schemaAttribute" . }}
+        {{- end }}
+    },
+    {{- if .ReadOnly }}
+    Computed: true,
+    {{- else if .Required }}
+    Required: true,
+    {{- else }}
+    Optional: true,
+    Computed: true,
+    {{- end }}
+    MarkdownDescription: "{{ .Description | sanitize }}",
+},
+{{- end }}
+{{- end }}
+
+{{- define "schemaAttribute" }}
+{{- if or (eq .GoType "types.List") (eq .GoType "types.Object") }}
+    {{- if or (and (eq .GoType "types.List") (eq .ItemType "object")) (eq .GoType "types.Object") }}
+        {{ template "schemaNestedAttribute" . }}
+    {{- else }}
+        {{- /* List of primitives */ -}}
+        schema.ListAttribute{
+            CustomType: {{ toAttrType . }},
+            {{- if .ReadOnly }}
+            Computed: true,
+            {{- else if .Required }}
+            Required: true,
+            {{- else }}
+            Optional: true,
+            Computed: true,
+            {{- end }}
+            MarkdownDescription: "{{ .Description | sanitize }}",
+        },
+    {{- end }}
+{{- else }}
+    {{- /* Primitive Type */ -}}
+    schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
+        {{- if .ReadOnly }}
+        Computed: true,
+        {{- else if .Required }}
+        Required: true,
+        {{- else }}
+        Optional: true,
+        Computed: true,
+        {{- end }}
+        {{- if or (eq .Name "project") (eq .Name "offering") }}
+        PlanModifiers: []planmodifier.String{
+            stringplanmodifier.RequiresReplace(),
+        },
+        {{- end }}
+        MarkdownDescription: "{{ .Description | sanitize }}",
+        {{- if eq .Name "password" }}
+        Sensitive: true,
+        {{- end }}
+    },
+{{- end }}
+{{- end }}

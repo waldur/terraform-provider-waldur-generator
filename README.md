@@ -10,6 +10,7 @@ This generator reads a Waldur OpenAPI schema and a YAML configuration file to au
 
 - ✅ **Convention-based configuration**: Minimal YAML config using `base_operation_id` for automatic operation inference
 - ✅ **Modern Terraform Plugin Framework**: Uses the latest Plugin Framework (protocol 6.0)
+- ✅ **Standard Timeouts**: Supports customizable `timeouts` for Create, Update, and Delete operations
 - ✅ **OpenAPI schema parsing**: Automatically infers schemas and operations from OpenAPI definitions
 - ✅ **Multi-platform builds**: Generates providers for Linux, macOS, and Windows
 - ✅ **Registry-ready**: Includes GoReleaser config and GitHub Actions for automated publishing

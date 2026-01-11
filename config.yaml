@@ -22,7 +22,20 @@ data_sources:
     base_operation_id: "projects"
   - name: "openstack_flavor"
     base_operation_id: "openstack_flavors"
+    filter_params:
+      - "name"
+      - "tenant_uuid"
   - name: "openstack_image"
     base_operation_id: "openstack_images"
+    filter_params:
+      - "name"
+      - "tenant_uuid"
   - name: "marketplace_offering"
     base_operation_id: "marketplace_public_offerings"
+    filter_params:
+      - "name"
+      - "project_uuid"
+  - name: "core_ssh_public_key"
+    base_operation_id: "keys"
+    filter_params:
+      - "name"

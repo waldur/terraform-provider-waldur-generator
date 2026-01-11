@@ -45,8 +45,9 @@ type ParameterConfig struct {
 
 // DataSource defines a Terraform data source to generate
 type DataSource struct {
-	Name            string `yaml:"name"`
-	BaseOperationID string `yaml:"base_operation_id"`
+	Name            string   `yaml:"name"`
+	BaseOperationID string   `yaml:"base_operation_id"`
+	FilterParams    []string `yaml:"filter_params"`
 }
 
 // OperationIDs returns the inferred operation IDs for a resource

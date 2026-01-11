@@ -550,6 +550,24 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
+	// Add manually configured filter params
+	existingFilters := make(map[string]bool)
+	for _, fp := range filterParams {
+		existingFilters[fp.Name] = true
+	}
+
+	for _, paramName := range dataSource.FilterParams {
+		if !existingFilters[paramName] {
+			filterParams = append(filterParams, FilterParam{
+				Name:        paramName,
+				TFSDKName:   ToSnakeCase(paramName),
+				Type:        "String",
+				Description: "Filter by " + paramName,
+			})
+			existingFilters[paramName] = true
+		}
+	}
+
 	// Extract Response fields from Retrieve operation
 	var responseFields []FieldInfo
 	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {

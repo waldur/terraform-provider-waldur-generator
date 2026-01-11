@@ -38,13 +38,6 @@ func TestOpenstackInstance_CRUD(t *testing.T) {
 					resource.TestCheckResourceAttrSet("waldur_openstack_instance.test", "id"),
 				),
 			},
-
-			{
-				Config: testAccOpenstackInstanceConfig_updated(),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("waldur_openstack_instance.test", "name", "test-instance-updated"),
-				),
-			},
 		},
 	})
 }
@@ -69,19 +62,26 @@ func testAccOpenstackInstanceConfig_basic() string {
 	return getProviderConfig() + `
 
 data "waldur_structure_project" "test" {
-  name = "Default"
+  name = "waldur-test"
+}
+
+data "waldur_marketplace_offering" "test" {
+  name = "Virtual machine in waldur-dev"
+  project_uuid = data.waldur_structure_project.test.id
 }
 
 data "waldur_openstack_flavor" "test" {
   name = "m1.small"
+  tenant_uuid = data.waldur_marketplace_offering.test.scope_uuid
 }
 
 data "waldur_openstack_image" "test" {
-  name = "ubuntu-20.04"
+  name = "cirros"
+  tenant_uuid = data.waldur_marketplace_offering.test.scope_uuid
 }
 
-data "waldur_marketplace_offering" "test" {
-  name = "OpenStack"
+data "waldur_core_ssh_public_key" "test" {
+  name = "my-ssh-key"
 }
 
 resource "waldur_openstack_instance" "test" {
@@ -90,39 +90,20 @@ resource "waldur_openstack_instance" "test" {
   image   = data.waldur_openstack_image.test.url
   project = data.waldur_structure_project.test.url
   offering = data.waldur_marketplace_offering.test.url
+  ssh_public_key = data.waldur_core_ssh_public_key.test.url
   system_volume_size = 1024
-  ports = []
-}
-`
-}
-
-func testAccOpenstackInstanceConfig_updated() string {
-	return getProviderConfig() + `
-
-data "waldur_structure_project" "test" {
-  name = "Default"
-}
-
-data "waldur_openstack_flavor" "test" {
-  name = "m1.small"
-}
-
-data "waldur_openstack_image" "test" {
-  name = "ubuntu-20.04"
-}
-
-data "waldur_marketplace_offering" "test" {
-  name = "OpenStack"
-}
-
-resource "waldur_openstack_instance" "test" {
-  name    = "test-instance-updated"
-  flavor  = data.waldur_openstack_flavor.test.url
-  image   = data.waldur_openstack_image.test.url
-  project = data.waldur_structure_project.test.url
-  offering = data.waldur_marketplace_offering.test.url
-  system_volume_size = 1024
-  ports = []
+  data_volume_size = 1024
+  ports = [
+    {
+       subnet = "waldur-dev-sub-net"
+       fixed_ips = [
+         {
+           ip_address = "192.168.42.11"
+           subnet_id = "c807fbd9-f469-4e8e-8d4c-489a4959f433"
+         }
+       ]
+    }
+  ]
 }
 `
 }

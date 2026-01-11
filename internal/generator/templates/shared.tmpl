@@ -49,6 +49,8 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 			parts := strings.Split(strings.TrimRight(str, "/"), "/")
 			uuid := parts[len(parts)-1]
 			data.{{ .Name | title }} = types.StringValue(uuid)
+		} else {
+			data.{{ .Name | title }} = types.StringNull()
 		}
 		{{- else if eq .Type "string" }}
 		if str, ok := val.(string); ok {
@@ -104,13 +106,37 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 					attrValues := map[string]attr.Value{
 						{{- range .ItemSchema.Properties }}
 						{{- if eq .Type "string" }}
-						"{{ .TFSDKName }}": types.StringValue(objMap["{{ .Name }}"].(string)),
+						"{{ .TFSDKName }}": func() attr.Value {
+							if v, ok := objMap["{{ .Name }}"].(string); ok {
+								return types.StringValue(v)
+							}
+							return types.StringNull()
+						}(),
 						{{- else if eq .Type "integer" }}
-						"{{ .TFSDKName }}": types.Int64Value(int64(objMap["{{ .Name }}"].(float64))),
+						"{{ .TFSDKName }}": func() attr.Value {
+							if v, ok := objMap["{{ .Name }}"].(float64); ok {
+								return types.Int64Value(int64(v))
+							}
+							return types.Int64Null()
+						}(),
 						{{- else if eq .Type "boolean" }}
-						"{{ .TFSDKName }}": types.BoolValue(objMap["{{ .Name }}"].(bool)),
+						"{{ .TFSDKName }}": func() attr.Value {
+							if v, ok := objMap["{{ .Name }}"].(bool); ok {
+								return types.BoolValue(v)
+							}
+							return types.BoolNull()
+						}(),
 						{{- else if eq .Type "number" }}
-						"{{ .TFSDKName }}": types.Float64Value(objMap["{{ .Name }}"].(float64)),
+						"{{ .TFSDKName }}": func() attr.Value {
+							if v, ok := objMap["{{ .Name }}"].(float64); ok {
+								return types.Float64Value(v)
+							}
+							return types.Float64Null()
+						}(),
+						{{- else if eq .Type "object" }}
+						"{{ .TFSDKName }}": types.ObjectNull({{ toAttrType . }}.AttrTypes),
+						{{- else if eq .Type "array" }}
+						"{{ .TFSDKName }}": types.ListNull({{ toAttrType . }}.ElemType),
 						{{- else }}
 						"{{ .TFSDKName }}": types.StringNull(),
 						{{- end }}
@@ -136,21 +162,45 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 				"{{ .TFSDKName }}": {{ toAttrType . }},
 				{{- end }}
 			}
-			attrValues := map[string]attr.Value{
-				{{- range .Properties }}
-				{{- if eq .Type "string" }}
-				"{{ .TFSDKName }}": types.StringValue(objMap["{{ .Name }}"].(string)),
-				{{- else if eq .Type "integer" }}
-				"{{ .TFSDKName }}": types.Int64Value(int64(objMap["{{ .Name }}"].(float64))),
-				{{- else if eq .Type "boolean" }}
-				"{{ .TFSDKName }}": types.BoolValue(objMap["{{ .Name }}"].(bool)),
-				{{- else if eq .Type "number" }}
-				"{{ .TFSDKName }}": types.Float64Value(objMap["{{ .Name }}"].(float64)),
-				{{- else }}
-				"{{ .TFSDKName }}": types.StringNull(),
-				{{- end }}
-				{{- end }}
-			}
+				attrValues := map[string]attr.Value{
+					{{- range .Properties }}
+					{{- if eq .Type "string" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(string); ok {
+							return types.StringValue(v)
+						}
+						return types.StringNull()
+					}(),
+					{{- else if eq .Type "integer" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(float64); ok {
+							return types.Int64Value(int64(v))
+						}
+						return types.Int64Null()
+					}(),
+					{{- else if eq .Type "boolean" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(bool); ok {
+							return types.BoolValue(v)
+						}
+						return types.BoolNull()
+					}(),
+					{{- else if eq .Type "number" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(float64); ok {
+							return types.Float64Value(v)
+						}
+						return types.Float64Null()
+					}(),
+					{{- else if eq .Type "object" }}
+					"{{ .TFSDKName }}": types.ObjectNull({{ toAttrType . }}.AttrTypes),
+					{{- else if eq .Type "array" }}
+					"{{ .TFSDKName }}": types.ListNull({{ toAttrType . }}.ElemType),
+					{{- else }}
+					"{{ .TFSDKName }}": types.StringNull(),
+					{{- end }}
+					{{- end }}
+				}
 			objVal, _ := types.ObjectValue(attrTypes, attrValues)
 			data.{{ .Name | title }} = objVal
 		}
@@ -191,6 +241,29 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 		}
 	}
 	{{- end }}
+	{{- end }}
+
+	// Map filter parameters from response if available
+	{{- range .FilterParams }}
+	if val, ok := sourceMap["{{ .Name }}"]; ok && val != nil {
+		{{- if eq .Type "String" }}
+		if str, ok := val.(string); ok {
+			data.{{ .TFSDKName | title }} = types.StringValue(str)
+		}
+		{{- else if eq .Type "Int64" }}
+		if num, ok := val.(float64); ok {
+			data.{{ .TFSDKName | title }} = types.Int64Value(int64(num))
+		}
+		{{- else if eq .Type "Bool" }}
+		if b, ok := val.(bool); ok {
+			data.{{ .TFSDKName | title }} = types.BoolValue(b)
+		}
+		{{- else if eq .Type "Float64" }}
+		if num, ok := val.(float64); ok {
+			data.{{ .TFSDKName | title }} = types.Float64Value(num)
+		}
+		{{- end }}
+	}
 	{{- end }}
 {{- end }}
 

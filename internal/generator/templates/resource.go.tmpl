@@ -95,6 +95,35 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 	}
 }
 
+func (r *{{ .Name | title }}Resource) convertTFValue(v attr.Value) interface{} {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	switch val := v.(type) {
+	case types.String:
+		return val.ValueString()
+	case types.Int64:
+		return val.ValueInt64()
+	case types.Bool:
+		return val.ValueBool()
+	case types.Float64:
+		return val.ValueFloat64()
+	case types.List:
+		items := make([]interface{}, len(val.Elements()))
+		for i, elem := range val.Elements() {
+			items[i] = r.convertTFValue(elem)
+		}
+		return items
+	case types.Object:
+		obj := make(map[string]interface{})
+		for k, attr := range val.Attributes() {
+			obj[k] = r.convertTFValue(attr)
+		}
+		return obj
+	}
+	return nil
+}
+
 func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
@@ -161,22 +190,7 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 		}
 		{{- else if eq .ItemType "object" }}
 		for _, elem := range data.{{ .Name | title }}.Elements() {
-			if objVal, ok := elem.(types.Object); ok {
-				objMap := make(map[string]interface{})
-				for key, attr := range objVal.Attributes() {
-					switch v := attr.(type) {
-					case types.String:
-						objMap[key] = v.ValueString()
-					case types.Int64:
-						objMap[key] = v.ValueInt64()
-					case types.Bool:
-						objMap[key] = v.ValueBool()
-					case types.Float64:
-						objMap[key] = v.ValueFloat64()
-					}
-				}
-				items = append(items, objMap)
-			}
+			items = append(items, r.convertTFValue(elem))
 		}
 		{{- end }}
 		attributes["{{ .Name }}"] = items
@@ -186,8 +200,8 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	{{- end }}
 
 	payload := map[string]interface{}{
-		"project": fmt.Sprintf("/api/projects/%s/", data.Project.ValueString()),
-		"offering": data.Offering.ValueString(), // Assuming offering is passed as URL or UUID handled by API
+		"project":    data.Project.ValueString(),
+		"offering":   data.Offering.ValueString(), // Assuming offering is passed as URL or UUID handled by API
 		"attributes": attributes,
 	}
 

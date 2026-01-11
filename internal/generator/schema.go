@@ -79,6 +79,8 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 		}
 
 		// Handle different types
+		field.GoType = GetGoType(typeStr)
+
 		switch typeStr {
 		case "string":
 			// Check for enum
@@ -90,19 +92,9 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 					}
 				}
 			}
-			field.GoType = "types.String"
 			fields = append(fields, field)
 
-		case "integer":
-			field.GoType = "types.Int64"
-			fields = append(fields, field)
-
-		case "boolean":
-			field.GoType = "types.Bool"
-			fields = append(fields, field)
-
-		case "number":
-			field.GoType = "types.Float64"
+		case "integer", "boolean", "number":
 			fields = append(fields, field)
 
 		case "array":

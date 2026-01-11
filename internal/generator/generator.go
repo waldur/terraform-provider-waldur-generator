@@ -523,14 +523,10 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 				// Determine Terraform type
 				tfType := "String" // Default
 				if param.Value.Schema != nil && param.Value.Schema.Value != nil {
-					switch param.Value.Schema.Value.Type.Slice()[0] {
-					case "integer":
-						tfType = "Int64"
-					case "boolean":
-						tfType = "Bool"
-					case "number":
-						tfType = "Float64"
-					}
+					// Get the Go type string (e.g. "types.Int64") from the OpenAPI type
+					goType := GetGoType(getSchemaType(param.Value.Schema.Value))
+					// Convert it to the simple string identifier used in FilterParam
+					tfType = GetFilterParamType(goType)
 				}
 
 				filterParams = append(filterParams, FilterParam{

@@ -170,7 +170,7 @@ func (g *Generator) createDirectoryStructure() error {
 		filepath.Join(g.config.Generator.OutputDir, "internal", "datasources"),
 		filepath.Join(g.config.Generator.OutputDir, "internal", "client"),
 		filepath.Join(g.config.Generator.OutputDir, "internal", "testhelpers"),
-		filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata", "fixtures"),
+		filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata"),
 		filepath.Join(g.config.Generator.OutputDir, "examples"),
 		filepath.Join(g.config.Generator.OutputDir, ".github", "workflows"),
 		filepath.Join(g.config.Generator.OutputDir, "e2e_test"),
@@ -362,6 +362,11 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 
 		if fields, err := ExtractFields(offeringSchema); err == nil {
 			createFields = fields
+			// Mark all plugin fields as optional to allow system-populated values
+			// and delegate validation to the API
+			for i := range createFields {
+				createFields[i].Required = false
+			}
 		}
 
 		// 2. Get Resource Schema (Output) from Retrieve operation
@@ -469,25 +474,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		return err
 	}
 
-	// Also generate resource tests
-	return g.generateResourceTests(resource, data)
-}
-
-// generateResourceTests creates the resource test file
-func (g *Generator) generateResourceTests(resource *config.Resource, templateData map[string]interface{}) error {
-	tmpl, err := template.New("resource_test.go.tmpl").Funcs(g.getFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/resource_test.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse resource test template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "resources", fmt.Sprintf("%s_test.go", resource.Name))
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return tmpl.Execute(f, templateData)
+	return nil
 }
 
 // generateDataSource generates a data source file
@@ -615,25 +602,7 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		return err
 	}
 
-	// Also generate data source tests
-	return g.generateDataSourceTests(dataSource, data)
-}
-
-// generateDataSourceTests creates the datasource test file
-func (g *Generator) generateDataSourceTests(dataSource *config.DataSource, templateData map[string]interface{}) error {
-	tmpl, err := template.New("datasource_test.go.tmpl").Funcs(g.getFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/datasource_test.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse datasource test template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "datasources", fmt.Sprintf("%s_test.go", dataSource.Name))
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return tmpl.Execute(f, templateData)
+	return nil
 }
 
 // generateSupportingFiles generates go.mod, README, etc.
@@ -869,7 +838,7 @@ func (g *Generator) generateFixtures() error {
 		return nil
 	}
 
-	outputDir := filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata", "fixtures")
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata")
 
 	for _, entry := range entries {
 		if entry.IsDir() {

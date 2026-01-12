@@ -27,10 +27,10 @@ func SetupVCR(t *testing.T, cassetteName string) (*recorder.Recorder, func()) {
 		mode = recorder.ModeRecordOnce
 	}
 
-	// Cassettes are stored in testdata/fixtures/
+	// Cassettes are stored in testdata/
 	// Note: go-vcr automatically appends .yaml extension
 	// We need to find the project root for cassettes to work from any package
-	cassettePath := filepath.Join("testdata", "fixtures", cassetteName)
+	cassettePath := filepath.Join("testdata", cassetteName)
 
 	// If the cassette path doesn't exist, try to find from project root
 	if _, err := os.Stat(cassettePath + ".yaml"); os.IsNotExist(err) {

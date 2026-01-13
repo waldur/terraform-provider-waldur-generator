@@ -586,9 +586,17 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 				}
 			}
 
-		} else if createSchema, err := g.parser.GetOperationRequestSchema(ops.Create); err == nil {
-			if fields, err := ExtractFields(createSchema); err == nil {
-				createFields = fields
+		} else {
+			// Extract Create fields
+			createOp := ops.Create
+			if resource.CreateOperation != nil && resource.CreateOperation.OperationID != "" {
+				createOp = resource.CreateOperation.OperationID
+			}
+
+			if createSchema, err := g.parser.GetOperationRequestSchema(createOp); err == nil {
+				if fields, err := ExtractFields(createSchema); err == nil {
+					createFields = fields
+				}
 			}
 		}
 
@@ -686,9 +694,9 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	// Check for complex types to conditionally include helper methods
 	hasComplexTypes := false
 
-	// 1. Check Create fields
-	for _, f := range createFields {
-		// convertTFValue is used in Create for Arrays of Objects (or standard Objects if supported)
+	// 1. Check Create and Update fields
+	for _, f := range append(createFields, updateFields...) {
+		// convertTFValue is used in Create/Update for Arrays of Objects (or standard Objects if supported)
 		if (f.GoType == "types.List" || f.Type == "array") && f.ItemType == "object" {
 			hasComplexTypes = true
 			break

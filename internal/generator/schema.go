@@ -268,12 +268,23 @@ func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
 
 // getSchemaType extracts the type string from openapi3.Schema
 func getSchemaType(schema *openapi3.Schema) string {
-	if schema.Type == nil {
-		return ""
+	if schema.Type != nil {
+		// Types can be a slice, take the first one
+		if len(*schema.Type) > 0 {
+			return (*schema.Type)[0]
+		}
 	}
-	// Types can be a slice, take the first one
-	if len(*schema.Type) > 0 {
-		return (*schema.Type)[0]
+
+	// Fallback for OneOf/AnyOf/AllOf
+	if len(schema.OneOf) > 0 {
+		return getSchemaType(schema.OneOf[0].Value)
 	}
+	if len(schema.AnyOf) > 0 {
+		return getSchemaType(schema.AnyOf[0].Value)
+	}
+	if len(schema.AllOf) > 0 {
+		return getSchemaType(schema.AllOf[0].Value)
+	}
+
 	return ""
 }

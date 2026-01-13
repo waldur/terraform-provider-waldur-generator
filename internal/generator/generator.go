@@ -683,6 +683,40 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 	sort.Slice(updateActions, func(i, j int) bool { return updateActions[i].Name < updateActions[j].Name })
 
+	// Check for complex types to conditionally include helper methods
+	hasComplexTypes := false
+
+	// 1. Check Create fields
+	for _, f := range createFields {
+		// convertTFValue is used in Create for Arrays of Objects (or standard Objects if supported)
+		if (f.GoType == "types.List" || f.Type == "array") && f.ItemType == "object" {
+			hasComplexTypes = true
+			break
+		}
+		if f.GoType == "types.Object" || f.Type == "object" {
+			hasComplexTypes = true
+			break
+		}
+	}
+
+	// 2. Check Update Actions (only Objects trigger convertTFValue, Lists use inline template)
+	if !hasComplexTypes {
+		for _, action := range updateActions {
+			// Find field in modelFields
+			for _, f := range modelFields {
+				if f.Name == action.Param {
+					if f.GoType == "types.Object" || f.Type == "object" {
+						hasComplexTypes = true
+					}
+					break
+				}
+			}
+			if hasComplexTypes {
+				break
+			}
+		}
+	}
+
 	data := map[string]interface{}{
 		"Name":                  resource.Name,
 		"Operations":            ops,
@@ -701,6 +735,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		"TerminationAttributes": resource.TerminationAttributes,
 		"CreateOperation":       resource.CreateOperation, // Custom create operation config
 		"CompositeKeys":         resource.CompositeKeys,   // Fields forming composite key
+		"HasComplexTypes":       hasComplexTypes,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

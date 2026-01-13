@@ -157,6 +157,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 		{{- else if eq .Type "object" }}
 		// Nested object
 		if objMap, ok := val.(map[string]interface{}); ok {
+			_ = objMap // Avoid unused variable if properties are empty
 			attrTypes := map[string]attr.Type{
 				{{- range .Properties }}
 				"{{ .TFSDKName }}": {{ toAttrType . }},
@@ -268,36 +269,6 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 {{- end }}
 
 
-{{- define "mockResponseJSON" }}
-{
-	"uuid": "%s"{{- if gt (len .ModelFields) 0 }},{{- end }}
-	{{- range $i, $field := .ModelFields }}
-	{{- if ne $field.Name "uuid" }}
-	{{- if $field.ReadOnly }}
-	{{- if eq $field.Type "string" }}
-	"{{ $field.Name }}": "dummy-{{ $field.Name }}"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
-	{{- else if eq $field.Type "integer" }}
-	"{{ $field.Name }}": 123{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
-	{{- else if eq $field.Type "boolean" }}
-	"{{ $field.Name }}": true{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
-	{{- else if eq $field.Type "array" }}
-	{{- if eq $field.ItemType "string" }}
-	"{{ $field.Name }}": ["tag1", "tag2"]{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
-	{{- end }}
-	{{- end }}
-	{{- else }}
-	{{- if eq $field.Type "string" }}
-	"{{ $field.Name }}": "%s"{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
-	{{- else if eq $field.Type "integer" }}
-	"{{ $field.Name }}": %d{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
-	{{- else if eq $field.Type "boolean" }}
-	"{{ $field.Name }}": %t{{ if ne $i (sub (len $.ModelFields) 1) }},{{ end }}
-	{{- end }}
-	{{- end }}
-	{{- end }}
-	{{- end }}
-}
-{{- end }}
 
 {{- define "schemaNestedAttribute" }}
 {{- if eq .GoType "types.List" }}

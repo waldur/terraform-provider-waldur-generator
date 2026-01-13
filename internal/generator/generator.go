@@ -137,14 +137,29 @@ func (g *Generator) validateOperations() error {
 	for _, resource := range g.config.Resources {
 		ops := resource.OperationIDs()
 
-		// For order resources, create and destroy operations don't exist
-		// (they use marketplace-orders API instead)
-		operationsToCheck := []string{ops.List, ops.Retrieve, ops.PartialUpdate}
-		if resource.Plugin != "order" {
-			operationsToCheck = append(operationsToCheck, ops.Create, ops.Destroy)
+		// Build a set of operations to skip
+		skipOps := make(map[string]bool)
+		for _, op := range resource.SkipOperations {
+			skipOps[op] = true
 		}
 
-		for _, opID := range operationsToCheck {
+		// For order resources, create and destroy operations don't exist
+		// (they use marketplace-orders API instead)
+		operationsToCheck := map[string]string{
+			"list":           ops.List,
+			"retrieve":       ops.Retrieve,
+			"partial_update": ops.PartialUpdate,
+		}
+		if resource.Plugin != "order" {
+			operationsToCheck["create"] = ops.Create
+			operationsToCheck["destroy"] = ops.Destroy
+		}
+
+		for opName, opID := range operationsToCheck {
+			// Skip if this operation is in the skip list
+			if skipOps[opName] {
+				continue
+			}
 			if err := g.parser.ValidateOperationExists(opID); err != nil {
 				return fmt.Errorf("resource %s: %w", resource.Name, err)
 			}

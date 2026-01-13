@@ -29,6 +29,7 @@ type Resource struct {
 	OfferingType          string                        `yaml:"offering_type"`
 	UpdateActions         map[string]UpdateActionConfig `yaml:"update_actions"`
 	TerminationAttributes []ParameterConfig             `yaml:"termination_attributes"`
+	SkipOperations        []string                      `yaml:"skip_operations"` // Operations to skip validation for (e.g., "partial_update", "create", "destroy")
 }
 
 // UpdateActionConfig defines a custom update action

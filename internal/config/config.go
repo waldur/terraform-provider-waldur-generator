@@ -32,6 +32,19 @@ type Resource struct {
 	SkipOperations        []string                      `yaml:"skip_operations"`  // Operations to skip validation for
 	CreateOperation       *CreateOperationConfig        `yaml:"create_operation"` // Custom create operation (for nested resources)
 	CompositeKeys         []string                      `yaml:"composite_keys"`   // Fields that together form a unique identifier
+	// Link Plugin Fields
+	Source       *LinkResourceConfig `yaml:"source"`
+	Target       *LinkResourceConfig `yaml:"target"`
+	LinkOp       string              `yaml:"link_op"`
+	UnlinkOp     string              `yaml:"unlink_op"`
+	LinkCheckKey string              `yaml:"link_check_key"` // Key in source resource to check for target presence
+	LinkParams   []ParameterConfig   `yaml:"link_params"`    // Additional parameters for link operation
+}
+
+// LinkResourceConfig defines configuration for a linked resource
+type LinkResourceConfig struct {
+	Param      string `yaml:"param"`       // Parameter name in link operation
+	RetrieveOp string `yaml:"retrieve_op"` // Operation to retrieve the resource state
 }
 
 // CreateOperationConfig defines a custom create operation for nested resources

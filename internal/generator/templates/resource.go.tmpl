@@ -311,6 +311,43 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 		return
 	}
 	sourceMap := finalState
+	{{- else if .IsLink }}
+	// Link Plugin Create Logic
+	sourceUUID := data.{{ .Source.Param | title }}.ValueString()
+	linkPath := strings.Replace("{{ .APIPaths.Link }}", "{uuid}", sourceUUID, 1)
+
+	requestBody := map[string]interface{}{
+		"{{ .Target.Param }}": data.{{ .Target.Param | title }}.ValueString(),
+		{{- range .CreateFields }}
+		{{- if and (ne .Name $.Source.Param) (ne .Name $.Target.Param) }}
+		{{- if eq .Type "string" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueString(),
+		{{- else if eq .Type "integer" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueInt64(),
+		{{- else if eq .Type "boolean" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueBool(),
+		{{- else if eq .Type "number" }}
+		"{{ .Name }}": data.{{ .Name | title }}.ValueFloat64(),
+		{{- end }}
+		{{- end }}
+		{{- end }}
+	}
+
+	var result map[string]interface{}
+	err := r.client.Post(ctx, linkPath, requestBody, &result)
+	if err != nil {
+		resp.Diagnostics.AddError("Link Operation Failed", err.Error())
+		return
+	}
+	
+	// For Link resources, ID is composite of Source and Target UUIDs
+	data.UUID = types.StringValue(sourceUUID + "/" + data.{{ .Target.Param | title }}.ValueString())
+
+	// For Link resources, sourceMap is the Link result (often empty) or we might want to fetch Source?
+	// But usually Link op returns nothing or small info.
+	// MapResponseFields usually expects fields of the resource.
+	// We'll set sourceMap to result for now.
+	sourceMap := result
 	{{- else }}
 	// Prepare request body
 	requestBody := map[string]interface{}{
@@ -377,6 +414,8 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+
+
 func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data {{ .Name | title }}ResourceModel
 
@@ -389,6 +428,68 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 
 	// Call Waldur API to read resource
 	var result map[string]interface{}
+	
+	{{- if .IsLink }}
+	// For Link resources, we read the Source resource and check if Target is linked
+	parts := strings.Split(data.UUID.ValueString(), "/")
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid Link ID", "Expected source_uuid/target_uuid")
+		return
+	}
+	sourceUUID := parts[0]
+	targetUUID := parts[1]
+
+	sourcePath := strings.Replace("{{ .APIPaths.SourceRetrieve }}", "{uuid}", sourceUUID, 1)
+	err := r.client.GetByUUID(ctx, sourcePath, sourceUUID, &result)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read Source Resource", err.Error())
+		return
+	}
+	
+	// Check if target is present in the source resource
+	// The LinkCheckKey usually points to a list or a single object/string
+	if val, ok := result["{{ .LinkCheckKey }}"]; ok {
+		found := false
+		if strVal, ok := val.(string); ok {
+			// Single value link (e.g. 1-to-1)
+			// Check if it matches targetUUID or is a URL containing targetUUID
+			if strings.Contains(strVal, targetUUID) {
+				found = true
+			}
+		} else if listVal, ok := val.([]interface{}); ok {
+			// List of links (e.g. 1-to-many)
+			for _, item := range listVal {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					if uuid, ok := itemMap["uuid"].(string); ok && uuid == targetUUID {
+						found = true
+						break
+					}
+					if url, ok := itemMap["url"].(string); ok && strings.Contains(url, targetUUID) {
+						found = true
+						break
+					}
+				}
+			}
+		}
+		
+		if !found {
+			// Link not found, remove from state
+			resp.State.RemoveResource(ctx)
+			return
+		}
+	} else {
+		// Key not present
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	
+	// Should probably create a mock result map containing source and target UUIDs 
+	// to satisfy mapResponseFields if needed, but for now we just keep result which is Source
+	// We need to ensure we don't overwrite data.UUID with Source UUID
+	// So we delete "uuid" from result before mapping
+	delete(result, "uuid") 
+	
+	{{- else }}
 	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
 	
 	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
@@ -399,6 +500,7 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 		)
 		return
 	}
+	{{- end }}
 
 	// Update UUID from response
 	if uuid, ok := result["uuid"].(string); ok {
@@ -626,6 +728,22 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 			return
 		}
 	}
+	{{- else if .IsLink }}
+	// Link Plugin Delete (Unlink)
+	parts := strings.Split(data.UUID.ValueString(), "/")
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid Link ID", "Expected source_uuid/target_uuid")
+		return
+	}
+	sourceUUID := parts[0]
+	unlinkPath := strings.Replace("{{ .APIPaths.Unlink }}", "{uuid}", sourceUUID, 1)
+	
+	err := r.client.Post(ctx, unlinkPath, nil, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Unlink Failed", err.Error())
+		return
+	}
+	
 	{{- else }}
 	// Call Waldur API to delete resource
 	err := r.client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", data.UUID.ValueString())
@@ -640,7 +758,17 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 }
 
 func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	{{- if .CompositeKeys }}
+	{{- if .IsLink }}
+	// Import ID: source_uuid/target_uuid
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid Import ID", "Expected format: <{{ .Source.Param }}_uuid>/<{{ .Target.Param }}_uuid>")
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{ .Source.Param }}"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{ .Target.Param }}"), parts[1])...)
+	{{- else if .CompositeKeys }}
 	// Parse composite ID: key1/key2/...
 	parts := strings.Split(req.ID, "/")
 	if len(parts) != {{ len .CompositeKeys }} {

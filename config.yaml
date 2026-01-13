@@ -19,12 +19,12 @@ resources:
     base_operation_id: "marketplace_orders"
     skip_operations:
       - "partial_update"  # Orders cannot be updated after creation
-    
+
   - name: "marketplace_offering"
     base_operation_id: "marketplace_provider_offerings"
     skip_operations:
       - "partial_update"  # Provider offerings use specific update actions
-    
+
   - name: "marketplace_resource"
     base_operation_id: "marketplace_resources"
     skip_operations:
@@ -51,7 +51,7 @@ resources:
         operation: "openstack_tenants_push_security_groups"
         param: "security_groups"
         compare_key: "security_groups"
-      
+
   - name: "openstack_volume"
     base_operation_id: "openstack_volumes"
     plugin: order
@@ -65,7 +65,21 @@ resources:
         operation: "openstack_volumes_extend"
         param: "size"
         compare_key: "size"
-      
+
+  - name: "openstack_volume_attachment"
+    base_operation_id: "openstack_volumes"
+    link_op: "openstack_volumes_attach"
+    unlink_op: "openstack_volumes_detach"
+    link_check_key: "instance"
+    source:
+      param: "volume"
+      retrieve_op: "openstack_volumes_retrieve"
+    target:
+      param: "instance"
+    link_params:
+      - name: "device"
+        type: "string"
+
   - name: "openstack_instance"
     base_operation_id: "openstack_instances"
     plugin: order
@@ -101,7 +115,7 @@ resources:
       set_rules:
         operation: "openstack_security_groups_set_rules"
         param: "rules"
-      
+
   - name: "openstack_network"
     base_operation_id: "openstack_networks"
     create_operation:
@@ -112,14 +126,14 @@ resources:
       set_mtu:
         operation: "openstack_networks_set_mtu"
         param: "mtu"
-      
+
   - name: "openstack_server_group"
     base_operation_id: "openstack_server_groups"
     create_operation:
       operation_id: "openstack_tenants_create_server_group"
       path_params:
         uuid: "tenant"
-      
+
   - name: "openstack_subnet"
     base_operation_id: "openstack_subnets"
     create_operation:
@@ -132,7 +146,7 @@ resources:
     composite_keys:
       - "network"
       - "target_tenant"
-      
+
   - name: "openstack_floating_ip"
     base_operation_id: "openstack_floating_ips"
     skip_operations:
@@ -145,7 +159,7 @@ resources:
       update_description:
         operation: "openstack_floating_ips_update_description"
         param: "description"
-      
+
   - name: "openstack_port"
     base_operation_id: "openstack_ports"
     skip_operations:
@@ -161,7 +175,7 @@ data_sources:
   # Structure
   - name: "structure_project"
     base_operation_id: "projects"
-    
+
   - name: "structure_customer"
     base_operation_id: "customers"
 
@@ -172,40 +186,40 @@ data_sources:
   # Marketplace
   - name: "marketplace_offering"
     base_operation_id: "marketplace_public_offerings"
-    
+
   - name: "marketplace_order"
     base_operation_id: "marketplace_orders"
-    
+
   - name: "marketplace_resource"
     base_operation_id: "marketplace_resources"
 
   # OpenStack
   - name: "openstack_tenant"
     base_operation_id: "openstack_tenants"
-    
+
   - name: "openstack_volume"
     base_operation_id: "openstack_volumes"
-    
+
   - name: "openstack_instance"
     base_operation_id: "openstack_instances"
-    
+
   - name: "openstack_security_group"
     base_operation_id: "openstack_security_groups"
-    
+
   - name: "openstack_subnet"
     base_operation_id: "openstack_subnets"
-    
+
   - name: "openstack_network"
     base_operation_id: "openstack_networks"
-    
+
   - name: "openstack_flavor"
     base_operation_id: "openstack_flavors"
-    
+
   - name: "openstack_image"
     base_operation_id: "openstack_images"
-    
+
   - name: "openstack_volume_type"
     base_operation_id: "openstack_volume_types"
-    
+
   - name: "openstack_port"
     base_operation_id: "openstack_ports"

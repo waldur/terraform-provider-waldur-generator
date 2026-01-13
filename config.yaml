@@ -4,21 +4,27 @@ generator:
   provider_name: "waldur"
 
 resources:
+
   # Structure
+
   - name: "structure_project"
     base_operation_id: "projects"
+
   - name: "structure_customer"
     base_operation_id: "customers"
 
   # Marketplace
+
   - name: "marketplace_order"
     base_operation_id: "marketplace_orders"
     skip_operations:
       - "partial_update"  # Orders cannot be updated after creation
+    
   - name: "marketplace_offering"
     base_operation_id: "marketplace_provider_offerings"
     skip_operations:
       - "partial_update"  # Provider offerings use specific update actions
+    
   - name: "marketplace_resource"
     base_operation_id: "marketplace_resources"
     skip_operations:
@@ -33,7 +39,9 @@ resources:
         operation: "marketplace_resources_update_options"
         param: "options"
         compare_key: "options"
+
   # OpenStack - Order plugin resources
+
   - name: "openstack_vpc"
     base_operation_id: "openstack_tenants"
     plugin: order
@@ -43,6 +51,7 @@ resources:
         operation: "openstack_tenants_push_security_groups"
         param: "security_groups"
         compare_key: "security_groups"
+      
   - name: "openstack_volume"
     base_operation_id: "openstack_volumes"
     plugin: order
@@ -56,6 +65,7 @@ resources:
         operation: "openstack_volumes_extend"
         param: "size"
         compare_key: "size"
+      
   - name: "openstack_instance"
     base_operation_id: "openstack_instances"
     plugin: order
@@ -80,6 +90,7 @@ resources:
         compare_key: "floating_ips"
 
   # OpenStack - CRUD resources
+
   - name: "openstack_security_group"
     base_operation_id: "openstack_security_groups"
     create_operation:
@@ -90,6 +101,7 @@ resources:
       set_rules:
         operation: "openstack_security_groups_set_rules"
         param: "rules"
+      
   - name: "openstack_network"
     base_operation_id: "openstack_networks"
     create_operation:
@@ -100,18 +112,21 @@ resources:
       set_mtu:
         operation: "openstack_networks_set_mtu"
         param: "mtu"
+      
   - name: "openstack_server_group"
     base_operation_id: "openstack_server_groups"
     create_operation:
       operation_id: "openstack_tenants_create_server_group"
       path_params:
         uuid: "tenant"
+      
   - name: "openstack_subnet"
     base_operation_id: "openstack_subnets"
     create_operation:
       operation_id: "openstack_networks_create_subnet"
       path_params:
         uuid: "network"
+      
   - name: "openstack_floating_ip"
     base_operation_id: "openstack_floating_ips"
     skip_operations:
@@ -124,6 +139,7 @@ resources:
       update_description:
         operation: "openstack_floating_ips_update_description"
         param: "description"
+      
   - name: "openstack_port"
     base_operation_id: "openstack_ports"
     skip_operations:
@@ -136,89 +152,57 @@ resources:
         compare_key: "security_groups"
 
 data_sources:
+  # Filter params are now automatically inferred from OpenAPI query parameters
+
   # Structure
   - name: "structure_project"
     base_operation_id: "projects"
-    filter_params:
-      - "name"
-      - "customer_uuid"
+    
   - name: "structure_customer"
     base_operation_id: "customers"
-    filter_params:
-      - "name"
 
   # Core
   - name: "core_ssh_public_key"
     base_operation_id: "keys"
-    filter_params:
-      - "name"
 
   # Marketplace
   - name: "marketplace_offering"
     base_operation_id: "marketplace_public_offerings"
-    filter_params:
-      - "name"
-      - "project_uuid"
+    
   - name: "marketplace_order"
     base_operation_id: "marketplace_orders"
-    filter_params:
-      - "resource_name"
+    
   - name: "marketplace_resource"
     base_operation_id: "marketplace_resources"
-    filter_params:
-      - "name"
-      - "project_uuid"
 
   # OpenStack
   - name: "openstack_vpc"
     base_operation_id: "openstack_tenants"
-    filter_params:
-      - "name"
-      - "project_uuid"
-      - "customer_uuid"
+    
   - name: "openstack_volume"
     base_operation_id: "openstack_volumes"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_instance"
     base_operation_id: "openstack_instances"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_security_group"
     base_operation_id: "openstack_security_groups"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_subnet"
     base_operation_id: "openstack_subnets"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_network"
     base_operation_id: "openstack_networks"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_flavor"
     base_operation_id: "openstack_flavors"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_image"
     base_operation_id: "openstack_images"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_volume_type"
     base_operation_id: "openstack_volume_types"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
+    
   - name: "openstack_port"
     base_operation_id: "openstack_ports"
-    filter_params:
-      - "name"
-      - "tenant_uuid"
-      - "backend_id"
+

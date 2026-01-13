@@ -149,7 +149,6 @@ resources:
   - name: "openstack_port"
     base_operation_id: "openstack_ports"
     skip_operations:
-      - "create"          # OpenStack ports are created internally
       - "partial_update"  # Uses specific update actions
     update_actions:
       update_security_groups:

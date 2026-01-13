@@ -31,6 +31,7 @@ type Resource struct {
 	TerminationAttributes []ParameterConfig             `yaml:"termination_attributes"`
 	SkipOperations        []string                      `yaml:"skip_operations"`  // Operations to skip validation for
 	CreateOperation       *CreateOperationConfig        `yaml:"create_operation"` // Custom create operation (for nested resources)
+	CompositeKeys         []string                      `yaml:"composite_keys"`   // Fields that together form a unique identifier
 }
 
 // CreateOperationConfig defines a custom create operation for nested resources

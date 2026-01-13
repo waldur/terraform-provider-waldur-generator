@@ -348,10 +348,26 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 		return
 	}
 
+	{{- if .CompositeKeys }}
+	// Build composite ID from key fields
+	compositeID := ""
+	{{- range $i, $key := .CompositeKeys }}
+	{{- if $i }}
+	compositeID += "/"
+	{{- end }}
+	if v, ok := result["{{ $key }}"].(string); ok {
+		compositeID += v
+	} else if v, ok := result["{{ $key }}_uuid"].(string); ok {
+		compositeID += v
+	}
+	{{- end }}
+	data.UUID = types.StringValue(compositeID)
+	{{- else }}
 	// Extract UUID from response
 	if uuid, ok := result["uuid"].(string); ok {
 		data.UUID = types.StringValue(uuid)
 	}
+	{{- end }}
 
 	sourceMap := result
 	{{- end }}
@@ -624,5 +640,21 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 }
 
 func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("uuid"), req, resp)
+	{{- if .CompositeKeys }}
+	// Parse composite ID: key1/key2/...
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != {{ len .CompositeKeys }} {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Expected format: {{ range $i, $key := .CompositeKeys }}{{ if $i }}/{{ end }}<{{ $key }}>{{ end }}",
+		)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	{{- range $i, $key := .CompositeKeys }}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{ $key }}"), parts[{{ $i }}])...)
+	{{- end }}
+	{{- else }}
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	{{- end }}
 }

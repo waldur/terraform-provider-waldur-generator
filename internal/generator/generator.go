@@ -530,6 +530,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		"UpdateActions":         updateActions, // Use enriched UpdateAction slice with resolved paths
 		"TerminationAttributes": resource.TerminationAttributes,
 		"CreateOperation":       resource.CreateOperation, // Custom create operation config
+		"CompositeKeys":         resource.CompositeKeys,   // Fields forming composite key
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

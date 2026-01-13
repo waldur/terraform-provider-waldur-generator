@@ -126,6 +126,12 @@ resources:
       operation_id: "openstack_networks_create_subnet"
       path_params:
         uuid: "network"
+
+  - name: "openstack_network_rbac_policy"
+    base_operation_id: "openstack_network_rbac_policies"
+    composite_keys:
+      - "network"
+      - "target_tenant"
       
   - name: "openstack_floating_ip"
     base_operation_id: "openstack_floating_ips"
@@ -152,7 +158,6 @@ resources:
         compare_key: "security_groups"
 
 data_sources:
-  # Filter params are now automatically inferred from OpenAPI query parameters
 
   # Structure
   - name: "structure_project"
@@ -205,4 +210,3 @@ data_sources:
     
   - name: "openstack_port"
     base_operation_id: "openstack_ports"
-

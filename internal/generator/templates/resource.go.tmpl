@@ -632,6 +632,7 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 		return
 	}
 	sourceMap := result
+	{{- template "mapResponseFields" . }}
 	{{- else }}
 	// Prepare request body
 	requestBody := map[string]interface{}{}
@@ -671,8 +672,8 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	}
 
 	sourceMap := result
+	{{- template "mapPartialResponseFields" . }}
 	{{- end }}
-	{{- template "mapResponseFields" . }}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

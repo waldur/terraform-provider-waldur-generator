@@ -352,3 +352,165 @@ schema.SingleNestedAttribute{
     },
 {{- end }}
 {{- end }}
+{{- define "mapPartialResponseFields" }}
+	// Map partial response fields (only changed fields and state)
+	_ = sourceMap
+
+	// Always refresh State if present in model
+	{{- range .ModelFields }}
+	{{- if eq .Name "state" }}
+	if val, ok := sourceMap["state"]; ok && val != nil {
+		if str, ok := val.(string); ok {
+			data.State = types.StringValue(str)
+		}
+	}
+	{{- end }}
+	{{- end }}
+
+	{{- range .UpdateFields }}
+	if !data.{{ .Name | title }}.IsNull() {
+		if val, ok := sourceMap["{{ .Name }}"]; ok && val != nil {
+			{{- if eq .Type "string" }}
+			if str, ok := val.(string); ok {
+				data.{{ .Name | title }} = types.StringValue(str)
+			}
+			{{- else if eq .Type "integer" }}
+			if num, ok := val.(float64); ok {
+				data.{{ .Name | title }} = types.Int64Value(int64(num))
+			}
+			{{- else if eq .Type "boolean" }}
+			if b, ok := val.(bool); ok {
+				data.{{ .Name | title }} = types.BoolValue(b)
+			}
+			{{- else if eq .Type "number" }}
+			if num, ok := val.(float64); ok {
+				data.{{ .Name | title }} = types.Float64Value(num)
+			}
+			{{- else if eq .Type "array" }}
+			{{- if eq .ItemType "string" }}
+			if arr, ok := val.([]interface{}); ok {
+				items := make([]attr.Value, 0, len(arr))
+				for _, item := range arr {
+					if str, ok := item.(string); ok {
+						items = append(items, types.StringValue(str))
+					}
+				}
+				listVal, _ := types.ListValue(types.StringType, items)
+				data.{{ .Name | title }} = listVal
+			}
+			{{- else if eq .ItemType "object" }}
+			if arr, ok := val.([]interface{}); ok {
+				items := make([]attr.Value, 0, len(arr))
+				for _, item := range arr {
+					if objMap, ok := item.(map[string]interface{}); ok {
+						attrTypes := map[string]attr.Type{
+							{{- range .ItemSchema.Properties }}
+							"{{ .TFSDKName }}": {{ toAttrType . }},
+							{{- end }}
+						}
+						attrValues := map[string]attr.Value{
+							{{- range .ItemSchema.Properties }}
+							{{- if eq .Type "string" }}
+							"{{ .TFSDKName }}": func() attr.Value {
+								if v, ok := objMap["{{ .Name }}"].(string); ok {
+									return types.StringValue(v)
+								}
+								return types.StringNull()
+							}(),
+							{{- else if eq .Type "integer" }}
+							"{{ .TFSDKName }}": func() attr.Value {
+								if v, ok := objMap["{{ .Name }}"].(float64); ok {
+									return types.Int64Value(int64(v))
+								}
+								return types.Int64Null()
+							}(),
+							{{- else if eq .Type "boolean" }}
+							"{{ .TFSDKName }}": func() attr.Value {
+								if v, ok := objMap["{{ .Name }}"].(bool); ok {
+									return types.BoolValue(v)
+								}
+								return types.BoolNull()
+							}(),
+							{{- else if eq .Type "number" }}
+							"{{ .TFSDKName }}": func() attr.Value {
+								if v, ok := objMap["{{ .Name }}"].(float64); ok {
+									return types.Float64Value(v)
+								}
+								return types.Float64Null()
+							}(),
+							{{- else if eq .Type "object" }}
+							"{{ .TFSDKName }}": types.ObjectNull({{ toAttrType . }}.AttrTypes),
+							{{- else if eq .Type "array" }}
+							"{{ .TFSDKName }}": types.ListNull({{ toAttrType . }}.ElemType),
+							{{- else }}
+							"{{ .TFSDKName }}": types.StringNull(),
+							{{- end }}
+							{{- end }}
+						}
+						objVal, _ := types.ObjectValue(attrTypes, attrValues)
+						items = append(items, objVal)
+					}
+				}
+				listVal, _ := types.ListValue(types.ObjectType{AttrTypes: map[string]attr.Type{
+					{{- range .ItemSchema.Properties }}
+					"{{ .TFSDKName }}": {{ toAttrType . }},
+					{{- end }}
+				}}, items)
+				data.{{ .Name | title }} = listVal
+			}
+			{{- end }}
+			{{- else if eq .Type "object" }}
+			if objMap, ok := val.(map[string]interface{}); ok {
+				_ = objMap
+				attrTypes := map[string]attr.Type{
+					{{- range .Properties }}
+					"{{ .TFSDKName }}": {{ toAttrType . }},
+					{{- end }}
+				}
+				attrValues := map[string]attr.Value{
+					{{- range .Properties }}
+					{{- if eq .Type "string" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(string); ok {
+							return types.StringValue(v)
+						}
+						return types.StringNull()
+					}(),
+					{{- else if eq .Type "integer" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(float64); ok {
+							return types.Int64Value(int64(v))
+						}
+						return types.Int64Null()
+					}(),
+					{{- else if eq .Type "boolean" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(bool); ok {
+							return types.BoolValue(v)
+						}
+						return types.BoolNull()
+					}(),
+					{{- else if eq .Type "number" }}
+					"{{ .TFSDKName }}": func() attr.Value {
+						if v, ok := objMap["{{ .Name }}"].(float64); ok {
+							return types.Float64Value(v)
+						}
+						return types.Float64Null()
+					}(),
+					{{- else if eq .Type "object" }}
+					"{{ .TFSDKName }}": types.ObjectNull({{ toAttrType . }}.AttrTypes),
+					{{- else if eq .Type "array" }}
+					"{{ .TFSDKName }}": types.ListNull({{ toAttrType . }}.ElemType),
+					{{- else }}
+					"{{ .TFSDKName }}": types.StringNull(),
+					{{- end }}
+					{{- end }}
+				}
+				objVal, _ := types.ObjectValue(attrTypes, attrValues)
+				data.{{ .Name | title }} = objVal
+			}
+			{{- end }}
+		}
+	}
+	{{- end }}
+{{- end }}

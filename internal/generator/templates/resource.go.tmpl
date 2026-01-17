@@ -501,6 +501,49 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 	delete(result, "uuid") 
 	
 	{{- else }}
+	{{- if .CompositeKeys }}
+	// If UUID is unknown or contains slashes (composite key), try to look it up using composite keys
+	if data.UUID.IsNull() || data.UUID.IsUnknown() || strings.Contains(data.UUID.ValueString(), "/") {
+		filters := map[string]string{}
+		{{- range $key := .CompositeKeys }}
+		if !data.{{ $key | title }}.IsNull() {
+			if v := data.{{ $key | title }}.ValueString(); v != "" {
+				filters["{{ $key }}"] = v
+			}
+		}
+		{{- end }}
+
+		expectedCount := 0
+		{{- range .CompositeKeys }}
+		expectedCount++
+		{{- end }}
+
+		if len(filters) == expectedCount {
+			var listResult []map[string]interface{}
+			// Construct list path from Retrieve path by removing {uuid}/
+			listPath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}/", "", 1)
+			
+			err := r.client.ListWithFilter(ctx, listPath, filters, &listResult)
+			if err != nil {
+				resp.Diagnostics.AddError("Failed to lookup resource by composite keys", err.Error())
+				return
+			}
+			
+			if len(listResult) == 1 {
+				if uuid, ok := listResult[0]["uuid"].(string); ok {
+					data.UUID = types.StringValue(uuid)
+				}
+			} else if len(listResult) > 1 {
+				resp.Diagnostics.AddError("Ambiguous resource", fmt.Sprintf("Found %d resources matching composite keys", len(listResult)))
+				return
+			} else {
+				resp.Diagnostics.AddError("Resource not found", "No resource found matching composite keys")
+				return
+			}
+		}
+	}
+	{{- end }}
+
 	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
 	
 	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
@@ -629,8 +672,50 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	{{- end }}
 
 	// Fetch updated state
+	// Call Waldur API to read resource
 	var result map[string]interface{}
-	err := r.client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", data.UUID.ValueString(), &result)
+
+	{{- if .CompositeKeys }}
+	// If UUID is unknown, try to look it up using composite keys
+	if data.UUID.IsNull() || data.UUID.IsUnknown() {
+		filters := map[string]string{}
+		{{- range $key := .CompositeKeys }}
+		if !data.{{ $key | title }}.IsNull() {
+			if v := data.{{ $key | title }}.ValueString(); v != "" {
+				filters["{{ $key }}"] = v
+			}
+		}
+		{{- end }}
+
+		if len(filters) == {{ len .CompositeKeys }} {
+			var listResult []map[string]interface{}
+			// Construct list path from Retrieve path by removing {uuid}/
+			listPath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}/", "", 1)
+			
+			err := r.client.ListWithFilter(ctx, listPath, filters, &listResult)
+			if err != nil {
+				resp.Diagnostics.AddError("Failed to lookup resource by composite keys", err.Error())
+				return
+			}
+			
+			if len(listResult) == 1 {
+				if uuid, ok := listResult[0]["uuid"].(string); ok {
+					data.UUID = types.StringValue(uuid)
+				}
+			} else if len(listResult) > 1 {
+				resp.Diagnostics.AddError("Ambiguous resource", fmt.Sprintf("Found %d resources matching composite keys", len(listResult)))
+				return
+			} else {
+				resp.Diagnostics.AddError("Resource not found", "No resource found matching composite keys")
+				return
+			}
+		}
+	}
+	{{- end }}
+
+	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
+
+	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
 		return

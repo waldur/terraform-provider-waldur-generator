@@ -36,7 +36,7 @@
 		}
 		{{- else if eq .ItemType "object" }}
 		for _, elem := range data.{{ .Name | title }}.Elements() {
-			items = append(items, r.convertTFValue(elem))
+			items = append(items, ConvertTFValue(elem))
 		}
 		{{- end }}
 		attributes["{{ .Name }}"] = items
@@ -237,7 +237,7 @@
 		}
 		{{- else if eq $field.GoType "types.Object" }}
 		actionPayload{{ $action.Name | title }} := map[string]interface{}{
-			"{{ $action.Param }}": r.convertTFValue(data.{{ $action.Param | title }}),
+			"{{ $action.Param }}": ConvertTFValue(data.{{ $action.Param | title }}),
 		}
 		{{- else if eq $field.GoType "types.String" }}
 		actionPayload{{ $action.Name | title }} := map[string]interface{}{

@@ -61,6 +61,11 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate supporting files: %w", err)
 	}
 
+	// Generate shared utils
+	if err := g.generateSharedUtils(); err != nil {
+		return fmt.Errorf("failed to generate shared utils: %w", err)
+	}
+
 	// Generate E2E tests
 	if err := g.generateE2ETests(); err != nil {
 		return fmt.Errorf("failed to generate E2E tests: %w", err)

@@ -74,7 +74,7 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 	}
 }
 
-{{ template "convertTFValue" . }}
+
 
 func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.

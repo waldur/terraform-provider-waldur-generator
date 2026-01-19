@@ -16,11 +16,9 @@
 		{{- else if eq .Type "number" }}
 		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
 		{{- else if or (eq .Type "array") (eq .Type "object") }}
-		{{- if $.HasComplexTypes }}
-		if v := r.convertTFValue(data.{{ .Name | title }}); v != nil {
+		if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
 			requestBody["{{ .Name }}"] = v
 		}
-		{{- end }}
 		{{- end }}
 	}
 	{{- end }}
@@ -144,11 +142,9 @@
 		{{- else if eq .Type "number" }}
 		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
 		{{- else if or (eq .Type "array") (eq .Type "object") }}
-		{{- if $.HasComplexTypes }}
-		if v := r.convertTFValue(data.{{ .Name | title }}); v != nil {
+		if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
 			requestBody["{{ .Name }}"] = v
 		}
-		{{- end }}
 		{{- end }}
 	}
 	{{- end }}

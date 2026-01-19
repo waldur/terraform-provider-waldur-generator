@@ -288,7 +288,7 @@ schema.ListNestedAttribute{
     Optional: true,
     Computed: true,
     {{- end }}
-    MarkdownDescription: "{{ .Description | sanitize }}",
+    MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
 },
 {{- else if eq .GoType "types.Object" }}
 schema.SingleNestedAttribute{
@@ -305,7 +305,7 @@ schema.SingleNestedAttribute{
     Optional: true,
     Computed: true,
     {{- end }}
-    MarkdownDescription: "{{ .Description | sanitize }}",
+    MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
 },
 {{- end }}
 {{- end }}
@@ -326,7 +326,7 @@ schema.SingleNestedAttribute{
             Optional: true,
             Computed: true,
             {{- end }}
-            MarkdownDescription: "{{ .Description | sanitize }}",
+            MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
         },
     {{- end }}
 {{- else }}
@@ -345,7 +345,7 @@ schema.SingleNestedAttribute{
             stringplanmodifier.RequiresReplace(),
         },
         {{- end }}
-        MarkdownDescription: "{{ .Description | sanitize }}",
+        MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
         {{- if eq .Name "password" }}
         Sensitive: true,
         {{- end }}

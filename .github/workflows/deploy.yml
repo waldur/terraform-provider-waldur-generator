@@ -21,8 +21,10 @@ jobs:
       - name: Generate Provider
         run: go run main.go -config config.yaml
 
-      - name: Install goimports
-        run: go install golang.org/x/tools/cmd/goimports@latest
+      - name: Install dependencies
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
 
       - name: Format and Clean Imports
         working-directory: output
@@ -38,6 +40,12 @@ jobs:
           go test -v ./...
           echo "✅ Build and Test verification passed"
           rm -f terraform-provider-waldur
+
+      - name: Verify Documentation
+        working-directory: output
+        run: |
+          tfplugindocs generate --provider-name waldur
+          echo "✅ Documentation verification passed"
 
       - name: Checkout Target Repo
         uses: actions/checkout@v4

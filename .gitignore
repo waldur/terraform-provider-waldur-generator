@@ -1,5 +1,5 @@
 # Binaries
-terraform-waldur-provider-generator
+terraform-provider-waldur-generator
 *.exe
 *.dll
 *.so

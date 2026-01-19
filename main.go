@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/waldur/terraform-waldur-provider-generator/internal/config"
-	"github.com/waldur/terraform-waldur-provider-generator/internal/generator"
-	"github.com/waldur/terraform-waldur-provider-generator/internal/openapi"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
 )
 
 func main() {

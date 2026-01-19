@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/waldur/terraform-waldur-provider-generator/internal/config"
-	"github.com/waldur/terraform-waldur-provider-generator/internal/openapi"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
 )
 
 //go:embed templates/*

@@ -26,15 +26,15 @@ This generator reads a Waldur OpenAPI schema and a YAML configuration file to au
 ### Install from source
 
 ```bash
-git clone https://github.com/waldur/terraform-waldur-provider-generator.git
-cd terraform-waldur-provider-generator
+git clone https://github.com/waldur/terraform-provider-waldur-generator.git
+cd terraform-provider-waldur-generator
 go install
 ```
 
 Or install directly:
 
 ```bash
-go install github.com/waldur/terraform-waldur-provider-generator@latest
+go install github.com/waldur/terraform-provider-waldur-generator@latest
 ```
 
 ## Usage
@@ -74,7 +74,7 @@ For each `base_operation_id`, the generator automatically looks for these operat
 ### 2. Run the Generator
 
 ```bash
-./terraform-waldur-provider-generator -config config.yaml
+./terraform-provider-waldur-generator -config config.yaml
 ```
 
 Or if running from source:
@@ -301,7 +301,7 @@ The GitHub Actions workflow will automatically:
 ### Project Structure
 
 ```text
-terraform-waldur-provider-generator/
+terraform-provider-waldur-generator/
 ├── main.go                      # CLI entry point
 ├── internal/
 │   ├── config/                 # Configuration parsing
@@ -322,7 +322,7 @@ go test ./... -v
 ### Building
 
 ```bash
-go build -o terraform-waldur-provider-generator
+go build -o terraform-provider-waldur-generator
 ```
 
 ## Contributing

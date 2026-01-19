@@ -1,4 +1,4 @@
-module github.com/waldur/terraform-waldur-provider-generator
+module github.com/waldur/terraform-provider-waldur-generator
 
 go 1.25.4
 

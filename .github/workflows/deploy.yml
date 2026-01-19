@@ -35,7 +35,8 @@ jobs:
         run: |
           go mod tidy
           go build .
-          echo "✅ Build verification passed"
+          go test -v ./...
+          echo "✅ Build and Test verification passed"
           rm -f terraform-provider-waldur
 
       - name: Checkout Target Repo
@@ -51,8 +52,8 @@ jobs:
           # Assuming we want to overwrite everything in target with generated output
           find target_repo -maxdepth 1 -not -name '.git' -not -name 'target_repo' -not -name '.' -exec rm -rf {} +
           
-          # Copy generated files to target repo
-          cp -r output/. target_repo/
+          # Copy generated files to target repo using rsync with exclusions
+          rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' output/ target_repo/
           
           # Verification
           ls -la target_repo/

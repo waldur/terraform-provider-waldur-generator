@@ -1,9 +1,5 @@
 package generator
 
-import (
-	"strings"
-)
-
 // GetGoType maps OpenAPI types to Terraform Plugin Framework types
 func GetGoType(openAPIType string) string {
 	switch openAPIType {
@@ -36,17 +32,4 @@ func GetFilterParamType(goTypeStr string) string {
 	default:
 		return "String"
 	}
-}
-
-// ToTitle converts a string to title case for use in templates
-// Exported so it can be used across the package if needed, though originally in generator.go
-func ToTitle(s string) string {
-	// Convert snake_case to TitleCase
-	parts := strings.Split(s, "_")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[:1]) + part[1:]
-		}
-	}
-	return strings.Join(parts, "")
 }

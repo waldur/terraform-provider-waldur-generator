@@ -195,7 +195,7 @@ func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
 			Type:        "string",
 			Required:    true,
 			ReadOnly:    false,
-			Description: "Project UUID",
+			Description: "Project URL",
 			GoType:      "types.String",
 			TFSDKName:   "project",
 		})
@@ -212,7 +212,7 @@ func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
 			Type:        "string",
 			Required:    true,
 			ReadOnly:    false,
-			Description: "Offering UUID or URL",
+			Description: "Offering URL",
 			GoType:      "types.String",
 			TFSDKName:   "offering",
 		})

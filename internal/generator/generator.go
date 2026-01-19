@@ -691,7 +691,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 	sort.Slice(updateActions, func(i, j int) bool { return updateActions[i].Name < updateActions[j].Name })
 
-	// Check for complex types to conditionally include helper methods
+	// Check for complex types to conditionally include helper methods and attr import
 	hasComplexTypes := false
 
 	// 1. Check Create and Update fields
@@ -720,6 +720,21 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 				}
 			}
 			if hasComplexTypes {
+				break
+			}
+		}
+	}
+
+	// 3. Check ResponseFields for lists (which use attr.Value in mapResponseFields template)
+	if !hasComplexTypes {
+		for _, f := range responseFields {
+			// Lists of any kind use attr.Value in the template
+			if f.GoType == "types.List" || f.Type == "array" {
+				hasComplexTypes = true
+				break
+			}
+			if f.GoType == "types.Object" || f.Type == "object" {
+				hasComplexTypes = true
 				break
 			}
 		}
@@ -897,14 +912,28 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
 	sort.Slice(dedupedResponseFields, func(i, j int) bool { return dedupedResponseFields[i].Name < dedupedResponseFields[j].Name })
 
+	// Check for complex types in response fields to conditionally include imports
+	hasComplexTypes := false
+	for _, f := range dedupedResponseFields {
+		if f.GoType == "types.List" || f.Type == "array" {
+			hasComplexTypes = true
+			break
+		}
+		if f.GoType == "types.Object" || f.Type == "object" {
+			hasComplexTypes = true
+			break
+		}
+	}
+
 	data := map[string]interface{}{
-		"Name":           dataSource.Name,
-		"Operations":     ops,
-		"ListPath":       listPath,
-		"RetrievePath":   retrievePath,
-		"FilterParams":   filterParams,
-		"ResponseFields": dedupedResponseFields, // Use deduped version
-		"ModelFields":    dedupedResponseFields, // Map to ModelFields for shared template compatibility
+		"Name":            dataSource.Name,
+		"Operations":      ops,
+		"ListPath":        listPath,
+		"RetrievePath":    retrievePath,
+		"FilterParams":    filterParams,
+		"ResponseFields":  dedupedResponseFields, // Use deduped version
+		"ModelFields":     dedupedResponseFields, // Map to ModelFields for shared template compatibility
+		"HasComplexTypes": hasComplexTypes,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

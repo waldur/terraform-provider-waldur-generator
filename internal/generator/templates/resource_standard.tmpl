@@ -1,0 +1,207 @@
+{{- define "resource_create_standard" }}
+	// Prepare request body
+	requestBody := map[string]interface{}{}
+	{{- range .CreateFields }}
+	// Check if this field is a path param (skip adding to body)
+	{{- if not (isPathParam $.CreateOperation .Name) }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		{{- if eq .Type "string" }}
+		if v := data.{{ .Name | title }}.ValueString(); v != "" {
+			requestBody["{{ .Name }}"] = v
+		}
+		{{- else if eq .Type "integer" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+		{{- else if eq .Type "boolean" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+		{{- else if eq .Type "number" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
+		{{- else if or (eq .Type "array") (eq .Type "object") }}
+		{{- if $.HasComplexTypes }}
+		if v := r.convertTFValue(data.{{ .Name | title }}); v != nil {
+			requestBody["{{ .Name }}"] = v
+		}
+		{{- end }}
+		{{- end }}
+	}
+	{{- end }}
+	{{- end }}
+
+	// Call Waldur API to create resource
+	var result map[string]interface{}
+	
+	{{- if .CreateOperation }}
+	// Custom create operation via parent resource
+	createPath := "{{ .APIPaths.Create }}"
+	{{- range $key, $value := .CreateOperation.PathParams }}
+	createPath = strings.Replace(createPath, "{{"{"}}{{ $key }}{{"}"}}", data.{{ $value | title }}.ValueString(), 1)
+	{{- end }}
+	err := r.client.Post(ctx, createPath, requestBody, &result)
+	{{- else }}
+	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", requestBody, &result)
+	{{- end }}
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create {{ .Name | title }}",
+			"An error occurred while creating the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+
+	{{- if .CompositeKeys }}
+	// Build composite ID from key fields
+	compositeID := ""
+	{{- range $i, $key := .CompositeKeys }}
+	{{- if $i }}
+	compositeID += "/"
+	{{- end }}
+	if v, ok := result["{{ $key }}"].(string); ok {
+		compositeID += v
+	} else if v, ok := result["{{ $key }}_uuid"].(string); ok {
+		compositeID += v
+	}
+	{{- end }}
+	data.UUID = types.StringValue(compositeID)
+	{{- else }}
+	// Extract UUID from response
+	if uuid, ok := result["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
+	{{- end }}
+
+	sourceMap := result
+	{{- template "mapResponseFields" . }}
+{{- end }}
+
+{{- define "resource_read_standard" }}
+	{{- if .CompositeKeys }}
+	// If UUID is unknown or contains slashes (composite key), try to look it up using composite keys
+	if data.UUID.IsNull() || data.UUID.IsUnknown() || strings.Contains(data.UUID.ValueString(), "/") {
+		filters := map[string]string{}
+		{{- range $key := .CompositeKeys }}
+		if !data.{{ $key | title }}.IsNull() {
+			if v := data.{{ $key | title }}.ValueString(); v != "" {
+				filters["{{ $key }}"] = v
+			}
+		}
+		{{- end }}
+
+		expectedCount := 0
+		{{- range .CompositeKeys }}
+		expectedCount++
+		{{- end }}
+
+		if len(filters) == expectedCount {
+			var listResult []map[string]interface{}
+			// Construct list path from Retrieve path by removing {uuid}/
+			listPath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}/", "", 1)
+			
+			err := r.client.ListWithFilter(ctx, listPath, filters, &listResult)
+			if err != nil {
+				resp.Diagnostics.AddError("Failed to lookup resource by composite keys", err.Error())
+				return
+			}
+			
+			if len(listResult) == 1 {
+				if uuid, ok := listResult[0]["uuid"].(string); ok {
+					data.UUID = types.StringValue(uuid)
+				}
+			} else if len(listResult) > 1 {
+				resp.Diagnostics.AddError("Ambiguous resource", fmt.Sprintf("Found %d resources matching composite keys", len(listResult)))
+				return
+			} else {
+				resp.Diagnostics.AddError("Resource not found", "No resource found matching composite keys")
+				return
+			}
+		}
+	}
+	{{- end }}
+
+	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
+	
+	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read {{ .Name | title }}",
+			"An error occurred while reading the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+{{- end }}
+
+{{- define "resource_update_standard" }}
+	// Prepare request body
+	requestBody := map[string]interface{}{}
+	{{- range .UpdateFields }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		{{- if eq .Type "string" }}
+		if v := data.{{ .Name | title }}.ValueString(); v != "" {
+			requestBody["{{ .Name }}"] = v
+		}
+		{{- else if eq .Type "integer" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+		{{- else if eq .Type "boolean" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+		{{- else if eq .Type "number" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
+		{{- else if or (eq .Type "array") (eq .Type "object") }}
+		{{- if $.HasComplexTypes }}
+		if v := r.convertTFValue(data.{{ .Name | title }}); v != nil {
+			requestBody["{{ .Name }}"] = v
+		}
+		{{- end }}
+		{{- end }}
+	}
+	{{- end }}
+
+	// Call Waldur API to update resource
+	var result map[string]interface{}
+	
+	err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), requestBody, &result)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Update {{ .Name | title }}",
+			"An error occurred while updating the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+
+	// Update UUID from response
+	if uuid, ok := result["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
+
+	sourceMap := result
+	{{- template "mapResponseFields" . }}
+{{- end }}
+
+{{- define "resource_delete_standard" }}
+	// Call Waldur API to delete resource
+	err := r.client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", data.UUID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Delete {{ .Name | title }}",
+			"An error occurred while deleting the {{ .Name }}: "+err.Error(),
+		)
+		return
+	}
+{{- end }}
+
+{{- define "resource_import_standard" }}
+	{{- if .CompositeKeys }}
+	// Parse composite ID: key1/key2/...
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != {{ len .CompositeKeys }} {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Expected format: {{ range $i, $key := .CompositeKeys }}{{ if $i }}/{{ end }}<{{ $key }}>{{ end }}",
+		)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	{{- range $i, $key := .CompositeKeys }}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{ $key }}"), parts[{{ $i }}])...)
+	{{- end }}
+	{{- else }}
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	{{- end }}
+{{- end }}

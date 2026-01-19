@@ -13,7 +13,7 @@ import (
 
 // generateResource generates a resource file
 func (g *Generator) generateResource(resource *config.Resource) error {
-	tmpl, err := template.New("resource.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/resource.go.tmpl")
+	tmpl, err := template.New("resource.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl", "templates/resource_order.tmpl", "templates/resource_link.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to parse resource template: %w", err)
 	}

@@ -7,7 +7,7 @@ require (
 	github.com/hashicorp/terraform-plugin-framework v1.17.0
 	github.com/hashicorp/terraform-plugin-go v0.29.0
 	github.com/hashicorp/terraform-plugin-testing v1.14.0
-	github.com/waldur/terraform-waldur-provider v0.0.0-00010101000000-000000000000
+	github.com/waldur/terraform-provider-waldur v0.0.0-00010101000000-000000000000
 	gopkg.in/dnaeon/go-vcr.v3 v3.2.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -75,4 +75,4 @@ require (
 	google.golang.org/protobuf v1.36.9 // indirect
 )
 
-replace github.com/waldur/terraform-waldur-provider => ./output
+replace github.com/waldur/terraform-provider-waldur => ./output

@@ -114,7 +114,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	// Set defaults
 	if config.Generator.OutputDir == "" {
-		config.Generator.OutputDir = "./output/terraform-waldur-provider"
+		config.Generator.OutputDir = "./output/terraform-provider-waldur"
 	}
 
 	return &config, nil

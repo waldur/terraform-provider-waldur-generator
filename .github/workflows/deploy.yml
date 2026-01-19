@@ -36,6 +36,7 @@ jobs:
           go mod tidy
           go build .
           echo "✅ Build verification passed"
+          rm -f terraform-provider-waldur
 
       - name: Checkout Target Repo
         uses: actions/checkout@v4

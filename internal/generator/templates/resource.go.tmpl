@@ -95,25 +95,36 @@ func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resourc
 }
 
 func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data {{ .Name | title }}ResourceModel
-
-	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	{{- if .IsOrder }}
-	{{ template "resource_create_order" . }}
-	{{- else if .IsLink }}
-	{{ template "resource_create_link" . }}
-	{{- else }}
-	{{ template "resource_create_standard" . }}
-	{{- end }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
 
-	// Save data into Terraform state
+	{{ template "resource_create_order" . }}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	{{- else if .IsLink }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	{{ template "resource_create_link" . }}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	{{- else }}
+	{{- if or .APIPaths.Create .CreateOperation }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	{{ template "resource_create_standard" . }}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	{{- else }}
+	resp.Diagnostics.AddError("Creation Not Supported", "This resource cannot be created via the API.")
+	return
+	{{- end }}
+	{{- end }}
 }
 
 func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -148,51 +159,66 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 }
 
 func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	{{- if .IsOrder }}
 	var data {{ .Name | title }}ResourceModel
 	var state {{ .Name | title }}ResourceModel
-
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	
-	// Read current state to get the UUID (which is computed and not in plan)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() { return }
 
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	
-	// Use UUID from state
 	data.UUID = state.UUID
 
-	{{- if .IsOrder }}
 	{{ template "resource_update_order" . }}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	{{- else if .IsLink }}
 	// Link resources typically do not support update, as they are bindings.
-	// If update logic is needed, implement it here or in resource_link.tmpl
+	resp.Diagnostics.AddError("Update Not Supported", "Link resources cannot be updated.")
+	return
 	{{- else }}
-	{{ template "resource_update_standard" . }}
-	{{- end }}
+	{{- if .APIPaths.Update }}
+	var data {{ .Name | title }}ResourceModel
+	var state {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() { return }
 
-	// Save updated data into Terraform state
+	data.UUID = state.UUID
+
+	{{ template "resource_update_standard" . }}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	{{- else }}
+	resp.Diagnostics.AddError("Update Not Supported", "This resource cannot be updated via the API.")
+	return
+	{{- end }}
+	{{- end }}
 }
 
 func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data {{ .Name | title }}ResourceModel
-
-	// Read Terraform prior state data into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	{{- if .IsOrder }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
 	{{ template "resource_delete_order" . }}
 	{{- else if .IsLink }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
 	{{ template "resource_delete_link" . }}
 	{{- else }}
+	{{- if .APIPaths.Delete }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
 	{{ template "resource_delete_standard" . }}
+	{{- else }}
+	resp.Diagnostics.AddError("Deletion Not Supported", "This resource cannot be deleted via the API.")
+	return
+	{{- end }}
 	{{- end }}
 }
 

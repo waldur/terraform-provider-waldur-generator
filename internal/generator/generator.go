@@ -1051,7 +1051,7 @@ func (g *Generator) generateMain() error {
 
 // generateGoMod creates the go.mod file for the generated provider
 func (g *Generator) generateGoMod() error {
-	content := fmt.Sprintf(`module github.com/waldur/terraform-%s-provider
+	content := fmt.Sprintf(`module github.com/waldur/terraform-provider-%s
 
 go 1.24
 

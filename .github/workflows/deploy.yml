@@ -1,0 +1,57 @@
+name: Generate and Push Provider
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Generator Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Generate Provider
+        run: go run main.go -config config.yaml
+
+      - name: Checkout Target Repo
+        uses: actions/checkout@v4
+        with:
+          repository: waldur/terraform-provider-waldur
+          path: target_repo
+          token: ${{ secrets.WALDUR_PROVIDER_PUSH_TOKEN }}
+
+      - name: Sync Files
+        run: |
+          # Clean target repo but keep .git and .github (if we want to preserve target workflows)
+          # Assuming we want to overwrite everything in target with generated output
+          find target_repo -maxdepth 1 -not -name '.git' -not -name 'target_repo' -not -name '.' -exec rm -rf {} +
+          
+          # Copy generated files to target repo
+          cp -r output/. target_repo/
+          
+          # Verification
+          ls -la target_repo/
+
+      - name: Commit and Push
+        working-directory: target_repo
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add .
+          
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git commit -m "Update generated provider code"
+          git push

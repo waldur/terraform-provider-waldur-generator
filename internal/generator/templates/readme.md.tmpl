@@ -1,0 +1,62 @@
+# Terraform Provider {{ .ProviderName | title }}
+
+A Terraform provider for managing resources via the [Waldur](https://waldur.com/) API.
+
+## Requirements
+
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+- [Go](https://golang.org/doc/install) >= 1.24 (to build the provider plugin)
+
+## Installation
+
+### From Terraform Registry
+
+```hcl
+terraform {
+  required_providers {
+    {{ .ProviderName }} = {
+      source = "waldur/{{ .ProviderName }}"
+    }
+  }
+}
+```
+
+## Provider Configuration
+
+```hcl
+provider "{{ .ProviderName }}" {
+  endpoint = "https://your-waldur-instance.com/api/"
+  token    = "your-api-token"
+}
+```
+
+| Argument | Description | Required |
+|----------|-------------|----------|
+| `endpoint` | The Waldur API endpoint URL | Yes |
+| `token` | API authentication token | Yes |
+
+## Resources
+
+| Resource | Description |
+|----------|-------------|
+{{- range .Resources }}
+| `{{ $.ProviderName }}_{{ .Name }}` | Manages a {{ .Name | displayName }} |
+{{- end }}
+
+## Data Sources
+
+| Data Source | Description |
+|-------------|-------------|
+{{- range .DataSources }}
+| `{{ $.ProviderName }}_{{ .Name }}` | Retrieves {{ .Name | displayName }} data |
+{{- end }}
+
+## Documentation
+
+For detailed documentation on each resource and data source, please refer to the
+[Terraform Registry documentation](https://registry.terraform.io/providers/waldur/{{ .ProviderName }}/latest/docs).
+
+## Links
+
+- [Waldur](https://waldur.com/)
+- [Terraform Registry](https://registry.terraform.io/)

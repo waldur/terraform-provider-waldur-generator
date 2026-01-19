@@ -941,6 +941,16 @@ func (g *Generator) generateSupportingFiles() error {
 		return err
 	}
 
+	// Generate README.md
+	if err := g.generateReadme(); err != nil {
+		return err
+	}
+
+	// Generate LICENSE
+	if err := g.generateLicense(); err != nil {
+		return err
+	}
+
 	// Generate GitHub Actions workflow
 	if err := g.generateGitHubWorkflow(); err != nil {
 		return err
@@ -1058,6 +1068,39 @@ func (g *Generator) generateRegistryManifest() error {
 `
 	path := filepath.Join(g.config.Generator.OutputDir, "terraform-registry-manifest.json")
 	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// generateReadme creates the README.md file for the generated provider
+func (g *Generator) generateReadme() error {
+	tmpl, err := template.New("readme.md.tmpl").Funcs(g.getFuncMap()).ParseFS(templates, "templates/readme.md.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse readme template: %w", err)
+	}
+
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "README.md")
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data := map[string]interface{}{
+		"ProviderName": g.config.Generator.ProviderName,
+		"Resources":    g.config.Resources,
+		"DataSources":  g.config.DataSources,
+	}
+
+	return tmpl.Execute(f, data)
+}
+
+// generateLicense copies the LICENSE file from root to output
+func (g *Generator) generateLicense() error {
+	content, err := os.ReadFile("LICENSE")
+	if err != nil {
+		return fmt.Errorf("failed to read LICENSE file: %w", err)
+	}
+	path := filepath.Join(g.config.Generator.OutputDir, "LICENSE")
+	return os.WriteFile(path, content, 0644)
 }
 
 // generateGitHubWorkflow creates the GitHub Actions release workflow

@@ -101,6 +101,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 					attrTypes := map[string]attr.Type{
 						{{- range .ItemSchema.Properties }}
 						"{{ .TFSDKName }}": {{ toAttrType . }},
+
 						{{- end }}
 					}
 					attrValues := map[string]attr.Value{
@@ -406,6 +407,7 @@ schema.SingleNestedAttribute{
 						attrTypes := map[string]attr.Type{
 							{{- range .ItemSchema.Properties }}
 							"{{ .TFSDKName }}": {{ toAttrType . }},
+
 							{{- end }}
 						}
 						attrValues := map[string]attr.Value{

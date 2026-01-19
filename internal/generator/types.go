@@ -33,3 +33,20 @@ func GetFilterParamType(goTypeStr string) string {
 		return "String"
 	}
 }
+
+// FilterParam describes a query parameter for filtering
+type FilterParam struct {
+	Name        string
+	TFSDKName   string
+	Type        string // String, Int64, Bool, Float64
+	Description string
+}
+
+// UpdateAction represents an enriched update action with resolved API path
+type UpdateAction struct {
+	Name       string // Action name (e.g., "update_limits")
+	Operation  string // OpenAPI operation ID
+	Param      string // Parameter name for payload
+	CompareKey string // Field to compare for changes
+	Path       string // Resolved API path from OpenAPI
+}

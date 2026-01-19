@@ -3,9 +3,9 @@ package datasources
 import (
 	"context"
 	"fmt"
-	{{ if .HasComplexTypes }}"strings"{{ end }}
+	"strings"
 
-	{{ if .HasComplexTypes }}"github.com/hashicorp/terraform-plugin-framework/attr"{{ end }}
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"

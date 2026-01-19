@@ -21,6 +21,13 @@ jobs:
       - name: Generate Provider
         run: go run main.go -config config.yaml
 
+      - name: Verify Build
+        working-directory: output
+        run: |
+          go mod tidy
+          go build .
+          echo "✅ Build verification passed"
+
       - name: Checkout Target Repo
         uses: actions/checkout@v4
         with:

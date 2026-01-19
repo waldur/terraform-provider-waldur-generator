@@ -355,6 +355,8 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 	// Prepare request body
 	requestBody := map[string]interface{}{}
 	{{- range .CreateFields }}
+	// Check if this field is a path param (skip adding to body)
+	{{- if not (isPathParam $.CreateOperation .Name) }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
 		{{- if eq .Type "string" }}
 		if v := data.{{ .Name | title }}.ValueString(); v != "" {
@@ -374,6 +376,7 @@ func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.C
 		{{- end }}
 		{{- end }}
 	}
+	{{- end }}
 	{{- end }}
 
 	// Call Waldur API to create resource

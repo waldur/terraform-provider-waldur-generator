@@ -298,6 +298,17 @@ func (g *Generator) getFuncMap() template.FuncMap {
 		"replace": func(s, old, new string) string {
 			return strings.ReplaceAll(s, old, new)
 		},
+		"isPathParam": func(op *config.CreateOperationConfig, fieldName string) bool {
+			if op == nil {
+				return false
+			}
+			for _, val := range op.PathParams {
+				if val == fieldName {
+					return true
+				}
+			}
+			return false
+		},
 	}
 }
 
@@ -600,6 +611,31 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 			}
 		}
 
+		// Inject Path Params for Custom Create Operation as strict Input Fields
+		if resource.CreateOperation != nil && len(resource.CreateOperation.PathParams) > 0 {
+			for _, paramName := range resource.CreateOperation.PathParams {
+				// Check if already exists in createFields
+				found := false
+				for _, f := range createFields {
+					if f.Name == paramName {
+						found = true
+						break
+					}
+				}
+				if !found {
+					createFields = append(createFields, FieldInfo{
+						Name:        paramName,
+						Type:        "string",
+						Description: "Required path parameter for resource creation",
+						GoType:      "types.String",
+						TFSDKName:   ToSnakeCase(paramName),
+						Required:    true,
+						ReadOnly:    false,
+					})
+				}
+			}
+		}
+
 		// Extract Update fields
 		if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
 			if fields, err := ExtractFields(updateSchema); err == nil {
@@ -665,6 +701,28 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 			}
 		} else {
 			modelFields = allFields
+		}
+	}
+
+	// Enforce Required/Not-ReadOnly for Path Params in ModelFields (for Nested Creation)
+	if resource.CreateOperation != nil && len(resource.CreateOperation.PathParams) > 0 {
+		pathParams := make(map[string]bool)
+		for _, v := range resource.CreateOperation.PathParams {
+			pathParams[v] = true
+		}
+
+		for i, f := range modelFields {
+			if pathParams[f.Name] {
+				modelFields[i].Required = true
+				modelFields[i].ReadOnly = false
+				// Also update createFields to match, so validation passes
+				for j, cf := range createFields {
+					if cf.Name == f.Name {
+						createFields[j].Required = true
+						createFields[j].ReadOnly = false
+					}
+				}
+			}
 		}
 	}
 

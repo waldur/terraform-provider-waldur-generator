@@ -25,6 +25,7 @@ Even if both repositories are in the same organization, the default `GITHUB_TOKE
 9. **Permissions**:
     * Click on **Repository permissions**.
     * Find **Contents** and change it to **Read and Write**.
+    * Find **Actions** (or logical equivalent like "Workflows") and change it to **Read and Write** (Required to push `.github/workflows/release.yml`).
     * (Optional) If correct metadata is needed, you might also want **Metadata** (usually Read-only by default).
 10. Click **Generate token**.
 11. **Copy the token immediately**. You won't be able to see it again.

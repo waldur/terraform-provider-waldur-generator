@@ -172,7 +172,6 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	{{- else if .IsLink }}
 	// Link resources typically do not support update, as they are bindings.
 	resp.Diagnostics.AddError("Update Not Supported", "Link resources cannot be updated.")
-	return
 	{{- else }}
 	{{- if .APIPaths.Update }}
 	var data {{ .Name | title }}ResourceModel
@@ -188,7 +187,6 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	{{- else }}
 	resp.Diagnostics.AddError("Update Not Supported", "This resource cannot be updated via the API.")
-	return
 	{{- end }}
 	{{- end }}
 }

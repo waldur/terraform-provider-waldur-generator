@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
@@ -27,14 +28,15 @@ func (g *Generator) generateActions(resource *config.Resource) error {
 		}
 
 		// Prepare data for template
+		resourceName := strings.ReplaceAll(resource.Name, "_", " ")
 		data := map[string]interface{}{
 			"ResourceName":    resource.Name,
 			"ActionName":      actionName,
 			"OperationID":     operationID,
 			"BaseOperationID": resource.BaseOperationID,
-			"Description":     fmt.Sprintf("Perform %s action on %s", actionName, resource.Name),
+			"Description":     fmt.Sprintf("Perform %s action on %s", actionName, resourceName),
 			"IdentifierParam": "uuid", // Default identifier
-			"IdentifierDesc":  fmt.Sprintf("The UUID of the %s", resource.Name),
+			"IdentifierDesc":  fmt.Sprintf("The UUID of the %s", resourceName),
 			"ProviderName":    g.config.Generator.ProviderName,
 			"Path":            path,
 			"Method":          method,

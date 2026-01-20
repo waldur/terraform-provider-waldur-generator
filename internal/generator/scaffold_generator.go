@@ -96,6 +96,11 @@ func (g *Generator) generateSupportingFiles() error {
 		return err
 	}
 
+	// Generate examples
+	if err := g.generateExamples(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -309,4 +314,35 @@ func (g *Generator) generateFixtures() error {
 		}
 	}
 	return nil
+}
+
+// generateExamples generates example files from templates
+func (g *Generator) generateExamples() error {
+	// Provider example
+	tmplPath := "templates/examples/provider/provider.tf.tmpl"
+	tmpl, err := template.New("provider.tf.tmpl").Funcs(GetFuncMap()).ParseFS(templates, tmplPath)
+	if err != nil {
+		// If template doesn't exist, skip it or fail.
+		// Since we just added it, it should exist.
+		// However, handle error gracefully if older templates missing
+		return fmt.Errorf("failed to parse provider example template: %w", err)
+	}
+
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "examples", "provider")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", outputDir, err)
+	}
+
+	outputPath := filepath.Join(outputDir, "provider.tf")
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data := map[string]interface{}{
+		"ProviderName": g.config.Generator.ProviderName,
+	}
+
+	return tmpl.Execute(f, data)
 }

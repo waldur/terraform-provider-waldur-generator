@@ -4,6 +4,21 @@
 	requestBody := map[string]interface{}{}
 	{{- range .CreateFields }}
 	{{- if not (isPathParam $.CreateOperation .Name) }}
+	{{- if .Required }}
+		{{- if eq .Type "string" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+		{{- else if eq .Type "integer" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+		{{- else if eq .Type "boolean" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+		{{- else if eq .Type "number" }}
+		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
+		{{- else if or (eq .Type "array") (eq .Type "object") }}
+		if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
+			requestBody["{{ .Name }}"] = v
+		}
+		{{- end }}
+	{{- else }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
 		{{- if eq .Type "string" }}
 		if v := data.{{ .Name | title }}.ValueString(); v != "" {
@@ -21,6 +36,7 @@
 		}
 		{{- end }}
 	}
+	{{- end }}
 	{{- end }}
 	{{- end }}
 

@@ -3,6 +3,37 @@
 	attributes := map[string]interface{}{}
 	{{- range .CreateFields }}
 	{{- if and (ne .Name "project") (ne .Name "offering") }}
+	{{- if .Required }}
+		{{- if eq .Type "string" }}
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+		{{- else if eq .Type "integer" }}
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+		{{- else if eq .Type "boolean" }}
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+		{{- else if eq .Type "number" }}
+		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
+		{{- else if eq .Type "array" }}
+		items := make([]interface{}, 0)
+		{{- if eq .ItemType "string" }}
+		for _, elem := range data.{{ .Name | title }}.Elements() {
+			if strVal, ok := elem.(types.String); ok {
+				items = append(items, strVal.ValueString())
+			}
+		}
+		{{- else if eq .ItemType "integer" }}
+		for _, elem := range data.{{ .Name | title }}.Elements() {
+			if intVal, ok := elem.(types.Int64); ok {
+				items = append(items, intVal.ValueInt64())
+			}
+		}
+		{{- else if eq .ItemType "object" }}
+		for _, elem := range data.{{ .Name | title }}.Elements() {
+			items = append(items, ConvertTFValue(elem))
+		}
+		{{- end }}
+		attributes["{{ .Name }}"] = items
+		{{- end }}
+	{{- else }}
 	{{- if eq .Type "string" }}
 	if !data.{{ .Name | title }}.IsNull() {
 		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
@@ -44,10 +75,11 @@
 	{{- end }}
 	{{- end }}
 	{{- end }}
+	{{- end }}
 
 	payload := map[string]interface{}{
 		"project":    data.Project.ValueString(),
-		"offering":   data.Offering.ValueString(), // Assuming offering is passed as URL or UUID handled by API
+		"offering":   data.Offering.ValueString(),
 		"attributes": attributes,
 	}
 

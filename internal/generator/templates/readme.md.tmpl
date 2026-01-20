@@ -43,6 +43,17 @@ provider "{{ .ProviderName }}" {
 | `{{ $.ProviderName }}_{{ .Name }}` | Manages a {{ .Name | displayName }} |
 {{- end }}
 
+## Actions
+
+| Action | Resource | Description |
+|--------|----------|-------------|
+{{- range .Resources }}
+{{- $resName := .Name }}
+{{- range .Actions }}
+| `{{ $.ProviderName }}_{{ $resName }}_{{ . }}` | `{{ $.ProviderName }}_{{ $resName }}` | {{ . | title }} action |
+{{- end }}
+{{- end }}
+
 ## Data Sources
 
 | Data Source | Description |

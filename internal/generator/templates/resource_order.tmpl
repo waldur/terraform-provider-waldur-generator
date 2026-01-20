@@ -138,8 +138,7 @@
 						err = r.client.GetByUUID(ctx, retrievePath, pluginUUID, &pluginRes)
 						if err == nil {
 							tflog.Warn(ctx, "Successfully fetched plugin resource")
-							sourceMap := pluginRes
-							{{- template "mapResponseFields" . }}
+							r.updateFromValue(ctx, &data, pluginRes)
 						} else {
 							tflog.Warn(ctx, "Failed to fetch plugin resource: " + err.Error())
 						}
@@ -208,8 +207,7 @@
 		resp.Diagnostics.AddError("Failed to Read Resource", err.Error())
 		return
 	}
-	sourceMap := finalState
-	{{- template "mapResponseFields" . }}
+	r.updateFromValue(ctx, &data, finalState)
 {{- end }}
 
 {{- define "resource_update_order" }}
@@ -309,8 +307,7 @@
 		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
 		return
 	}
-	sourceMap := result
-	{{- template "mapResponseFields" . }}
+	r.updateFromValue(ctx, &data, result)
 {{- end }}
 
 {{- define "resource_delete_order" }}

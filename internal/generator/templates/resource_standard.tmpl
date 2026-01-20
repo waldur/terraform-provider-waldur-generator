@@ -89,8 +89,7 @@
 	}
 	{{- end }}
 
-	sourceMap := result
-	{{- template "mapResponseFields" . }}
+	r.updateFromValue(ctx, &data, result)
 
 {{- end }}
 
@@ -192,8 +191,7 @@
 		data.UUID = types.StringValue(uuid)
 	}
 
-	sourceMap := result
-	{{- template "mapResponseFields" . }}
+	r.updateFromValue(ctx, &data, result)
 {{- end }}
 
 {{- define "resource_delete_standard" }}

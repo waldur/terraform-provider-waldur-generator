@@ -150,8 +150,11 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 		data.UUID = types.StringValue(uuid)
 	}
 
-	sourceMap := result
-{{- template "mapResponseFields" . }}
+	if uuid, ok := result["uuid"].(string); ok {
+		data.UUID = types.StringValue(uuid)
+	}
+
+	r.updateFromValue(ctx, &data, result)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -216,7 +219,6 @@ func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.D
 	{{ template "resource_delete_standard" . }}
 	{{- else }}
 	resp.Diagnostics.AddError("Deletion Not Supported", "This resource cannot be deleted via the API.")
-	return
 	{{- end }}
 	{{- end }}
 }
@@ -227,4 +229,8 @@ func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resou
 	{{- else }}
 	{{ template "resource_import_standard" . }}
 	{{- end }}
+}
+
+func (r *{{ .Name | title }}Resource) updateFromValue(ctx context.Context, data *{{ .Name | title }}ResourceModel, sourceMap map[string]interface{}) {
+	{{- template "mapResponseFields" . }}
 }

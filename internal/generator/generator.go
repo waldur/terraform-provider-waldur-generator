@@ -49,6 +49,10 @@ func (g *Generator) Generate() error {
 			if err := g.generateResource(&resource); err != nil {
 				return fmt.Errorf("failed to generate resource %s: %w", resource.Name, err)
 			}
+			if err := g.generateListResource(&resource); err != nil {
+				// Log warning but don't fail, as some resources might not have list operations
+				fmt.Printf("Warning: failed to generate list resource %s: %s\n", resource.Name, err)
+			}
 		}
 
 		// Generate actions if defined

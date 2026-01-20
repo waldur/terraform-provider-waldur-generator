@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -19,6 +20,7 @@ import (
 // Ensure {{ .ProviderName }}Provider satisfies various provider interfaces.
 var _ provider.Provider = &{{ .ProviderName }}Provider{}
 var _ provider.ProviderWithActions = &{{ .ProviderName }}Provider{}
+var _ provider.ProviderWithListResources = &{{ .ProviderName }}Provider{}
 
 // {{ .ProviderName }}Provider defines the provider implementation.
 type {{ .ProviderName }}Provider struct {
@@ -107,6 +109,14 @@ func (p *{{ .ProviderName }}Provider) Actions(ctx context.Context) []func() acti
 			{{- range .Actions }}
 		actions.New{{ $resName | title }}{{ . | title }}Action,
 			{{- end }}
+		{{- end }}
+	}
+}
+
+func (p *{{ .ProviderName }}Provider) ListResources(ctx context.Context) []func() list.ListResource {
+	return []func() list.ListResource{
+		{{- range .Resources }}
+		resources.New{{ .Name | title }}List,
 		{{- end }}
 	}
 }

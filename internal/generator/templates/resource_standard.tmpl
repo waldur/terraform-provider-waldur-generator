@@ -3,7 +3,6 @@
 	// Prepare request body
 	requestBody := map[string]interface{}{}
 	{{- range .CreateFields }}
-	// Check if this field is a path param (skip adding to body)
 	{{- if not (isPathParam $.CreateOperation .Name) }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
 		{{- if eq .Type "string" }}
@@ -139,6 +138,7 @@
 	// Prepare request body
 	requestBody := map[string]interface{}{}
 	{{- range .UpdateFields }}
+	{{- if not (isPathParam $.UpdateOperation .Name) }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
 		{{- if eq .Type "string" }}
 		if v := data.{{ .Name | title }}.ValueString(); v != "" {
@@ -156,6 +156,7 @@
 		}
 		{{- end }}
 	}
+	{{- end }}
 	{{- end }}
 
 	// Call Waldur API to update resource

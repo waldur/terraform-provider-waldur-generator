@@ -145,10 +145,6 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 	{{ template "resource_read_standard" . }}
 	{{- end }}
 
-	// Update UUID from response
-	if uuid, ok := result["uuid"].(string); ok {
-		data.UUID = types.StringValue(uuid)
-	}
 
 	r.updateFromValue(ctx, &data, result)
 

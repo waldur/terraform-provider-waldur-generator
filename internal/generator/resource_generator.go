@@ -338,6 +338,56 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		} else {
 			modelFields = allFields
 		}
+
+		// Override attributes field to use Map for flexibility
+		if resource.Name == "marketplace_order" {
+			found := false
+			for i, f := range modelFields {
+				if f.Name == "attributes" {
+					modelFields[i].GoType = "types.Map"
+					modelFields[i].ItemType = "string"
+					modelFields[i].Type = "object"
+					modelFields[i].Properties = nil // Clear nested properties
+					found = true
+					break
+				}
+			}
+			if !found {
+				modelFields = append(modelFields, FieldInfo{
+					Name:        "attributes",
+					Type:        "object",
+					Description: "Order attributes",
+					GoType:      "types.Map",
+					TFSDKName:   "attributes",
+					Required:    true,
+					ItemType:    "string",
+				})
+			}
+
+			// Also update createFields
+			foundCreate := false
+			for j, cf := range createFields {
+				if cf.Name == "attributes" {
+					createFields[j].GoType = "types.Map"
+					createFields[j].ItemType = "string"
+					createFields[j].Type = "object"
+					createFields[j].Properties = nil
+					foundCreate = true
+					break
+				}
+			}
+			if !foundCreate {
+				createFields = append(createFields, FieldInfo{
+					Name:        "attributes",
+					Type:        "object",
+					Description: "Order attributes",
+					GoType:      "types.Map",
+					TFSDKName:   "attributes",
+					Required:    true,
+					ItemType:    "string",
+				})
+			}
+		}
 	}
 
 	// Enforce Required/Not-ReadOnly for Path Params in ModelFields (for Nested Creation)

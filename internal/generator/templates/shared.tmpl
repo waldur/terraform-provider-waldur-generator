@@ -155,6 +155,23 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 			data.{{ .Name | title }} = listVal
 		}
 		{{- end }}
+		{{- else if eq .GoType "types.Map" }}
+		// Map of strings
+		if val, ok := sourceMap["{{ .Name }}"]; ok && val != nil {
+			if objMap, ok := val.(map[string]interface{}); ok {
+				items := make(map[string]attr.Value)
+				for k, v := range objMap {
+					if str, ok := v.(string); ok {
+						items[k] = types.StringValue(str)
+					} else if num, ok := v.(float64); ok {
+						items[k] = types.StringValue(fmt.Sprintf("%v", num))
+					} else if b, ok := v.(bool); ok {
+						items[k] = types.StringValue(fmt.Sprintf("%v", b))
+					}
+				}
+				data.{{ .Name | title }}, _ = types.MapValue(types.StringType, items)
+			}
+		}
 		{{- else if eq .Type "object" }}
 		// Nested object
 		if objMap, ok := val.(map[string]interface{}); ok {
@@ -209,7 +226,9 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 		{{- end }}
 	} else {
 		if data.{{ .Name | title }}.IsUnknown() {
-			{{- if eq .Type "string" }}
+			{{- if eq .GoType "types.Map" }}
+			data.{{ .Name | title }} = types.MapNull(types.StringType)
+			{{- else if eq .Type "string" }}
 			data.{{ .Name | title }} = types.StringNull()
 			{{- else if eq .Type "integer" }}
 			data.{{ .Name | title }} = types.Int64Null()
@@ -332,6 +351,19 @@ schema.SingleNestedAttribute{
             MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
         },
     {{- end }}
+{{- else if eq .GoType "types.Map" }}
+    schema.MapAttribute{
+        ElementType: types.StringType,
+        {{- if .ReadOnly }}
+        Computed: true,
+        {{- else if .Required }}
+        Required: true,
+        {{- else }}
+        Optional: true,
+        Computed: true,
+        {{- end }}
+        MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
+    },
 {{- else }}
     {{- /* Primitive Type */ -}}
     schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{

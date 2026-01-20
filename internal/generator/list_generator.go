@@ -219,12 +219,13 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
 	data := map[string]interface{}{
-		"Name":           resource.Name,
-		"APIPaths":       apiPaths,
-		"ResponseFields": responseFields,
-		"ModelFields":    modelFields,
-		"FilterParams":   filterParams,
-		"ProviderName":   g.config.Generator.ProviderName,
+		"Name":              resource.Name,
+		"APIPaths":          apiPaths,
+		"ResponseFields":    responseFields,
+		"ModelFields":       modelFields,
+		"FilterParams":      filterParams,
+		"ProviderName":      g.config.Generator.ProviderName,
+		"SkipFilterMapping": true,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

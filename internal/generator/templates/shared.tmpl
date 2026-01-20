@@ -246,6 +246,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 	{{- end }}
 
 	// Map filter parameters from response if available
+	{{- if not .SkipFilterMapping }}
 	{{- range .FilterParams }}
 	if val, ok := sourceMap["{{ .Name }}"]; ok && val != nil {
 		{{- if eq .Type "String" }}
@@ -266,6 +267,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 		}
 		{{- end }}
 	}
+	{{- end }}
 	{{- end }}
 {{- end }}
 

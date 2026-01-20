@@ -321,31 +321,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 
 		// Filter out marketplace and other fields for non-order resources
 		if !isOrder {
-			excludeFields := map[string]bool{
-				"marketplace_category_name":      true,
-				"marketplace_category_uuid":      true,
-				"marketplace_offering_name":      true,
-				"marketplace_offering_uuid":      true,
-				"marketplace_plan_uuid":          true,
-				"marketplace_resource_state":     true,
-				"marketplace_resource_uuid":      true,
-				"is_limit_based":                 true,
-				"is_usage_based":                 true,
-				"service_name":                   true,
-				"service_settings":               true,
-				"service_settings_error_message": true,
-				"service_settings_state":         true,
-				"service_settings_uuid":          true,
-				"project":                        true,
-				"project_name":                   true,
-				"project_uuid":                   true,
-				"customer":                       true,
-				"customer_abbreviation":          true,
-				"customer_name":                  true,
-				"customer_native_name":           true,
-				"customer_uuid":                  true,
-			}
-
 			// Create a set of input fields to protect them from removal
 			inputFields := make(map[string]bool)
 			for _, f := range createFields {
@@ -355,7 +330,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 			modelFields = make([]FieldInfo, 0)
 			for _, f := range allFields {
 				// Remove if it's in exclude list AND NOT an input field
-				if excludeFields[f.TFSDKName] && !inputFields[f.TFSDKName] {
+				if ExcludedFields[f.TFSDKName] && !inputFields[f.TFSDKName] {
 					continue
 				}
 				modelFields = append(modelFields, f)

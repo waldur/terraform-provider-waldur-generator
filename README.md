@@ -180,7 +180,7 @@ terraform {
 }
 
 provider "waldur" {
-  endpoint     = "https://your-waldur-instance.com/api/"
+  endpoint     = "https://your-waldur-instance.com"
   token = "your-api-token"
 }
 

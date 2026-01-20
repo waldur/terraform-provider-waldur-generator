@@ -31,6 +31,17 @@ func ToSnakeCase(s string) string {
 	return strings.ToLower(result.String())
 }
 
+// humanize converts snake_case to Title Case with spaces
+func humanize(s string) string {
+	parts := strings.Split(s, "_")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
 // displayName strips module prefix (anything before first underscore) and converts to title case for user-facing messages
 func displayName(s string) string {
 	// Strip everything before first underscore (e.g., "structure_project" -> "project")
@@ -99,6 +110,7 @@ func ToAttrType(f FieldInfo) string {
 func GetFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"title":       toTitle,
+		"humanize":    humanize,
 		"toSnakeCase": ToSnakeCase,
 		"displayName": displayName,
 		"toAttrType":  ToAttrType,

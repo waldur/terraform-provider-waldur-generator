@@ -44,7 +44,7 @@ func (d *{{ .Name | title }}DataSource) Metadata(ctx context.Context, req dataso
 
 func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "{{ .Name | title }} data source - lookup by name or UUID",
+		MarkdownDescription: "{{ .Name | humanize }} data source - lookup by name or UUID",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

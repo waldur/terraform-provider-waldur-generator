@@ -52,8 +52,8 @@
 	err := r.client.Post(ctx, createPath, requestBody, &result)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Unable to Create {{ .Name | title }}",
-			"An error occurred while creating the {{ .Name }}: "+err.Error(),
+			"Unable to Create {{ .Name | humanize }}",
+			"An error occurred while creating the {{ .Name | humanize }}: "+err.Error(),
 		)
 		return
 	}
@@ -61,8 +61,8 @@
 	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", requestBody, &result)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Unable to Create {{ .Name | title }}",
-			"An error occurred while creating the {{ .Name }}: "+err.Error(),
+			"Unable to Create {{ .Name | humanize }}",
+			"An error occurred while creating the {{ .Name | humanize }}: "+err.Error(),
 		)
 		return
 	}
@@ -142,8 +142,8 @@
 	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Unable to Read {{ .Name | title }}",
-			"An error occurred while reading the {{ .Name }}: "+err.Error(),
+			"Unable to Read {{ .Name | humanize }}",
+			"An error occurred while reading the {{ .Name | humanize }}: "+err.Error(),
 		)
 		return
 	}
@@ -180,8 +180,8 @@
 	err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), requestBody, &result)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Unable to Update {{ .Name | title }}",
-			"An error occurred while updating the {{ .Name }}: "+err.Error(),
+			"Unable to Update {{ .Name | humanize }}",
+			"An error occurred while updating the {{ .Name | humanize }}: "+err.Error(),
 		)
 		return
 	}
@@ -199,8 +199,8 @@
 	err := r.client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", data.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Unable to Delete {{ .Name | title }}",
-			"An error occurred while deleting the {{ .Name }}: "+err.Error(),
+			"Unable to Delete {{ .Name | humanize }}",
+			"An error occurred while deleting the {{ .Name | humanize }}: "+err.Error(),
 		)
 		return
 	}

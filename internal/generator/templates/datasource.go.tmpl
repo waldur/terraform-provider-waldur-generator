@@ -116,8 +116,8 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		err := d.client.GetByUUID(ctx, "{{ .RetrievePath }}", data.UUID.ValueString(), &item)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Unable to Read {{ .Name | displayName }}",
-				"An error occurred while reading the {{ .Name }} by UUID: "+err.Error(),
+				"Unable to Read {{ .Name | humanize }}",
+				"An error occurred while reading the {{ .Name | humanize }} by UUID: "+err.Error(),
 			)
 			return
 		}
@@ -161,8 +161,8 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		err := d.client.ListWithFilter(ctx, "{{ .ListPath }}", filters, &results)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Unable to List {{ .Name | displayName }}",
-				"An error occurred while filtering {{ .Name }}: "+err.Error(),
+				"Unable to List {{ .Name | humanize }}",
+				"An error occurred while filtering {{ .Name | humanize }}: "+err.Error(),
 			)
 			return
 		}
@@ -170,16 +170,16 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		// Check results
 		if len(results) == 0 {
 			resp.Diagnostics.AddError(
-				"{{ .Name | displayName }} Not Found",
-				"No {{ .Name }} found with provided filters.",
+				"{{ .Name | humanize }} Not Found",
+				"No {{ .Name | humanize }} found with provided filters.",
 			)
 			return
 		}
 		
 		if len(results) > 1 {
 			resp.Diagnostics.AddError(
-				"Multiple {{ .Name | displayName }}s Found",
-				fmt.Sprintf("Found %d {{ .Name }}s with provided filters. Please use more specific filters or lookup by UUID.", len(results)),
+				"Multiple {{ .Name | humanize }}s Found",
+				fmt.Sprintf("Found %d {{ .Name | humanize }}s with provided filters. Please use more specific filters or lookup by UUID.", len(results)),
 			)
 			return
 		}

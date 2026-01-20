@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -11,11 +12,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/waldur/terraform-provider-{{ .ProviderName }}/internal/resources"
 	"github.com/waldur/terraform-provider-{{ .ProviderName }}/internal/datasources"
+	"github.com/waldur/terraform-provider-{{ .ProviderName }}/internal/actions"
 	"github.com/waldur/terraform-provider-{{ .ProviderName }}/internal/client"
 )
 
 // Ensure {{ .ProviderName }}Provider satisfies various provider interfaces.
 var _ provider.Provider = &{{ .ProviderName }}Provider{}
+var _ provider.ProviderWithActions = &{{ .ProviderName }}Provider{}
 
 // {{ .ProviderName }}Provider defines the provider implementation.
 type {{ .ProviderName }}Provider struct {
@@ -93,6 +96,17 @@ func (p *{{ .ProviderName }}Provider) DataSources(ctx context.Context) []func() 
 	return []func() datasource.DataSource{
 		{{- range .DataSources }}
 		datasources.New{{ .Name | title }}DataSource,
+		{{- end }}
+	}
+}
+
+func (p *{{ .ProviderName }}Provider) Actions(ctx context.Context) []func() action.Action {
+	return []func() action.Action{
+		{{- range .Resources }}
+			{{- $resName := .Name }}
+			{{- range .Actions }}
+		actions.New{{ $resName | title }}{{ . | title }}Action,
+			{{- end }}
 		{{- end }}
 	}
 }

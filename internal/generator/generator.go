@@ -44,8 +44,18 @@ func (g *Generator) Generate() error {
 
 	// Generate resources
 	for _, resource := range g.config.Resources {
-		if err := g.generateResource(&resource); err != nil {
-			return fmt.Errorf("failed to generate resource %s: %w", resource.Name, err)
+		// Generate resource implementation
+		if resource.Plugin != "actions" {
+			if err := g.generateResource(&resource); err != nil {
+				return fmt.Errorf("failed to generate resource %s: %w", resource.Name, err)
+			}
+		}
+
+		// Generate actions if defined
+		if len(resource.Actions) > 0 {
+			if err := g.generateActions(&resource); err != nil {
+				return fmt.Errorf("failed to generate actions for resource %s: %w", resource.Name, err)
+			}
 		}
 	}
 

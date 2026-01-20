@@ -39,6 +39,7 @@ type Resource struct {
 	UnlinkOp     string              `yaml:"unlink_op"`
 	LinkCheckKey string              `yaml:"link_check_key"` // Key in source resource to check for target presence
 	LinkParams   []ParameterConfig   `yaml:"link_params"`    // Additional parameters for link operation
+	Actions      []string            `yaml:"actions"`        // List of actions to generate (for "actions" plugin)
 }
 
 // LinkResourceConfig defines configuration for a linked resource

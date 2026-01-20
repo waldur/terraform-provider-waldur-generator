@@ -39,6 +39,10 @@ resources:
         operation: "marketplace_resources_update_options"
         param: "options"
         compare_key: "options"
+    actions:
+      - "pull"
+      - "terminate"
+      - "unlink"
 
   # OpenStack - Order plugin resources
 
@@ -51,6 +55,9 @@ resources:
         operation: "openstack_tenants_push_security_groups"
         param: "security_groups"
         compare_key: "security_groups"
+    actions:
+      - "pull"
+      - "unlink"
 
   - name: "openstack_volume"
     base_operation_id: "openstack_volumes"
@@ -65,6 +72,9 @@ resources:
         operation: "openstack_volumes_extend"
         param: "size"
         compare_key: "size"
+    actions:
+      - "pull"
+      - "unlink"
 
   - name: "openstack_volume_attachment"
     base_operation_id: "openstack_volumes"
@@ -102,6 +112,12 @@ resources:
         operation: "openstack_instances_update_floating_ips"
         param: "floating_ips"
         compare_key: "floating_ips"
+    actions:
+      - "start"
+      - "stop"
+      - "restart"
+      - "pull"
+      - "unlink"
 
   # OpenStack - CRUD resources
 
@@ -126,6 +142,9 @@ resources:
       set_mtu:
         operation: "openstack_networks_set_mtu"
         param: "mtu"
+    actions:
+      - "pull"
+      - "unlink"
 
   - name: "openstack_server_group"
     base_operation_id: "openstack_server_groups"
@@ -140,6 +159,11 @@ resources:
       operation_id: "openstack_networks_create_subnet"
       path_params:
         uuid: "network"
+    actions:
+      - "connect"
+      - "disconnect"
+      - "pull"
+      - "unlink"
 
   - name: "openstack_network_rbac_policy"
     base_operation_id: "openstack_network_rbac_policies"
@@ -169,6 +193,13 @@ resources:
         operation: "openstack_ports_update_security_groups"
         param: "security_groups"
         compare_key: "security_groups"
+    actions:
+      - "enable_port"
+      - "disable_port"
+      - "enable_port_security"
+      - "disable_port_security"
+      - "pull"
+      - "unlink"
 
 data_sources:
 

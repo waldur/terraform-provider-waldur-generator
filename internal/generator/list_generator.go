@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
@@ -34,14 +35,47 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 	apiPaths := make(map[string]string)
 
 	// Get path from list operation (used as base path)
-	if _, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
+	var listOp *openapi3.Operation
+	if op, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
 		// Remove trailing slash and {uuid} if present for base path
 		// Actually for List, we want the collection path (e.g. /api/openstack-tenants/)
 		// api_parser.go usually returns /api/openstack-tenants/ for list.
 		apiPaths["Base"] = listPath
+		listOp = op
 	} else {
 		// If no list operation, we can't generate a list resource
 		return fmt.Errorf("no list operation found for resource %s (op: %s)", resource.Name, ops.List)
+	}
+
+	// Extract filter parameters
+	var filterParams []FieldInfo
+	if listOp != nil {
+		for _, paramRef := range listOp.Parameters {
+			if paramRef.Value == nil {
+				continue
+			}
+			param := paramRef.Value
+			if param.In == "query" && param.Schema != nil && param.Schema.Value != nil {
+				typeStr := getSchemaType(param.Schema.Value)
+				goType := GetGoType(typeStr)
+
+				// Skip complex types or unknown types for now
+				// Mostly strings, booleans, integers.
+				if goType == "" || strings.HasPrefix(goType, "types.List") || strings.HasPrefix(goType, "types.Object") {
+					continue
+				}
+
+				filterParams = append(filterParams, FieldInfo{
+					Name:        param.Name,
+					Type:        typeStr,
+					Description: param.Description,
+					GoType:      goType,
+					TFSDKName:   ToSnakeCase(param.Name),
+					Required:    false, // Filters are optional
+				})
+			}
+		}
+		sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
 	}
 
 	// Calculate Fields (Reused from resource_generator.go logic)
@@ -213,6 +247,7 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 		"APIPaths":       apiPaths,
 		"ResponseFields": responseFields,
 		"ModelFields":    modelFields,
+		"FilterParams":   filterParams,
 		"ProviderName":   g.config.Generator.ProviderName,
 	}
 

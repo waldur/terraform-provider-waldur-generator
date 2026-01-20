@@ -29,8 +29,14 @@ func (l *{{ .Name | title }}List) Metadata(ctx context.Context, req resource.Met
 
 func (l *{{ .Name | title }}List) ListResourceConfigSchema(ctx context.Context, req list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
 	resp.Schema = schema.Schema{
-		// Filter parameters can be added here if needed
-		Attributes: map[string]schema.Attribute{},
+		Attributes: map[string]schema.Attribute{
+			{{- range .FilterParams }}
+			"{{ .TFSDKName }}": schema.{{ replace .GoType "types." "" }}Attribute{
+				Description: "{{ .Description | sanitize }}",
+				Optional:    true,
+			},
+			{{- end }}
+		},
 	}
 }
 
@@ -53,6 +59,9 @@ func (l *{{ .Name | title }}List) Configure(ctx context.Context, req resource.Co
 
 type {{ .Name | title }}ListModel struct {
 	// Add filter fields here if added to schema
+	{{- range .FilterParams }}
+	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
+	{{- end }}
 }
 
 func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest, stream *list.ListResultsStream) {
@@ -65,9 +74,25 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 		return
 	}
 
+	// Prepare filters
+	filters := make(map[string]string)
+	{{- range .FilterParams }}
+	if !config.{{ .Name | title }}.IsNull() && !config.{{ .Name | title }}.IsUnknown() {
+		{{- if eq .GoType "types.String" }}
+		filters["{{ .Name }}"] = config.{{ .Name | title }}.ValueString()
+		{{- else if eq .GoType "types.Bool" }}
+		filters["{{ .Name }}"] = fmt.Sprintf("%t", config.{{ .Name | title }}.ValueBool())
+		{{- else if eq .GoType "types.Int64" }}
+		filters["{{ .Name }}"] = fmt.Sprintf("%d", config.{{ .Name | title }}.ValueInt64())
+		{{- else if eq .GoType "types.Float64" }}
+		filters["{{ .Name }}"] = fmt.Sprintf("%f", config.{{ .Name | title }}.ValueFloat64())
+		{{- end }}
+	}
+	{{- end }}
+
 	// Call API
 	var listResult []map[string]interface{}
-	err := l.client.List(ctx, "{{ .APIPaths.Base }}", &listResult)
+	err := l.client.ListWithFilter(ctx, "{{ .APIPaths.Base }}", filters, &listResult)
 	if err != nil {
 		// Return error diagnostics
 		resp.AddError("Failed to list resources", err.Error())

@@ -183,6 +183,11 @@
 	var apiResp {{ .Name | title }}ApiResponse
 	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &apiResp)
 	if err != nil {
+		if client.IsNotFoundError(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
 		resp.Diagnostics.AddError(
 			"Unable to Read {{ .Name | humanize }}",
 			"An error occurred while reading the {{ .Name | humanize }}: "+err.Error(),

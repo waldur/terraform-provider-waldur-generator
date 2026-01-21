@@ -305,6 +305,10 @@
 
 	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &apiResp)
 	if err != nil {
+		if client.IsNotFoundError(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
 		return
 	}

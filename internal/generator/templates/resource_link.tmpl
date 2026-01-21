@@ -47,6 +47,10 @@
 	var result map[string]interface{}
 	err := r.client.GetByUUID(ctx, sourcePath, sourceUUID, &result)
 	if err != nil {
+		if client.IsNotFoundError(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to Read Source Resource", err.Error())
 		return
 	}

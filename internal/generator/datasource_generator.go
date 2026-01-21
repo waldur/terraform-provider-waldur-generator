@@ -166,6 +166,16 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	sort.Slice(mappableFields, func(i, j int) bool { return mappableFields[i].Name < mappableFields[j].Name })
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 
+	// Apply description filling to all field sets
+	for i := range filterParams {
+		fp := &filterParams[i]
+		fp.Description = GetDefaultDescription(fp.Name, fp.Description)
+	}
+
+	FillDescriptions(dedupedResponseFields)
+	FillDescriptions(mappableFields)
+	FillDescriptions(responseFields)
+
 	data := map[string]interface{}{
 		"Name":                 dataSource.Name,
 		"Operations":           ops,

@@ -1,7 +1,9 @@
 package generator
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -314,4 +316,57 @@ var ExcludedFields = map[string]bool{
 	"customer_name":                  true,
 	"customer_native_name":           true,
 	"customer_uuid":                  true,
+}
+
+// GetDefaultDescription returns a generated description based on the field name if the current description is empty or too short.
+func GetDefaultDescription(name, currentDesc string) string {
+	if len(strings.TrimSpace(currentDesc)) >= 2 {
+		return currentDesc
+	}
+
+	if strings.HasSuffix(name, "_uuid") {
+		base := strings.TrimSuffix(name, "_uuid")
+		return fmt.Sprintf("UUID of the %s", strings.ReplaceAll(base, "_", " "))
+	} else if strings.HasSuffix(name, "_name") {
+		base := strings.TrimSuffix(name, "_name")
+		return fmt.Sprintf("Name of the %s", strings.ReplaceAll(base, "_", " "))
+	} else if strings.HasSuffix(name, "_id") {
+		base := strings.TrimSuffix(name, "_id")
+		return fmt.Sprintf("ID of the %s", strings.ReplaceAll(base, "_", " "))
+	} else if name == "name" {
+		return "Name of the resource"
+	} else if name == "description" {
+		return "Description of the resource"
+	} else if name == "uuid" {
+		return "UUID of the resource"
+	} else if strings.HasPrefix(name, "is_") {
+		base := strings.TrimPrefix(name, "is_")
+		return fmt.Sprintf("Is %s", strings.ReplaceAll(base, "_", " "))
+	}
+
+	// Fallback: sentence case from snake_case
+	human := strings.ReplaceAll(name, "_", " ")
+	if len(human) > 0 {
+		return strings.ToUpper(human[:1]) + human[1:]
+	}
+
+	return " "
+}
+
+// FillDescriptions recursively populates missing descriptions for fields.
+// It uses a combination of direct mappings (e.g. uuid -> "UUID of the resource")
+// and heuristics (trailing suffixes, is_ prefix, snake_case to Sentence case).
+func FillDescriptions(fields []FieldInfo) {
+	for i := range fields {
+		f := &fields[i]
+		f.Description = GetDefaultDescription(f.Name, f.Description)
+
+		// Recurse for nested properties
+		if len(f.Properties) > 0 {
+			FillDescriptions(f.Properties)
+		}
+		if f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
+			FillDescriptions(f.ItemSchema.Properties)
+		}
+	}
 }

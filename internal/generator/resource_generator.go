@@ -423,6 +423,9 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		validUpdateFields[action.Param] = true
 	}
 
+	// Fill descriptions for map keys and other fields
+	FillDescriptions(modelFields)
+
 	for i, f := range modelFields {
 		// If field is an input field (not ReadOnly) AND not in invalid update fields list
 		if !f.ReadOnly && !validUpdateFields[f.Name] {

@@ -160,8 +160,6 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() { return }
 
-	data.UUID = state.UUID
-
 	{{ template "resource_update_order" . }}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -175,8 +173,6 @@ func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.U
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() { return }
-
-	data.UUID = state.UUID
 
 	{{ template "resource_update_standard" . }}
 

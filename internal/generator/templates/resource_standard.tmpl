@@ -1,42 +1,77 @@
-{{- define "resource_create_standard" }}
+{{- /* Helper template for populating request body with a single field */ -}}
+{{- define "populateRequestBodyField" -}}
+{{- /* Expects: .Field (FieldInfo), .IsCreate (bool for Required field handling) */ -}}
+{{- $field := .Field -}}
+{{- $skipPathParam := .SkipPathParam -}}
+{{- if $skipPathParam }}
+{{- if not (isPathParam $.Operation $field.Name) }}
+{{- template "fieldAssignment" $field }}
+{{- end }}
+{{- else }}
+{{- template "fieldAssignment" $field }}
+{{- end }}
+{{- end -}}
 
-	// Prepare request body
-	requestBody := map[string]interface{}{}
-	{{- range .CreateFields }}
-	{{- if not (isPathParam $.CreateOperation .Name) }}
-	{{- if .Required }}
-		{{- if eq .Type "string" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
-		{{- else if eq .Type "integer" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
-		{{- else if eq .Type "boolean" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
-		{{- else if eq .Type "number" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
-		{{- else if or (eq .Type "array") (eq .Type "object") }}
-		if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
-			requestBody["{{ .Name }}"] = v
-		}
-		{{- end }}
-	{{- else }}
+{{- /* Helper template for field assignment based on type */ -}}
+{{- define "fieldAssignment" -}}
+{{- if .Required }}
+	{{- if eq .Type "string" }}
+	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+	{{- else if eq .Type "integer" }}
+	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+	{{- else if eq .Type "boolean" }}
+	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+	{{- else if eq .Type "number" }}
+	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
+	{{- else if or (eq .Type "array") (eq .Type "object") }}
+	if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
+		requestBody["{{ .Name }}"] = v
+	}
+	{{- end }}
+{{- else }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-		{{- if eq .Type "string" }}
+	{{- if eq .Type "string" }}
 		if v := data.{{ .Name | title }}.ValueString(); v != "" {
 			requestBody["{{ .Name }}"] = v
 		}
-		{{- else if eq .Type "integer" }}
+	{{- else if eq .Type "integer" }}
 		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
-		{{- else if eq .Type "boolean" }}
+	{{- else if eq .Type "boolean" }}
 		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
-		{{- else if eq .Type "number" }}
+	{{- else if eq .Type "number" }}
 		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
-		{{- else if or (eq .Type "array") (eq .Type "object") }}
+	{{- else if or (eq .Type "array") (eq .Type "object") }}
 		if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
 			requestBody["{{ .Name }}"] = v
 		}
-		{{- end }}
-	}
 	{{- end }}
+	}
+{{- end }}
+{{- end -}}
+
+{{- /* Helper template for building request body from fields */ -}}
+{{- define "buildRequestBody" -}}
+{{- /* Expects: .Fields ([]FieldInfo), .Operation (for path param check, can be nil) */ -}}
+	// Prepare request body
+	requestBody := map[string]interface{}{}
+{{- range .Fields }}
+{{- if $.Operation }}
+{{- if not (isPathParam $.Operation .Name) }}
+{{- template "fieldAssignment" . }}
+{{- end }}
+{{- else }}
+{{- template "fieldAssignment" . }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{- define "resource_create_standard" }}
+
+	{{- /* Check if there are any body fields (non-path-param fields) */ -}}
+	{{- $hasBodyFields := false }}
+	{{- range .CreateFields }}
+	{{- if not (isPathParam $.CreateOperation .Name) }}
+	{{- $hasBodyFields = true }}
 	{{- end }}
 	{{- end }}
 
@@ -49,16 +84,20 @@
 	{{- range $key, $value := .CreateOperation.PathParams }}
 	createPath = strings.Replace(createPath, "{{"{"}}{{ $key }}{{"}"}}", data.{{ $value | title }}.ValueString(), 1)
 	{{- end }}
+	{{- if $hasBodyFields }}
+	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" .CreateOperation }}
 	err := r.client.Post(ctx, createPath, requestBody, &result)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Create {{ .Name | humanize }}",
-			"An error occurred while creating the {{ .Name | humanize }}: "+err.Error(),
-		)
-		return
-	}
 	{{- else }}
+	err := r.client.Post(ctx, createPath, nil, &result)
+	{{- end }}
+	{{- else }}
+	{{- if $hasBodyFields }}
+	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" nil }}
 	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", requestBody, &result)
+	{{- else }}
+	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", nil, &result)
+	{{- end }}
+	{{- end }}
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create {{ .Name | humanize }}",
@@ -66,7 +105,6 @@
 		)
 		return
 	}
-	{{- end }}
 
 	{{- if .CompositeKeys }}
 	// Build composite ID from key fields
@@ -150,29 +188,7 @@
 {{- end }}
 
 {{- define "resource_update_standard" }}
-	// Prepare request body
-	requestBody := map[string]interface{}{}
-	{{- range .UpdateFields }}
-	{{- if not (isPathParam $.UpdateOperation .Name) }}
-	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-		{{- if eq .Type "string" }}
-		if v := data.{{ .Name | title }}.ValueString(); v != "" {
-			requestBody["{{ .Name }}"] = v
-		}
-		{{- else if eq .Type "integer" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
-		{{- else if eq .Type "boolean" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
-		{{- else if eq .Type "number" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
-		{{- else if or (eq .Type "array") (eq .Type "object") }}
-		if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
-			requestBody["{{ .Name }}"] = v
-		}
-		{{- end }}
-	}
-	{{- end }}
-	{{- end }}
+	{{- template "buildRequestBody" dict "Fields" .UpdateFields "Operation" nil }}
 
 	// Call Waldur API to update resource
 	var result map[string]interface{}

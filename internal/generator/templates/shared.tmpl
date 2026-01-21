@@ -63,32 +63,6 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 {{- end }}
 {{- end }}
 
-{{- define "apiResponseConstants" }}
-{{- $prefix := .Prefix }}
-{{- range .Fields }}
-{{- if eq .Type "object" }}
-var {{ $prefix | lower }}_{{ .Name | lower }}AttrTypes = map[string]attr.Type{
-	{{- range .Properties }}
-	"{{ .TFSDKName }}": {{ toAttrType . }},
-	{{- end }}
-}
-var {{ $prefix | lower }}_{{ .Name | lower }}ObjectType = types.ObjectType{
-	AttrTypes: {{ $prefix | lower }}_{{ .Name | lower }}AttrTypes,
-}
-{{ template "apiResponseConstants" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
-{{- else if and (eq .Type "array") (eq .ItemType "object") }}
-var {{ $prefix | lower }}_{{ .Name | lower }}AttrTypes = map[string]attr.Type{
-	{{- range .ItemSchema.Properties }}
-	"{{ .TFSDKName }}": {{ toAttrType . }},
-	{{- end }}
-}
-var {{ $prefix | lower }}_{{ .Name | lower }}ObjectType = types.ObjectType{
-	AttrTypes: {{ $prefix | lower }}_{{ .Name | lower }}AttrTypes,
-}
-{{ template "apiResponseConstants" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
-{{- end }}
-{{- end }}
-{{- end }}
 
 {{- define "mapResponseToModel" }}
 	{{- $prefix := .Name | title }}
@@ -115,7 +89,7 @@ var {{ $prefix | lower }}_{{ .Name | lower }}ObjectType = types.ObjectType{
 	{{- if eq .ItemType "string" }}
 	model.{{ .Name | title }}, _ = types.ListValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
 	{{- else if eq .ItemType "object" }}
-	listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ $prefix | lower }}_{{ .Name | lower }}ObjectType, apiResp.{{ .Name | title }})
+	listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
 	diags.Append(listDiags{{ .Name | title }}...)
 	model.{{ .Name | title }} = listVal{{ .Name | title }}
 	{{- end }}
@@ -129,11 +103,11 @@ var {{ $prefix | lower }}_{{ .Name | lower }}ObjectType = types.ObjectType{
 	}
 	{{- else if eq .Type "object" }}
 	if apiResp.{{ .Name | title }} != nil {
-		objVal{{ .Name | title }}, objDiags{{ .Name | title }} := types.ObjectValueFrom(ctx, {{ $prefix | lower }}_{{ .Name | lower }}AttrTypes, *apiResp.{{ .Name | title }})
+		objVal{{ .Name | title }}, objDiags{{ .Name | title }} := types.ObjectValueFrom(ctx, {{ toAttrType . }}.AttrTypes, *apiResp.{{ .Name | title }})
 		diags.Append(objDiags{{ .Name | title }}...)
 		model.{{ .Name | title }} = objVal{{ .Name | title }}
 	} else {
-		model.{{ .Name | title }} = types.ObjectNull({{ $prefix | lower }}_{{ .Name | lower }}AttrTypes)
+		model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
 	}
 	{{- end }}
 	{{- end }}

@@ -41,7 +41,6 @@ type {{ .Name | title }}ApiResponse struct {
 }
 
 {{ template "apiResponseNestedStructs" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
-{{ template "apiResponseConstants" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
 
 // {{ .Name | title }}ResourceModel describes the resource data model.
 type {{ .Name | title }}ResourceModel struct {

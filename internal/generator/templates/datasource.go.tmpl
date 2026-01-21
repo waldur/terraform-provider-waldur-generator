@@ -32,7 +32,6 @@ type {{ .Name | title }}ApiResponse struct {
 }
 
 {{ template "apiResponseNestedStructs" dict "Fields" .ResponseFields "Prefix" (.Name | title) }}
-{{ template "apiResponseConstants" dict "Fields" .ResponseFields "Prefix" (.Name | title) }}
 
 // {{ .Name | title }}DataSourceModel describes the data source data model.
 type {{ .Name | title }}DataSourceModel struct {

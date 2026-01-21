@@ -124,6 +124,11 @@ schema.ListNestedAttribute{
     Optional: true,
     Computed: true,
     {{- end }}
+    {{- if .ForceNew }}
+    PlanModifiers: []planmodifier.List{
+        listplanmodifier.RequiresReplace(),
+    },
+    {{- end }}
     MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
 },
 {{- else if eq .GoType "types.Object" }}
@@ -140,6 +145,11 @@ schema.SingleNestedAttribute{
     {{- else }}
     Optional: true,
     Computed: true,
+    {{- end }}
+    {{- if .ForceNew }}
+    PlanModifiers: []planmodifier.Object{
+        objectplanmodifier.RequiresReplace(),
+    },
     {{- end }}
     MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
 },
@@ -162,6 +172,11 @@ schema.SingleNestedAttribute{
             Optional: true,
             Computed: true,
             {{- end }}
+            {{- if .ForceNew }}
+            PlanModifiers: []planmodifier.List{
+                listplanmodifier.RequiresReplace(),
+            },
+            {{- end }}
             MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
         },
     {{- end }}
@@ -176,6 +191,11 @@ schema.SingleNestedAttribute{
         Optional: true,
         Computed: true,
         {{- end }}
+        {{- if .ForceNew }}
+        PlanModifiers: []planmodifier.Map{
+            mapplanmodifier.RequiresReplace(),
+        },
+        {{- end }}
         MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
     },
 {{- else }}
@@ -189,9 +209,9 @@ schema.SingleNestedAttribute{
         Optional: true,
         Computed: true,
         {{- end }}
-        {{- if or (eq .Name "project") (eq .Name "offering") }}
-        PlanModifiers: []planmodifier.String{
-            stringplanmodifier.RequiresReplace(),
+        {{- if .ForceNew }}
+        PlanModifiers: []planmodifier.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}{
+            {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.RequiresReplace(),
         },
         {{- end }}
         MarkdownDescription: "{{ or (.Description | sanitize) " " }}",

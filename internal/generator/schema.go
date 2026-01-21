@@ -15,6 +15,7 @@ type FieldInfo struct {
 	Description string // Field description from schema
 	TFSDKName   string // Terraform SDK attribute name (same as Name for now)
 	GoType      string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
+	ForceNew    bool   // Whether field requires replacement on change (immutable)
 
 	// Complex type support
 	Enum       []string    // For enums: allowed values (only for string type)

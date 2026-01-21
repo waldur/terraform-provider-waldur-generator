@@ -412,6 +412,32 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		}
 	}
 
+	// Calculate ForceNew for immutable fields
+	// A field is immutable (ForceNew) if it is settable (not ReadOnly) but cannot be updated.
+	// Updatable fields are those present in the Update schema or used as params in Update Actions.
+	validUpdateFields := make(map[string]bool)
+	for _, f := range updateFields {
+		validUpdateFields[f.Name] = true
+	}
+	for _, action := range updateActions {
+		validUpdateFields[action.Param] = true
+	}
+
+	for i, f := range modelFields {
+		// If field is an input field (not ReadOnly) AND not in invalid update fields list
+		if !f.ReadOnly && !validUpdateFields[f.Name] {
+			modelFields[i].ForceNew = true
+
+			// Reflect this change in createFields as well for consistency (though less critical there)
+			// Iterating createFields is inefficient but safe
+			for j, cf := range createFields {
+				if cf.Name == f.Name {
+					createFields[j].ForceNew = true
+				}
+			}
+		}
+	}
+
 	// Update responseFields to use merged field definitions
 	// This ensures shared.tmpl uses the complete schema for nested objects
 	modelMap := make(map[string]FieldInfo)

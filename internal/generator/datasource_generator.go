@@ -91,16 +91,10 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
-	// Deduplicate: remove ResponseFields that exist in FilterParams
-	filterNames := make(map[string]bool)
+	// Deduplicate and handle type compatibility
+	filterTypes := make(map[string]string)
 	for _, fp := range filterParams {
-		filterNames[fp.Name] = true
-	}
-	var dedupedResponseFields []FieldInfo
-	for _, rf := range responseFields {
-		if !filterNames[rf.Name] {
-			dedupedResponseFields = append(dedupedResponseFields, rf)
-		}
+		filterTypes[fp.Name] = fp.Type
 	}
 
 	// Look up corresponding Resource to determine if it's an Order resource
@@ -114,9 +108,9 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
-	// Filter out marketplace and other fields for non-order resources
+	excludeFields := map[string]bool{}
 	if !isOrder {
-		excludeFields := map[string]bool{
+		excludeFields = map[string]bool{
 			"marketplace_category_name":      true,
 			"marketplace_category_uuid":      true,
 			"marketplace_offering_name":      true,
@@ -131,37 +125,56 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 			"service_settings_error_message": true,
 			"service_settings_state":         true,
 			"service_settings_uuid":          true,
-			"project":                        true,
-			"project_name":                   true,
-			"project_uuid":                   true,
-			"customer":                       true,
-			"customer_abbreviation":          true,
-			"customer_name":                  true,
-			"customer_native_name":           true,
-			"customer_uuid":                  true,
+		}
+	}
+
+	var dedupedResponseFields []FieldInfo
+	var mappableFields []FieldInfo // Fields safe to map (type compatible with filters if colliding)
+
+	for _, rf := range responseFields {
+		if excludeFields[rf.TFSDKName] {
+			continue
 		}
 
-		var filteredFields []FieldInfo
-		for _, f := range dedupedResponseFields {
-			if !excludeFields[f.TFSDKName] {
-				filteredFields = append(filteredFields, f)
+		fType, isFilter := filterTypes[rf.Name]
+		if !isFilter {
+			dedupedResponseFields = append(dedupedResponseFields, rf)
+			mappableFields = append(mappableFields, rf)
+		} else {
+			// Check compatibility
+			compatible := false
+			switch fType {
+			case "String":
+				compatible = rf.GoType == "types.String"
+			case "Int64":
+				compatible = rf.GoType == "types.Int64"
+			case "Bool":
+				compatible = rf.GoType == "types.Bool"
+			case "Float64":
+				compatible = rf.GoType == "types.Float64"
+			}
+
+			if compatible {
+				mappableFields = append(mappableFields, rf)
 			}
 		}
-		dedupedResponseFields = filteredFields
 	}
 
 	// Sort fields for deterministic output
 	sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
 	sort.Slice(dedupedResponseFields, func(i, j int) bool { return dedupedResponseFields[i].Name < dedupedResponseFields[j].Name })
+	sort.Slice(mappableFields, func(i, j int) bool { return mappableFields[i].Name < mappableFields[j].Name })
+	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 
 	data := map[string]interface{}{
-		"Name":           dataSource.Name,
-		"Operations":     ops,
-		"ListPath":       listPath,
-		"RetrievePath":   retrievePath,
-		"FilterParams":   filterParams,
-		"ResponseFields": dedupedResponseFields, // Use deduped version
-		"ModelFields":    dedupedResponseFields, // Map to ModelFields for shared template compatibility
+		"Name":                 dataSource.Name,
+		"Operations":           ops,
+		"ListPath":             listPath,
+		"RetrievePath":         retrievePath,
+		"FilterParams":         filterParams,
+		"ResponseFields":       responseFields,        // Full list for API Struct
+		"ModelFields":          mappableFields,        // Safe list for Mapping
+		"UniqueResponseFields": dedupedResponseFields, // Deduped list for Model definition
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

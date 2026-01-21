@@ -39,10 +39,8 @@ type {{ .Name | title }}DataSourceModel struct {
 	{{- range .FilterParams }}
 	{{ .TFSDKName | title }} types.{{ .Type }} `tfsdk:"{{ .TFSDKName }}"`
 	{{- end }}
-	{{- range .ResponseFields }}
-	{{- if ne .Name "name" }}
+	{{- range .UniqueResponseFields }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
-	{{- end }}
 	{{- end }}
 }
 
@@ -63,11 +61,11 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 			{{- range .FilterParams }}
 			"{{ .TFSDKName }}": schema.{{ .Type }}Attribute{
 				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
 			},
 			{{- end }}
-			{{- range .ResponseFields }}
-			{{- if ne .Name "name" }}
+			{{- range .UniqueResponseFields }}
 			"{{ .TFSDKName }}": {{- if eq .GoType "types.List" }}schema.ListAttribute{
 				CustomType:          {{ toAttrType . }},
 				Computed:            true,
@@ -82,7 +80,6 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 				Computed:            true,
 				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
 			},
-			{{- end }}
 			{{- end }}
 			{{- end }}
 		},

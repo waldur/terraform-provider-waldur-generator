@@ -40,9 +40,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 {{- define "apiResponseStructFields" }}
 	{{- $prefix := .Prefix }}
 	{{- range .Fields }}
-	{{- if ne .Name "name" }}
 	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else }}[]{{ $prefix }}{{ .Name | title }}Response{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Response{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .TFSDKName }}"`
-	{{- end }}
 	{{- end }}
 {{- end }}
 
@@ -69,15 +67,7 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 	{{- $fields := .ResponseFields }}
 	{{- if .ModelFields }}{{ $fields = .ModelFields }}{{ end }}
 	{{- range $fields }}
-	{{- if ne .Name "name" }}
-	{{- if or (eq .Name "project") (eq .Name "offering") }}
-	if apiResp.{{ .Name | title }} != nil {
-		parts := strings.Split(strings.TrimRight(*apiResp.{{ .Name | title }}, "/"), "/")
-		model.{{ .Name | title }} = types.StringValue(parts[len(parts)-1])
-	} else {
-		model.{{ .Name | title }} = types.StringNull()
-	}
-	{{- else if eq .Type "string" }}
+	{{- if eq .Type "string" }}
 	model.{{ .Name | title }} = types.StringPointerValue(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "integer" }}
 	model.{{ .Name | title }} = types.Int64PointerValue(apiResp.{{ .Name | title }})
@@ -109,7 +99,6 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 	} else {
 		model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
 	}
-	{{- end }}
 	{{- end }}
 	{{- end }}
 {{- end }}

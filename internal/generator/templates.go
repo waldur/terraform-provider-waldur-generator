@@ -19,18 +19,6 @@ func toTitle(s string) string {
 	return strings.Join(parts, "")
 }
 
-// ToSnakeCase converts a string to snake_case
-func ToSnakeCase(s string) string {
-	var result strings.Builder
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			result.WriteRune('_')
-		}
-		result.WriteRune(r)
-	}
-	return strings.ToLower(result.String())
-}
-
 // humanize converts snake_case to Title Case with spaces
 func humanize(s string) string {
 	parts := strings.Split(s, "_")
@@ -111,7 +99,6 @@ func GetFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"title":       toTitle,
 		"humanize":    humanize,
-		"toSnakeCase": ToSnakeCase,
 		"displayName": displayName,
 		"toAttrType":  ToAttrType,
 		"lower":       strings.ToLower,

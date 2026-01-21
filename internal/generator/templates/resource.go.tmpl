@@ -52,7 +52,7 @@ type {{ .Name | title }}ApiResponse struct {
 type {{ .Name | title }}ResourceModel struct {
 	UUID types.String `tfsdk:"id"`
 	{{- range .ModelFields }}
-	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
+	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 }
@@ -74,7 +74,7 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 				},
 			},
 			{{- range .ModelFields }}
-			"{{ .TFSDKName }}": {{ template "schemaAttribute" . }}
+			"{{ .Name }}": {{ template "schemaAttribute" . }}
 			{{- end }}
 		},
 

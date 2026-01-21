@@ -72,7 +72,7 @@ func ToAttrType(f FieldInfo) string {
 			sortedProps := f.ItemSchema.Properties
 			// We can't easily sort here without mutating or copying, relying on ExtractFields sort
 			for _, prop := range sortedProps {
-				attrTypes = append(attrTypes, "\""+prop.TFSDKName+"\": "+ToAttrType(prop))
+				attrTypes = append(attrTypes, "\""+prop.Name+"\": "+ToAttrType(prop))
 			}
 			content := strings.Join(attrTypes, ",\n")
 			if len(attrTypes) > 0 {
@@ -94,7 +94,7 @@ func ToAttrType(f FieldInfo) string {
 	case "types.Object":
 		var attrTypes []string
 		for _, prop := range f.Properties {
-			attrTypes = append(attrTypes, "\""+prop.TFSDKName+"\": "+ToAttrType(prop))
+			attrTypes = append(attrTypes, "\""+prop.Name+"\": "+ToAttrType(prop))
 		}
 		content := strings.Join(attrTypes, ",\n")
 		if len(attrTypes) > 0 {

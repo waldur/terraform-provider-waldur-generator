@@ -37,7 +37,6 @@ func GetFilterParamType(goTypeStr string) string {
 // FilterParam describes a query parameter for filtering
 type FilterParam struct {
 	Name        string
-	TFSDKName   string
 	Type        string // String, Int64, Bool, Float64
 	Description string
 }

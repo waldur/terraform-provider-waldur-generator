@@ -40,7 +40,7 @@ for _, elem := range data.{{ .FieldName }}.Elements() {
 {{- define "apiResponseStructFields" }}
 	{{- $prefix := .Prefix }}
 	{{- range .Fields }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else }}[]{{ $prefix }}{{ .Name | title }}Response{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Response{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .TFSDKName }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else }}[]{{ $prefix }}{{ .Name | title }}Response{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Response{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .Name }}"`
 	{{- end }}
 {{- end }}
 
@@ -112,7 +112,7 @@ schema.ListNestedAttribute{
     NestedObject: schema.NestedAttributeObject{
         Attributes: map[string]schema.Attribute{
             {{- range .ItemSchema.Properties }}
-                "{{ .TFSDKName }}": {{ template "schemaAttribute" . }}
+                "{{ .Name }}": {{ template "schemaAttribute" . }}
             {{- end }}
         },
     },
@@ -141,7 +141,7 @@ schema.ListNestedAttribute{
 schema.SingleNestedAttribute{
     Attributes: map[string]schema.Attribute{
         {{- range .Properties }}
-            "{{ .TFSDKName }}": {{ template "schemaAttribute" . }}
+            "{{ .Name }}": {{ template "schemaAttribute" . }}
         {{- end }}
     },
     {{- if .ReadOnly }}

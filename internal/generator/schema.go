@@ -15,7 +15,6 @@ type FieldInfo struct {
 	Required       bool   // Whether field is in schema.Required array
 	ReadOnly       bool   // Whether field is marked readOnly in schema
 	Description    string // Field description from schema
-	TFSDKName      string // Terraform SDK attribute name (same as Name for now)
 	GoType         string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
 	ForceNew       bool   // Whether field requires replacement on change (immutable)
 	ServerComputed bool   // Whether value can be set by server (readOnly or response-only)
@@ -79,7 +78,6 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 			Required:    requiredMap[propName],
 			ReadOnly:    prop.ReadOnly,
 			Description: prop.Description,
-			TFSDKName:   propName,
 		}
 
 		// Handle different types
@@ -201,7 +199,6 @@ func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
 			ReadOnly:    false,
 			Description: "Project URL",
 			GoType:      "types.String",
-			TFSDKName:   "project",
 		})
 		fieldMap["project"] = len(merged) - 1
 	}
@@ -218,7 +215,6 @@ func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
 			ReadOnly:    false,
 			Description: "Offering URL",
 			GoType:      "types.String",
-			TFSDKName:   "offering",
 		})
 		fieldMap["offering"] = len(merged) - 1
 	}

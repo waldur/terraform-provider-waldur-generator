@@ -70,7 +70,6 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 					Type:        typeStr,
 					Description: param.Description,
 					GoType:      goType,
-					TFSDKName:   ToSnakeCase(param.Name),
 					Required:    false, // Filters are optional
 				})
 			}
@@ -127,7 +126,6 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 				Type:        term.Type,
 				Description: "Termination attribute",
 				GoType:      goType,
-				TFSDKName:   ToSnakeCase(term.Name),
 			})
 		}
 	} else {
@@ -169,12 +167,12 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 			// Create a set of input fields to protect them from removal
 			inputFields := make(map[string]bool)
 			for _, f := range createFields {
-				inputFields[f.TFSDKName] = true
+				inputFields[f.Name] = true
 			}
 
 			modelFields = make([]FieldInfo, 0)
 			for _, f := range allFields {
-				if ExcludedFields[f.TFSDKName] && !inputFields[f.TFSDKName] {
+				if ExcludedFields[f.Name] && !inputFields[f.Name] {
 					continue
 				}
 				modelFields = append(modelFields, f)

@@ -68,7 +68,6 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 
 				filterParams = append(filterParams, FilterParam{
 					Name:        paramName,
-					TFSDKName:   ToSnakeCase(paramName), // Ensure valid TF attribute name
 					Type:        tfType,
 					Description: description,
 				})
@@ -132,7 +131,7 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	var mappableFields []FieldInfo // Fields safe to map (type compatible with filters if colliding)
 
 	for _, rf := range responseFields {
-		if excludeFields[rf.TFSDKName] {
+		if excludeFields[rf.Name] {
 			continue
 		}
 

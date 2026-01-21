@@ -31,7 +31,7 @@ func (l *{{ .Name | title }}List) ListResourceConfigSchema(ctx context.Context, 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			{{- range .FilterParams }}
-			"{{ .TFSDKName }}": schema.{{ replace .GoType "types." "" }}Attribute{
+			"{{ .Name }}": schema.{{ replace .GoType "types." "" }}Attribute{
 				Description: "{{ .Description | sanitize }}",
 				Optional:    true,
 			},
@@ -59,7 +59,7 @@ func (l *{{ .Name | title }}List) Configure(ctx context.Context, req resource.Co
 
 type {{ .Name | title }}ListModel struct {
 	{{- range .FilterParams }}
-	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
+	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
 }
 

@@ -158,7 +158,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 				Type:        term.Type,
 				Description: "Termination attribute",
 				GoType:      goType,
-				TFSDKName:   ToSnakeCase(term.Name),
 				// Required: false, ReadOnly: false -> Optional: true
 			})
 		}
@@ -199,7 +198,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 						Type:        "string",
 						Description: "Source resource UUID",
 						GoType:      "types.String",
-						TFSDKName:   ToSnakeCase(resource.Source.Param),
 						Required:    true,
 					})
 				}
@@ -221,7 +219,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 						Type:        "string",
 						Description: "Target resource UUID",
 						GoType:      "types.String",
-						TFSDKName:   ToSnakeCase(resource.Target.Param),
 						Required:    true,
 					})
 				}
@@ -252,7 +249,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 						Type:        param.Type,
 						Description: "Link parameter",
 						GoType:      goType,
-						TFSDKName:   ToSnakeCase(param.Name),
 						Required:    false, // Usually optional
 					})
 				}
@@ -289,7 +285,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 						Type:        "string",
 						Description: "Required path parameter for resource creation",
 						GoType:      "types.String",
-						TFSDKName:   ToSnakeCase(paramName),
 						Required:    true,
 						ReadOnly:    false,
 					})
@@ -324,13 +319,13 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 			// Create a set of input fields to protect them from removal
 			inputFields := make(map[string]bool)
 			for _, f := range createFields {
-				inputFields[f.TFSDKName] = true
+				inputFields[f.Name] = true
 			}
 
 			modelFields = make([]FieldInfo, 0)
 			for _, f := range allFields {
 				// Remove if it's in exclude list AND NOT an input field
-				if ExcludedFields[f.TFSDKName] && !inputFields[f.TFSDKName] {
+				if ExcludedFields[f.Name] && !inputFields[f.Name] {
 					continue
 				}
 				modelFields = append(modelFields, f)
@@ -358,7 +353,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 					Type:        "object",
 					Description: "Order attributes",
 					GoType:      "types.Map",
-					TFSDKName:   "attributes",
 					Required:    true,
 					ItemType:    "string",
 				})
@@ -382,7 +376,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 					Type:        "object",
 					Description: "Order attributes",
 					GoType:      "types.Map",
-					TFSDKName:   "attributes",
 					Required:    true,
 					ItemType:    "string",
 				})

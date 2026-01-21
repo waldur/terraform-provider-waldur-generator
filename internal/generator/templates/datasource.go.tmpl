@@ -37,10 +37,10 @@ type {{ .Name | title }}ApiResponse struct {
 type {{ .Name | title }}DataSourceModel struct {
 	UUID types.String `tfsdk:"id"`
 	{{- range .FilterParams }}
-	{{ .TFSDKName | title }} types.{{ .Type }} `tfsdk:"{{ .TFSDKName }}"`
+	{{ .Name | title }} types.{{ .Type }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
 	{{- range .UniqueResponseFields }}
-	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .TFSDKName }}"`
+	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
 }
 
@@ -59,14 +59,14 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 				MarkdownDescription: "Resource UUID",
 			},
 			{{- range .FilterParams }}
-			"{{ .TFSDKName }}": schema.{{ .Type }}Attribute{
+			"{{ .Name }}": schema.{{ .Type }}Attribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
 			},
 			{{- end }}
 			{{- range .UniqueResponseFields }}
-			"{{ .TFSDKName }}": {{- if eq .GoType "types.List" }}schema.ListAttribute{
+			"{{ .Name }}": {{- if eq .GoType "types.List" }}schema.ListAttribute{
 				CustomType:          {{ toAttrType . }},
 				Computed:            true,
 				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
@@ -136,15 +136,15 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		filters := map[string]string{}
 		
 		{{- range .FilterParams }}
-		if !data.{{ .TFSDKName | title }}.IsNull() {
+		if !data.{{ .Name | title }}.IsNull() {
 			{{- if eq .Type "String" }}
-			filters["{{ .Name }}"] = data.{{ .TFSDKName | title }}.ValueString()
+			filters["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
 			{{- else if eq .Type "Int64" }}
-			filters["{{ .Name }}"] = fmt.Sprintf("%d", data.{{ .TFSDKName | title }}.ValueInt64())
+			filters["{{ .Name }}"] = fmt.Sprintf("%d", data.{{ .Name | title }}.ValueInt64())
 			{{- else if eq .Type "Bool" }}
-			filters["{{ .Name }}"] = fmt.Sprintf("%t", data.{{ .TFSDKName | title }}.ValueBool())
+			filters["{{ .Name }}"] = fmt.Sprintf("%t", data.{{ .Name | title }}.ValueBool())
 			{{- else if eq .Type "Float64" }}
-			filters["{{ .Name }}"] = fmt.Sprintf("%f", data.{{ .TFSDKName | title }}.ValueFloat64())
+			filters["{{ .Name }}"] = fmt.Sprintf("%f", data.{{ .Name | title }}.ValueFloat64())
 			{{- end }}
 		}
 		{{- end }}

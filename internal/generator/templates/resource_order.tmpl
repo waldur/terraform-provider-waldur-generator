@@ -132,13 +132,13 @@
 						data.UUID = types.StringValue(pluginUUID)
 						
 						// Fetch Plugin Resource
-						var pluginRes map[string]interface{}
+						var apiResp {{ .Name | title }}ApiResponse
 						retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", pluginUUID, 1)
 						tflog.Warn(ctx, "Attempting to fetch plugin resource at: " + retrievePath)
-						err = r.client.GetByUUID(ctx, retrievePath, pluginUUID, &pluginRes)
+						err = r.client.GetByUUID(ctx, retrievePath, pluginUUID, &apiResp)
 						if err == nil {
 							tflog.Warn(ctx, "Successfully fetched plugin resource")
-							r.updateFromValue(ctx, &data, pluginRes)
+							resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
 						} else {
 							tflog.Warn(ctx, "Failed to fetch plugin resource: " + err.Error())
 						}
@@ -201,13 +201,13 @@
 	}
 
 	// Fetch final resource state
-	var finalState map[string]interface{}
-	err = r.client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", data.UUID.ValueString(), &finalState)
+	var apiResp {{ .Name | title }}ApiResponse
+	err = r.client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", data.UUID.ValueString(), &apiResp)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to Read Resource", err.Error())
 		return
 	}
-	r.updateFromValue(ctx, &data, finalState)
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
 {{- end }}
 
 {{- define "resource_update_order" }}
@@ -241,6 +241,7 @@
 			resp.Diagnostics.AddError("Update Failed", err.Error())
 			return
 		}
+		_ = result
 	}
 
 	// Phase 2: RPC Actions
@@ -298,16 +299,16 @@
 
 	// Fetch updated state
 	// Call Waldur API to read resource
-	var result map[string]interface{}
+	var apiResp {{ .Name | title }}ApiResponse
 
 	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
 
-	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
+	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &apiResp)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
 		return
 	}
-	r.updateFromValue(ctx, &data, result)
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
 {{- end }}
 
 {{- define "resource_delete_order" }}

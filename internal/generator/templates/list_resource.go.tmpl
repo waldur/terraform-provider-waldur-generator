@@ -90,7 +90,7 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 	{{- end }}
 
 	// Call API
-	var listResult []map[string]interface{}
+	var listResult []{{ .Name | title }}ApiResponse
 	err := l.client.ListWithFilter(ctx, "{{ .APIPaths.Base }}", filters, &listResult)
 	if err != nil {
 		// Return error diagnostics
@@ -101,39 +101,30 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 
 	// Stream results
 	stream.Results = func(push func(list.ListResult) bool) {
-		for _, item := range listResult {
+		for _, apiResp := range listResult {
 			result := req.NewListResult(ctx)
 			
 			// Map item to model
 			var data {{ .Name | title }}ResourceModel
+			model := &data
 			
-			// Initialize lists and objects to empty/null if needed (or rely on map logic)
-			
-			sourceMap := item
-			
-			// Reuse the mapResponseFields logic (embedded here or via shared template)
-			{{- template "mapResponseFields" . }}
+			var diags diag.Diagnostics
+
+			model.UUID = types.StringPointerValue(apiResp.UUID)
+			{{- template "mapResponseToModel" . }}
 			
 			// Set the resource state
 			// For ListResource, we generally return the "Resource" state matching the main resource schema.
 			// This allows `terraform plan` to correlate if using `terraform query`.
 			
-			diags := result.Resource.Set(ctx, &data)
+			setDiags := result.Resource.Set(ctx, &data)
+			diags.Append(setDiags...)
 			result.Diagnostics.Append(diags...)
 
 			// Set Identity if possible (usually UUID)
 			if !data.UUID.IsNull() && !data.UUID.IsUnknown() {
-				// Identity value must match what the resource uses for Import?
-				// Typically implicit. For now just setting Resource is key.
-				// result.Identity.Set(ctx, data.UUID.ValueString()) 
-				// The doc says: "An error is returned if a list result in the stream contains a null identity"
 				result.Diagnostics.Append(result.Identity.Set(ctx, data.UUID.ValueString())...)
-			} else {
-                 // Try to fallback to "uuid" from map if model failed
-                 if uuid, ok := item["uuid"].(string); ok {
-                     result.Diagnostics.Append(result.Identity.Set(ctx, uuid)...)
-                 }
-            }
+			}
 
 			if !push(result) {
 				return

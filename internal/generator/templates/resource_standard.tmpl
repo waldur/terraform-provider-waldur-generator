@@ -76,7 +76,7 @@
 	{{- end }}
 
 	// Call Waldur API to create resource
-	var result map[string]interface{}
+	var apiResp {{ .Name | title }}ApiResponse
 	
 	{{- if .CreateOperation }}
 	// Custom create operation via parent resource
@@ -86,16 +86,16 @@
 	{{- end }}
 	{{- if $hasBodyFields }}
 	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" .CreateOperation }}
-	err := r.client.Post(ctx, createPath, requestBody, &result)
+	err := r.client.Post(ctx, createPath, requestBody, &apiResp)
 	{{- else }}
-	err := r.client.Post(ctx, createPath, nil, &result)
+	err := r.client.Post(ctx, createPath, nil, &apiResp)
 	{{- end }}
 	{{- else }}
 	{{- if $hasBodyFields }}
 	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" nil }}
-	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", requestBody, &result)
+	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", requestBody, &apiResp)
 	{{- else }}
-	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", nil, &result)
+	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", nil, &apiResp)
 	{{- end }}
 	{{- end }}
 	if err != nil {
@@ -113,21 +113,24 @@
 	{{- if $i }}
 	compositeID += "/"
 	{{- end }}
-	if v, ok := result["{{ $key }}"].(string); ok {
-		compositeID += v
-	} else if v, ok := result["{{ $key }}_uuid"].(string); ok {
-		compositeID += v
+	if apiResp.{{ $key | title }} != nil {
+		val := *apiResp.{{ $key | title }}
+		if strings.Contains(val, "/") {
+			parts := strings.Split(strings.TrimRight(val, "/"), "/")
+			val = parts[len(parts)-1]
+		}
+		compositeID += val
 	}
 	{{- end }}
 	data.UUID = types.StringValue(compositeID)
 	{{- else }}
 	// Extract UUID from response
-	if uuid, ok := result["uuid"].(string); ok {
-		data.UUID = types.StringValue(uuid)
+	if apiResp.UUID != nil {
+		data.UUID = types.StringPointerValue(apiResp.UUID)
 	}
 	{{- end }}
 
-	r.updateFromValue(ctx, &data, result)
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
 
 {{- end }}
 
@@ -177,7 +180,8 @@
 
 	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
 	
-	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &result)
+	var apiResp {{ .Name | title }}ApiResponse
+	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &apiResp)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Read {{ .Name | humanize }}",
@@ -185,15 +189,17 @@
 		)
 		return
 	}
+	
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
 {{- end }}
 
 {{- define "resource_update_standard" }}
 	{{- template "buildRequestBody" dict "Fields" .UpdateFields "Operation" nil }}
 
 	// Call Waldur API to update resource
-	var result map[string]interface{}
+	var apiResp {{ .Name | title }}ApiResponse
 	
-	err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), requestBody, &result)
+	err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), requestBody, &apiResp)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Update {{ .Name | humanize }}",
@@ -203,11 +209,11 @@
 	}
 
 	// Update UUID from response
-	if uuid, ok := result["uuid"].(string); ok {
-		data.UUID = types.StringValue(uuid)
+	if apiResp.UUID != nil {
+		data.UUID = types.StringPointerValue(apiResp.UUID)
 	}
 
-	r.updateFromValue(ctx, &data, result)
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
 {{- end }}
 
 {{- define "resource_delete_standard" }}

@@ -34,6 +34,15 @@ type {{ .Name | title }}Resource struct {
 	client *client.Client
 }
 
+// {{ .Name | title }}ApiResponse is the API response model.
+type {{ .Name | title }}ApiResponse struct {
+	UUID *string `json:"uuid"`
+	{{ template "apiResponseStructFields" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
+}
+
+{{ template "apiResponseNestedStructs" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
+{{ template "apiResponseConstants" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
+
 // {{ .Name | title }}ResourceModel describes the resource data model.
 type {{ .Name | title }}ResourceModel struct {
 	UUID types.String `tfsdk:"id"`
@@ -137,7 +146,6 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 	}
 
 	// Call Waldur API to read resource
-	var result map[string]interface{}
 	
 	{{- if .IsLink }}
 	{{ template "resource_read_link" . }}
@@ -146,7 +154,6 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 	{{- end }}
 
 
-	r.updateFromValue(ctx, &data, result)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -217,6 +224,11 @@ func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resou
 	{{- end }}
 }
 
-func (r *{{ .Name | title }}Resource) updateFromValue(ctx context.Context, data *{{ .Name | title }}ResourceModel, sourceMap map[string]interface{}) {
-	{{- template "mapResponseFields" . }}
+func (r *{{ .Name | title }}Resource) mapResponseToModel(ctx context.Context, apiResp {{ .Name | title }}ApiResponse, model *{{ .Name | title }}ResourceModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	model.UUID = types.StringPointerValue(apiResp.UUID)
+	{{- template "mapResponseToModel" . }}
+
+	return diags
 }

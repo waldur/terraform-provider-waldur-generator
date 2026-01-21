@@ -10,14 +10,15 @@ import (
 
 // FieldInfo represents information about a field extracted from OpenAPI schema
 type FieldInfo struct {
-	Name        string // JSON field name, e.g., "name"
-	Type        string // OpenAPI type: "string", "integer", "boolean", "number", "array", "object"
-	Required    bool   // Whether field is in schema.Required array
-	ReadOnly    bool   // Whether field is marked readOnly in schema
-	Description string // Field description from schema
-	TFSDKName   string // Terraform SDK attribute name (same as Name for now)
-	GoType      string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
-	ForceNew    bool   // Whether field requires replacement on change (immutable)
+	Name           string // JSON field name, e.g., "name"
+	Type           string // OpenAPI type: "string", "integer", "boolean", "number", "array", "object"
+	Required       bool   // Whether field is in schema.Required array
+	ReadOnly       bool   // Whether field is marked readOnly in schema
+	Description    string // Field description from schema
+	TFSDKName      string // Terraform SDK attribute name (same as Name for now)
+	GoType         string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
+	ForceNew       bool   // Whether field requires replacement on change (immutable)
+	ServerComputed bool   // Whether value can be set by server (readOnly or response-only)
 
 	// Complex type support
 	Enum       []string    // For enums: allowed values (only for string type)

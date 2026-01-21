@@ -122,13 +122,15 @@ schema.ListNestedAttribute{
     Required: true,
     {{- else }}
     Optional: true,
+    {{- if .ServerComputed }}
     Computed: true,
     {{- end }}
-    {{- if or .ForceNew (not .Required) }}
+    {{- end }}
+    {{- if or .ForceNew .ServerComputed }}
     PlanModifiers: []planmodifier.List{
         {{- if .ForceNew }}
         listplanmodifier.RequiresReplace(),
-        {{- else if not .Required }}
+        {{- else if .ServerComputed }}
         listplanmodifier.UseStateForUnknown(),
         {{- end }}
     },
@@ -148,13 +150,15 @@ schema.SingleNestedAttribute{
     Required: true,
     {{- else }}
     Optional: true,
+    {{- if .ServerComputed }}
     Computed: true,
     {{- end }}
-    {{- if or .ForceNew (not .Required) }}
+    {{- end }}
+    {{- if or .ForceNew .ServerComputed }}
     PlanModifiers: []planmodifier.Object{
         {{- if .ForceNew }}
         objectplanmodifier.RequiresReplace(),
-        {{- else if not .Required }}
+        {{- else if .ServerComputed }}
         objectplanmodifier.UseStateForUnknown(),
         {{- end }}
     },
@@ -178,13 +182,15 @@ schema.SingleNestedAttribute{
             Required: true,
             {{- else }}
             Optional: true,
+            {{- if .ServerComputed }}
             Computed: true,
             {{- end }}
-            {{- if or .ForceNew (not .Required) }}
+            {{- end }}
+            {{- if or .ForceNew .ServerComputed }}
             PlanModifiers: []planmodifier.List{
                 {{- if .ForceNew }}
                 listplanmodifier.RequiresReplace(),
-                {{- else if not .Required }}
+                {{- else if .ServerComputed }}
                 listplanmodifier.UseStateForUnknown(),
                 {{- end }}
             },
@@ -201,13 +207,15 @@ schema.SingleNestedAttribute{
         Required: true,
         {{- else }}
         Optional: true,
+        {{- if .ServerComputed }}
         Computed: true,
         {{- end }}
-        {{- if or .ForceNew (not .Required) }}
+        {{- end }}
+        {{- if or .ForceNew .ServerComputed }}
         PlanModifiers: []planmodifier.Map{
             {{- if .ForceNew }}
             mapplanmodifier.RequiresReplace(),
-            {{- else if not .Required }}
+            {{- else if .ServerComputed }}
             mapplanmodifier.UseStateForUnknown(),
             {{- end }}
         },
@@ -223,13 +231,15 @@ schema.SingleNestedAttribute{
         Required: true,
         {{- else }}
         Optional: true,
+        {{- if .ServerComputed }}
         Computed: true,
         {{- end }}
-        {{- if or .ForceNew (not .Required) }}
+        {{- end }}
+        {{- if or .ForceNew .ServerComputed }}
         PlanModifiers: []planmodifier.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}{
             {{- if .ForceNew }}
             {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.RequiresReplace(),
-            {{- else if not .Required }}
+            {{- else if .ServerComputed }}
             {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.UseStateForUnknown(),
             {{- end }}
         },

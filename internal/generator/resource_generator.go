@@ -441,6 +441,22 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		}
 	}
 
+	// Calculate ServerComputed: fields that the server can set/modify
+	// A field is ServerComputed if:
+	// - It is ReadOnly, OR
+	// - It is NOT in the create schema (response-only field)
+	createFieldNames := make(map[string]bool)
+	for _, f := range createFields {
+		createFieldNames[f.Name] = true
+	}
+
+	for i, f := range modelFields {
+		if f.ReadOnly || !createFieldNames[f.Name] {
+			modelFields[i].ServerComputed = true
+		}
+		// Fields in create schema that are not ReadOnly remain ServerComputed = false
+	}
+
 	// Update responseFields to use merged field definitions
 	// This ensures shared.tmpl uses the complete schema for nested objects
 	modelMap := make(map[string]FieldInfo)

@@ -291,28 +291,31 @@ func getSchemaType(schema *openapi3.Schema) string {
 
 // ExcludedFields defines fields that should be excluded from standard resources
 var ExcludedFields = map[string]bool{
-	"marketplace_category_name":      true,
-	"marketplace_category_uuid":      true,
-	"marketplace_offering_name":      true,
-	"marketplace_offering_uuid":      true,
-	"marketplace_plan_uuid":          true,
-	"marketplace_resource_state":     true,
-	"marketplace_resource_uuid":      true,
-	"is_limit_based":                 true,
-	"is_usage_based":                 true,
+	// Marketplace fields
+	"marketplace_category_name":  true,
+	"marketplace_category_uuid":  true,
+	"marketplace_offering_name":  true,
+	"marketplace_offering_uuid":  true,
+	"marketplace_plan_uuid":      true,
+	"marketplace_resource_state": true,
+	"marketplace_resource_uuid":  true,
+	"is_limit_based":             true,
+	"is_usage_based":             true,
+	// Service settings
 	"service_name":                   true,
 	"service_settings":               true,
 	"service_settings_error_message": true,
 	"service_settings_state":         true,
 	"service_settings_uuid":          true,
-	"project":                        true,
-	"project_name":                   true,
-	"project_uuid":                   true,
-	"customer":                       true,
-	"customer_abbreviation":          true,
-	"customer_name":                  true,
-	"customer_native_name":           true,
-	"customer_uuid":                  true,
+	// Project/Customer (handled separately)
+	"project":               true,
+	"project_name":          true,
+	"project_uuid":          true,
+	"customer":              true,
+	"customer_abbreviation": true,
+	"customer_name":         true,
+	"customer_native_name":  true,
+	"customer_uuid":         true,
 }
 
 // GetDefaultDescription returns a generated description based on the field name if the current description is empty or too short.

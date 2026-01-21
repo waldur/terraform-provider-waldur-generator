@@ -124,9 +124,13 @@ schema.ListNestedAttribute{
     Optional: true,
     Computed: true,
     {{- end }}
-    {{- if .ForceNew }}
+    {{- if or .ForceNew (not .Required) }}
     PlanModifiers: []planmodifier.List{
+        {{- if .ForceNew }}
         listplanmodifier.RequiresReplace(),
+        {{- else if not .Required }}
+        listplanmodifier.UseStateForUnknown(),
+        {{- end }}
     },
     {{- end }}
     MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
@@ -146,9 +150,13 @@ schema.SingleNestedAttribute{
     Optional: true,
     Computed: true,
     {{- end }}
-    {{- if .ForceNew }}
+    {{- if or .ForceNew (not .Required) }}
     PlanModifiers: []planmodifier.Object{
+        {{- if .ForceNew }}
         objectplanmodifier.RequiresReplace(),
+        {{- else if not .Required }}
+        objectplanmodifier.UseStateForUnknown(),
+        {{- end }}
     },
     {{- end }}
     MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
@@ -172,9 +180,13 @@ schema.SingleNestedAttribute{
             Optional: true,
             Computed: true,
             {{- end }}
-            {{- if .ForceNew }}
+            {{- if or .ForceNew (not .Required) }}
             PlanModifiers: []planmodifier.List{
+                {{- if .ForceNew }}
                 listplanmodifier.RequiresReplace(),
+                {{- else if not .Required }}
+                listplanmodifier.UseStateForUnknown(),
+                {{- end }}
             },
             {{- end }}
             MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
@@ -191,9 +203,13 @@ schema.SingleNestedAttribute{
         Optional: true,
         Computed: true,
         {{- end }}
-        {{- if .ForceNew }}
+        {{- if or .ForceNew (not .Required) }}
         PlanModifiers: []planmodifier.Map{
+            {{- if .ForceNew }}
             mapplanmodifier.RequiresReplace(),
+            {{- else if not .Required }}
+            mapplanmodifier.UseStateForUnknown(),
+            {{- end }}
         },
         {{- end }}
         MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
@@ -209,9 +225,13 @@ schema.SingleNestedAttribute{
         Optional: true,
         Computed: true,
         {{- end }}
-        {{- if .ForceNew }}
+        {{- if or .ForceNew (not .Required) }}
         PlanModifiers: []planmodifier.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}{
+            {{- if .ForceNew }}
             {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.RequiresReplace(),
+            {{- else if not .Required }}
+            {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.UseStateForUnknown(),
+            {{- end }}
         },
         {{- end }}
         MarkdownDescription: "{{ or (.Description | sanitize) " " }}",

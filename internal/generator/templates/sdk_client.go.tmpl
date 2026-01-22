@@ -74,6 +74,7 @@ func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, re
 	return "", nil
 }
 {{- else }}
+{{- if .APIPaths.Create }}
 func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
 	path := "{{ .APIPaths.Create }}"
@@ -90,6 +91,7 @@ func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | 
 	}
 	return &apiResp, nil
 }
+{{- end }}
 {{- end }}
 {{- end }}
 

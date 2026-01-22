@@ -8,7 +8,7 @@ import (
 	"text/template"
 )
 
-// generateSharedUtils generates the utils.go file in internal/resources and internal/datasources
+// generateSharedUtils generates the utils.go file in internal/sdk/common
 func (g *Generator) generateSharedUtils() error {
 	// Read template file
 	content, err := templates.ReadFile("templates/utils.go.tmpl")
@@ -16,15 +16,21 @@ func (g *Generator) generateSharedUtils() error {
 		return fmt.Errorf("failed to read utils template: %w", err)
 	}
 
-	// Generate for resources package
-	resourcesPath := filepath.Join(g.config.Generator.OutputDir, "internal", "resources", "utils.go")
-	if err := g.writeUtilsFile(resourcesPath, content, "resources"); err != nil {
-		return err
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common", "utils.go")
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory for utils.go: %w", err)
 	}
 
-	// Generate for datasources package
-	datasourcesPath := filepath.Join(g.config.Generator.OutputDir, "internal", "datasources", "utils.go")
-	if err := g.writeUtilsFile(datasourcesPath, content, "datasources"); err != nil {
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// Replace package name
+	contentStr := strings.Replace(string(content), "package resources", "package common", 1)
+
+	if _, err := f.WriteString(contentStr); err != nil {
 		return err
 	}
 
@@ -120,9 +126,10 @@ func (g *Generator) GenerateSharedTypes() error {
 
 	data := map[string]interface{}{
 		"Structs": uniqueStructs,
+		"Package": "common",
 	}
 
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "resources", "shared_types.go")
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common", "types.go")
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}

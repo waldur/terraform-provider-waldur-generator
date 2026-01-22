@@ -1,4 +1,4 @@
-package resources
+package {{ .CleanName }}
 
 import (
 	"context"
@@ -10,15 +10,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/list/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/waldur/terraform-provider-waldur/internal/client"
-	"github.com/waldur/terraform-provider-waldur/internal/sdk"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+
+	"github.com/waldur/terraform-provider-waldur/internal/client"
+	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
 )
 
 var _ list.ListResource = &{{ .Name | title }}List{}
 
 type {{ .Name | title }}List struct {
-	client *sdk.Client
+	client *Client
 }
 
 func New{{ .Name | title }}List() list.ListResource {
@@ -56,7 +57,7 @@ func (l *{{ .Name | title }}List) Configure(ctx context.Context, req resource.Co
 		return
 	}
 
-	l.client = sdk.NewClient(client)
+	l.client = NewClient(client)
 }
 
 type {{ .Name | title }}ListModel struct {

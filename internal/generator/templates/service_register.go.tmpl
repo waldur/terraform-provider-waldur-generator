@@ -1,0 +1,54 @@
+package {{ .Service }}
+
+import (
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/action"
+	"github.com/hashicorp/terraform-plugin-framework/list"
+
+	{{- range .Resources }}
+	pkg_{{ .CleanName }} "github.com/waldur/terraform-provider-{{ $.ProviderName }}/services/{{ $.Service }}/{{ .CleanName }}"
+	{{- end }}
+)
+
+func GetResources() []func() resource.Resource {
+	return []func() resource.Resource{
+		{{- range .Resources }}
+		{{- if not .IsDatasourceOnly }}
+		pkg_{{ .CleanName }}.New{{ .Name | title }}Resource,
+		{{- end }}
+		{{- end }}
+	}
+}
+
+func GetDataSources() []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		{{- range .Resources }}
+		{{- if .HasDataSource }}
+		pkg_{{ .CleanName }}.New{{ .Name | title }}DataSource,
+		{{- end }}
+		{{- end }}
+	}
+}
+
+func GetActions() []func() action.Action {
+	return []func() action.Action{
+		{{- range .Resources }}
+			{{- $resClean := .CleanName }}
+			{{- $resTitle := .Name | title }}
+			{{- range .Actions }}
+		pkg_{{ $resClean }}.New{{ $resTitle }}{{ . | title }}Action,
+			{{- end }}
+		{{- end }}
+	}
+}
+
+func GetListResources() []func() list.ListResource {
+	return []func() list.ListResource{
+		{{- range .Resources }}
+		{{- if not .IsDatasourceOnly }}
+		pkg_{{ .CleanName }}.New{{ .Name | title }}List,
+		{{- end }}
+		{{- end }}
+	}
+}

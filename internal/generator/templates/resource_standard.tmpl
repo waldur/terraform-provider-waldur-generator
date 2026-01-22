@@ -44,7 +44,7 @@
 		}
 		{{- else }}
 		// Object array or other
-		var items []{{ if .ItemSchema.RefName }}sdk.{{ .ItemSchema.RefName }}{{ else }}sdk.{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
+		var items []{{ if .ItemSchema.RefName }}common.{{ .ItemSchema.RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
 			requestBody.{{ .Name | title }} = items
 		}
@@ -52,7 +52,7 @@
 	}
 	{{- else if eq .Type "object" }}
 	{
-		var obj {{ if .RefName }}sdk.{{ .RefName }}{{ else }}sdk.{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
+		var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
 			requestBody.{{ .Name | title }} = &obj
 		}
@@ -86,7 +86,7 @@
 			requestBody.{{ .Name | title }} = items
 		}
 		{{- else }}
-		var items []{{ if .ItemSchema.RefName }}sdk.{{ .ItemSchema.RefName }}{{ else }}sdk.{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
+		var items []{{ if .ItemSchema.RefName }}common.{{ .ItemSchema.RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
 			requestBody.{{ .Name | title }} = items
 		}
@@ -94,7 +94,7 @@
     }
 	{{- else if eq .Type "object" }}
     {
-		var obj {{ if .RefName }}sdk.{{ .RefName }}{{ else }}sdk.{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
+		var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
 			requestBody.{{ .Name | title }} = &obj
 		}
@@ -122,7 +122,7 @@
 	{{- /* Check if there are any body fields (non-path-param fields) */ -}}
 	{{- $hasCreate := or .APIPaths.Create .CreateOperation }}
 	{{- if $hasCreate }}
-	var requestBody sdk.{{ .Name | title }}CreateRequest
+	var requestBody {{ .Name | title }}CreateRequest
 	{{- if .CreateOperation }}
 	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" .CreateOperation "Prefix" (printf "%sCreate" (.Name | title)) }}
 	{{- else }}
@@ -225,7 +225,7 @@
 
 {{- define "resource_update_standard" }}
 	{{- if .APIPaths.Update }}
-	var requestBody sdk.{{ .Name | title }}UpdateRequest
+	var requestBody {{ .Name | title }}UpdateRequest
 	{{- template "buildRequestBody" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
 
 	apiResp, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &requestBody)

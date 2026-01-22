@@ -1,4 +1,4 @@
-package resources
+package {{ .CleanName }}
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
 	"github.com/waldur/terraform-provider-waldur/internal/client"
-	"github.com/waldur/terraform-provider-waldur/internal/sdk"
+	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -40,7 +40,7 @@ func New{{ .Name | title }}Resource() resource.Resource {
 
 // {{ .Name | title }}Resource defines the resource implementation.
 type {{ .Name | title }}Resource struct {
-	client *sdk.Client
+	client *Client
 }
 
 // {{ .Name | title }}ResourceModel describes the resource data model.
@@ -98,7 +98,7 @@ func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resourc
 		return
 	}
 
-	r.client = sdk.NewClient(client)
+	r.client = NewClient(client)
 }
 
 func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -220,7 +220,7 @@ func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resou
 	{{- end }}
 }
 
-func (r *{{ .Name | title }}Resource) mapResponseToModel(ctx context.Context, apiResp sdk.{{ .Name | title }}Response, model *{{ .Name | title }}ResourceModel) diag.Diagnostics {
+func (r *{{ .Name | title }}Resource) mapResponseToModel(ctx context.Context, apiResp {{ .Name | title }}Response, model *{{ .Name | title }}ResourceModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	model.UUID = types.StringPointerValue(apiResp.UUID)

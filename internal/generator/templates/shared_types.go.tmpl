@@ -1,13 +1,12 @@
-package resources
+package {{ .Package }}
 
-import (
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-)
 
 {{ range .Structs }}
-type {{ if hasSuffix .RefName "Request" }}{{ .RefName }}{{ else }}{{ .RefName }}Request{{ end }} struct {
+type {{ .RefName }} struct {
 	{{ template "apiRequestStructFields" dict "Fields" .Properties "Prefix" .RefName }}
+	{{ if eq .RefName "OrderDetails" }}
+	Uuid *string `json:"uuid" tfsdk:"uuid"`
+	{{ end }}
 }
 {{ template "apiRequestNestedStructs" dict "Fields" .Properties "Prefix" .RefName }}
 {{ end }}

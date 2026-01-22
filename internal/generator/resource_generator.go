@@ -18,18 +18,23 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		return fmt.Errorf("failed to parse resource template: %w", err)
 	}
 
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "resources", fmt.Sprintf("%s.go", resource.Name))
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	// Prepare data
 	data, err := g.prepareResourceData(resource)
 	if err != nil {
 		return err
 	}
+
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", data.Service, data.CleanName)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+
+	outputPath := filepath.Join(outputDir, "resource.go")
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return err
@@ -522,8 +527,12 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 	sort.Slice(updateActions, func(i, j int) bool { return updateActions[i].Name < updateActions[j].Name })
 
+	service, cleanName := splitResourceName(resource.Name)
+
 	return &ResourceData{
 		Name:                  resource.Name,
+		Service:               service,
+		CleanName:             cleanName,
 		Plugin:                resource.Plugin,
 		Operations:            ops,
 		APIPaths:              apiPaths,
@@ -539,10 +548,12 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		OfferingType:          resource.OfferingType,
 		UpdateActions:         updateActions, // Use enriched UpdateAction slice with resolved paths
 		StandaloneActions:     standaloneActions,
+		Actions:               resource.Actions,
 		TerminationAttributes: resource.TerminationAttributes,
 		CreateOperation:       resource.CreateOperation, // Custom create operation config
 		CompositeKeys:         resource.CompositeKeys,   // Fields forming composite key
 		NestedStructs:         collectUniqueStructs(createFields, updateFields, responseFields),
+		HasDataSource:         g.hasDataSource(resource.Name),
 	}, nil
 }
 

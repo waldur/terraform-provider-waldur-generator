@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"text/template"
 )
 
@@ -12,8 +13,8 @@ func (g *Generator) createDirectoryStructure() error {
 	dirs := []string{
 		g.config.Generator.OutputDir,
 		filepath.Join(g.config.Generator.OutputDir, "internal", "provider"),
-		filepath.Join(g.config.Generator.OutputDir, "internal", "resources"),
-		filepath.Join(g.config.Generator.OutputDir, "internal", "datasources"),
+		filepath.Join(g.config.Generator.OutputDir, "services"),
+		filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common"),
 		filepath.Join(g.config.Generator.OutputDir, "internal", "client"),
 		filepath.Join(g.config.Generator.OutputDir, "internal", "testhelpers"),
 		filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata"),
@@ -45,13 +46,95 @@ func (g *Generator) generateProvider() error {
 	}
 	defer f.Close()
 
+	// Collect unique services
+	services := make(map[string]bool)
+	for _, res := range g.config.Resources {
+		service, _ := splitResourceName(res.Name)
+		services[service] = true
+	}
+	for _, ds := range g.config.DataSources {
+		service, _ := splitResourceName(ds.Name)
+		services[service] = true
+	}
+
+	var serviceList []string
+	for s := range services {
+		serviceList = append(serviceList, s)
+	}
+	sort.Strings(serviceList)
+
 	data := map[string]interface{}{
 		"ProviderName": g.config.Generator.ProviderName,
-		"Resources":    g.config.Resources,
-		"DataSources":  g.config.DataSources,
+		"Services":     serviceList,
 	}
 
 	return tmpl.Execute(f, data)
+}
+
+func (g *Generator) generateServiceRegistrations() error {
+	tmpl, err := template.New("service_register.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/service_register.go.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse service register template: %w", err)
+	}
+
+	// Group resources by service
+	serviceResources := make(map[string][]*ResourceData)
+
+	// Process resources
+	for _, res := range g.config.Resources {
+		rd, err := g.prepareResourceData(&res)
+		if err != nil {
+			return err
+		}
+		serviceResources[rd.Service] = append(serviceResources[rd.Service], rd)
+	}
+
+	// Process datasources
+	for _, ds := range g.config.DataSources {
+		// Check if resource already exists for this datasource
+		exists := false
+		service, cleanName := splitResourceName(ds.Name)
+		for _, rd := range serviceResources[service] {
+			if rd.CleanName == cleanName {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			dd, err := g.prepareDatasourceData(&ds)
+			if err != nil {
+				return err
+			}
+			serviceResources[dd.Service] = append(serviceResources[dd.Service], dd)
+		}
+	}
+
+	for service, resources := range serviceResources {
+		outputDir := filepath.Join(g.config.Generator.OutputDir, "services", service)
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return err
+		}
+
+		outputPath := filepath.Join(outputDir, "register.go")
+		f, err := os.Create(outputPath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		data := map[string]interface{}{
+			"Service":      service,
+			"Resources":    resources,
+			"ProviderName": g.config.Generator.ProviderName,
+		}
+
+		if err := tmpl.Execute(f, data); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // generateSupportingFiles generates go.mod, README, etc.

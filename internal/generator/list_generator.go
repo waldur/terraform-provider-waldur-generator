@@ -22,12 +22,8 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 		return fmt.Errorf("failed to parse list resource template: %w", err)
 	}
 
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "resources", fmt.Sprintf("%s_list.go", resource.Name))
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+	var f *os.File
+	var outputPath string
 
 	ops := resource.OperationIDs()
 
@@ -219,8 +215,12 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 	FillDescriptions(responseFields)
 	FillDescriptions(modelFields)
 
+	service, cleanName := splitResourceName(resource.Name)
+
 	data := map[string]interface{}{
 		"Name":              resource.Name,
+		"Service":           service,
+		"CleanName":         cleanName,
 		"APIPaths":          apiPaths,
 		"ResponseFields":    responseFields,
 		"ModelFields":       modelFields,
@@ -228,6 +228,18 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 		"ProviderName":      g.config.Generator.ProviderName,
 		"SkipFilterMapping": true,
 	}
+
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", service, cleanName)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+
+	outputPath = filepath.Join(outputDir, "list.go")
+	f, err = os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return err

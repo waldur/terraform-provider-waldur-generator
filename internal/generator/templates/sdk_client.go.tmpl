@@ -1,4 +1,4 @@
-package sdk
+package {{ .Package }}
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/waldur/terraform-provider-waldur/internal/client"
+	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
 )
 
 type Client struct {
@@ -54,8 +55,8 @@ func (c *Client) ExecuteAction(ctx context.Context, pathTemplate string, uuid st
 
 {{ if not .IsDatasourceOnly -}}
 {{- if .IsOrder }}
-func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*MarketplaceOrderResponse, error) {
-	var apiResp MarketplaceOrderResponse
+func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*common.OrderDetails, error) {
+	var apiResp common.OrderDetails
 	err := c.Client.Post(ctx, "/api/marketplace-orders/", req, &apiResp)
 	if err != nil {
 		return nil, err
@@ -125,7 +126,6 @@ func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error
 {{- end }}
 
 
-// List{{ .Name | title }}
 func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]string) ([]{{ .Name | title }}Response, error) {
 	var listResult []{{ .Name | title }}Response
 	path := "{{ .APIPaths.Base }}"

@@ -28,9 +28,12 @@ func (g *Generator) generateActions(resource *config.Resource) error {
 		}
 
 		// Prepare data for template
+		service, cleanName := splitResourceName(resource.Name)
 		resourceName := strings.ReplaceAll(resource.Name, "_", " ")
 		data := map[string]interface{}{
 			"ResourceName":    resource.Name,
+			"Service":         service,
+			"CleanName":       cleanName,
 			"ActionName":      actionName,
 			"OperationID":     operationID,
 			"BaseOperationID": resource.BaseOperationID,
@@ -43,14 +46,12 @@ func (g *Generator) generateActions(resource *config.Resource) error {
 		}
 
 		// Generate file
-		filename := fmt.Sprintf("%s_%s.go", resource.Name, actionName)
-		outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "actions", filename)
-
-		// Ensure directory exists
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		outputDir := filepath.Join(g.config.Generator.OutputDir, "services", service, cleanName)
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return err
 		}
 
+		outputPath := filepath.Join(outputDir, fmt.Sprintf("%s.go", actionName))
 		f, err := os.Create(outputPath)
 		if err != nil {
 			return err

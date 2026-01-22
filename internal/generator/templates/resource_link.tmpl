@@ -2,7 +2,7 @@
 	// Link Plugin Create Logic
 	sourceUUID := data.{{ .Source.Param | title }}.ValueString()
 
-	requestBody := sdk.{{ .Name | title }}CreateRequest{
+	requestBody := {{ .Name | title }}CreateRequest{
 		{{ .Target.Param | title }}: data.{{ .Target.Param | title }}.ValueStringPointer(),
 		{{- range .CreateFields }}
 		{{- if and (ne .Name $.Source.Param) (ne .Name $.Target.Param) }}

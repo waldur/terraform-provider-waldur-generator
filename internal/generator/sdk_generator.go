@@ -10,38 +10,65 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
-// GenerateSDK generates the internal/sdk package
+// GenerateSDK generates the decentralized SDK components
 func (g *Generator) GenerateSDK() error {
-	sdkPath := filepath.Join(g.config.Generator.OutputDir, "internal", "sdk")
-	if err := os.MkdirAll(sdkPath, 0755); err != nil {
-		return fmt.Errorf("failed to create sdk directory: %w", err)
+	if err := g.generateSharedSDKTypes(); err != nil {
+		return fmt.Errorf("failed to generate shared types: %w", err)
 	}
 
-	if err := g.generateSDKTypes(sdkPath); err != nil {
-		return fmt.Errorf("failed to generate types.go: %w", err)
-	}
-
-	if err := g.generateSDKClient(sdkPath); err != nil {
-		return fmt.Errorf("failed to generate client.go: %w", err)
+	if err := g.generateResourceSDKs(); err != nil {
+		return fmt.Errorf("failed to generate resource SDKs: %w", err)
 	}
 
 	return nil
 }
 
-func (g *Generator) generateSDKTypes(outputDir string) error {
-	tmpl, err := template.New("sdk_types.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/sdk_types.go.tmpl")
+func (g *Generator) generateSharedSDKTypes() error {
+	tmpl, err := template.New("shared_types.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/shared_types.go.tmpl")
 	if err != nil {
-		return fmt.Errorf("failed to parse sdk types template: %w", err)
+		return fmt.Errorf("failed to parse shared types template: %w", err)
 	}
 
-	// Collect and merge data from resources and datasources
+	var allFields []FieldInfo
+
+	// Collect all schemas from OpenAPI components
+	for name, schemaRef := range g.parser.Document().Components.Schemas {
+		fields, _ := ExtractFields(schemaRef)
+		allFields = append(allFields, FieldInfo{
+			RefName:    name,
+			GoType:     "types.Object",
+			Properties: fields,
+		})
+	}
+
+	uniqueStructs := collectUniqueStructs(allFields)
+	data := map[string]interface{}{
+		"Structs": uniqueStructs,
+		"Package": "common",
+	}
+
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common", "types.go")
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return err
+	}
+
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return tmpl.Execute(f, data)
+}
+
+func (g *Generator) generateResourceSDKs() error {
 	mergedResources := make(map[string]*ResourceData)
 	var resourceOrder []string
 
 	for _, res := range g.config.Resources {
 		rd, err := g.prepareResourceData(&res)
 		if err != nil {
-			return fmt.Errorf("failed to prepare data for resource %s: %w", res.Name, err)
+			return err
 		}
 		mergedResources[res.Name] = rd
 		resourceOrder = append(resourceOrder, res.Name)
@@ -50,11 +77,10 @@ func (g *Generator) generateSDKTypes(outputDir string) error {
 	for _, ds := range g.config.DataSources {
 		dd, err := g.prepareDatasourceData(&ds)
 		if err != nil {
-			return fmt.Errorf("failed to prepare data for datasource %s: %w", ds.Name, err)
+			return err
 		}
 
 		if existing, ok := mergedResources[ds.Name]; ok {
-			// Merge response fields
 			existing.ResponseFields = mergeFields(existing.ResponseFields, dd.ResponseFields)
 			existing.ModelFields = mergeFields(existing.ModelFields, dd.ModelFields)
 		} else {
@@ -63,21 +89,44 @@ func (g *Generator) generateSDKTypes(outputDir string) error {
 		}
 	}
 
-	var resources []ResourceData
-	var allFields []FieldInfo
 	for _, name := range resourceOrder {
 		rd := mergedResources[name]
-		resources = append(resources, *rd)
-		allFields = append(allFields, rd.CreateFields...)
-		allFields = append(allFields, rd.UpdateFields...)
-		allFields = append(allFields, rd.ResponseFields...)
+		if err := g.generateResourceSDK(rd); err != nil {
+			return err
+		}
 	}
 
-	sharedStructs := collectUniqueStructs(allFields)
+	return nil
+}
+
+func (g *Generator) generateResourceSDK(rd *ResourceData) error {
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+
+	// Generate types.go
+	if err := g.generateResourceSDKTypes(rd, outputDir); err != nil {
+		return err
+	}
+
+	// Generate client.go
+	if err := g.generateResourceSDKClient(rd, outputDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *Generator) generateResourceSDKTypes(rd *ResourceData, outputDir string) error {
+	tmpl, err := template.New("sdk_types.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/sdk_types.go.tmpl")
+	if err != nil {
+		return err
+	}
 
 	data := map[string]interface{}{
-		"SharedStructs": sharedStructs,
-		"Resources":     resources,
+		"Resources": []ResourceData{*rd},
+		"Package":   rd.CleanName,
 	}
 
 	f, err := os.Create(filepath.Join(outputDir, "types.go"))
@@ -86,53 +135,18 @@ func (g *Generator) generateSDKTypes(outputDir string) error {
 	}
 	defer f.Close()
 
-	if err := tmpl.Execute(f, data); err != nil {
+	return tmpl.Execute(f, data)
+}
+
+func (g *Generator) generateResourceSDKClient(rd *ResourceData, outputDir string) error {
+	tmpl, err := template.New("sdk_client.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/sdk_client.go.tmpl")
+	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (g *Generator) generateSDKClient(outputDir string) error {
-	tmpl, err := template.New("sdk_client.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/sdk_client.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse sdk client template: %w", err)
-	}
-
-	mergedResources := make(map[string]*ResourceData)
-	var resourceOrder []string
-
-	for _, res := range g.config.Resources {
-		rd, err := g.prepareResourceData(&res)
-		if err != nil {
-			return err
-		}
-		mergedResources[res.Name] = rd
-		resourceOrder = append(resourceOrder, res.Name)
-	}
-
-	for _, ds := range g.config.DataSources {
-		dd, err := g.prepareDatasourceData(&ds)
-		if err != nil {
-			return err
-		}
-
-		if existing, ok := mergedResources[ds.Name]; ok {
-			existing.ResponseFields = mergeFields(existing.ResponseFields, dd.ResponseFields)
-			existing.ModelFields = mergeFields(existing.ModelFields, dd.ModelFields)
-		} else {
-			mergedResources[ds.Name] = dd
-			resourceOrder = append(resourceOrder, ds.Name)
-		}
-	}
-
-	var resources []ResourceData
-	for _, name := range resourceOrder {
-		resources = append(resources, *mergedResources[name])
-	}
-
 	data := map[string]interface{}{
-		"Resources": resources,
+		"Resources": []ResourceData{*rd},
+		"Package":   rd.CleanName,
 	}
 
 	f, err := os.Create(filepath.Join(outputDir, "client.go"))
@@ -141,11 +155,7 @@ func (g *Generator) generateSDKClient(outputDir string) error {
 	}
 	defer f.Close()
 
-	if err := tmpl.Execute(f, data); err != nil {
-		return err
-	}
-
-	return nil
+	return tmpl.Execute(f, data)
 }
 
 // prepareDatasourceData creates minimal ResourceData for a datasource-only definition
@@ -181,8 +191,12 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	// Sort for deterministic output
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 
+	service, cleanName := splitResourceName(dataSource.Name)
+
 	return &ResourceData{
 		Name:           dataSource.Name,
+		Service:        service,
+		CleanName:      cleanName,
 		ResponseFields: responseFields,
 		ModelFields:    responseFields,
 		APIPaths: map[string]string{

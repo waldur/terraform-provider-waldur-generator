@@ -1,4 +1,4 @@
-package resources
+package common
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"github.com/waldur/terraform-provider-waldur/internal/sdk"
+	"github.com/waldur/terraform-provider-waldur/internal/client"
 )
 
 // BuildQueryFilters extracts filter values from a filters struct using reflection.
@@ -71,7 +71,7 @@ func PopulateSliceField[T any](ctx context.Context, list types.List, target *[]T
 }
 
 // ResolveResourceUUID extracts the resource UUID from a marketplace order response.
-func ResolveResourceUUID(orderRes *sdk.MarketplaceOrderResponse) string {
+func ResolveResourceUUID(orderRes *OrderDetails) string {
 	if orderRes == nil {
 		return ""
 	}
@@ -85,12 +85,13 @@ func ResolveResourceUUID(orderRes *sdk.MarketplaceOrderResponse) string {
 }
 
 // WaitForOrder blocks until a marketplace order reaches the "done" state.
-func WaitForOrder(ctx context.Context, client *sdk.Client, orderUUID string, timeout time.Duration) (*sdk.MarketplaceOrderResponse, error) {
+func WaitForOrder(ctx context.Context, c *client.Client, orderUUID string, timeout time.Duration) (*OrderDetails, error) {
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{"pending", "executing", "created"},
 		Target:  []string{"done"},
 		Refresh: func() (interface{}, string, error) {
-			res, err := client.GetMarketplaceOrder(ctx, orderUUID)
+			var res OrderDetails
+			err := c.Get(ctx, fmt.Sprintf("/api/marketplace-orders/%s/", orderUUID), &res)
 			if err != nil {
 				return nil, "", err
 			}
@@ -104,9 +105,9 @@ func WaitForOrder(ctx context.Context, client *sdk.Client, orderUUID string, tim
 				if res.ErrorMessage != nil {
 					msg = *res.ErrorMessage
 				}
-				return res, "failed", fmt.Errorf("order failed: %s", msg)
+				return &res, "failed", fmt.Errorf("order failed: %s", msg)
 			}
-			return res, state, nil
+			return &res, state, nil
 		},
 		Timeout:    timeout,
 		Delay:      10 * time.Second,
@@ -118,7 +119,5 @@ func WaitForOrder(ctx context.Context, client *sdk.Client, orderUUID string, tim
 		return nil, err
 	}
 
-	return rawResult.(*sdk.MarketplaceOrderResponse), nil
+	return rawResult.(*OrderDetails), nil
 }
-
-

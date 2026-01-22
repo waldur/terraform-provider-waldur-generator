@@ -34,5 +34,12 @@ func (g *Generator) cleanupImports() error {
 		fmt.Printf("Warning: failed to format resources: %v\n", err)
 	}
 
+	// Clean up services
+	servicesDir := filepath.Join(g.config.Generator.OutputDir, "services")
+	cmd = exec.Command(toolPath, "-w", servicesDir)
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Warning: failed to format services: %v\n", err)
+	}
+
 	return nil
 }

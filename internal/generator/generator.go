@@ -3,6 +3,7 @@ package generator
 import (
 	"embed"
 	"fmt"
+	"strings"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
@@ -20,6 +21,8 @@ type Generator struct {
 // ResourceData holds all data required to generate resource/sdk code
 type ResourceData struct {
 	Name                  string
+	Service               string // e.g., "openstack", "marketplace"
+	CleanName             string // e.g., "instance", "order"
 	Plugin                string
 	CheckingLink          bool
 	Operations            config.OperationSet
@@ -37,10 +40,12 @@ type ResourceData struct {
 	OfferingType          string
 	UpdateActions         []UpdateAction
 	StandaloneActions     []UpdateAction
+	Actions               []string
 	TerminationAttributes []config.ParameterConfig
 	CreateOperation       *config.CreateOperationConfig
 	CompositeKeys         []string
 	NestedStructs         []FieldInfo // Only used for legacy resource generation if needed
+	HasDataSource         bool        // True if a corresponding data source exists
 }
 
 // New creates a new generator instance
@@ -66,6 +71,11 @@ func (g *Generator) Generate() error {
 	// Generate provider files
 	if err := g.generateProvider(); err != nil {
 		return fmt.Errorf("failed to generate provider: %w", err)
+	}
+
+	// Generate service registration files
+	if err := g.generateServiceRegistrations(); err != nil {
+		return fmt.Errorf("failed to generate service registrations: %w", err)
 	}
 
 	// Generate resources
@@ -106,11 +116,6 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate shared utils: %w", err)
 	}
 
-	// Generate shared types (OpenAPI components)
-	if err := g.GenerateSharedTypes(); err != nil {
-		return fmt.Errorf("failed to generate shared types: %w", err)
-	}
-
 	// Generate SDK
 	if err := g.GenerateSDK(); err != nil {
 		return fmt.Errorf("failed to generate sdk: %w", err)
@@ -137,4 +142,21 @@ func (g *Generator) Generate() error {
 	}
 
 	return nil
+}
+
+func (g *Generator) hasDataSource(resourceName string) bool {
+	for _, ds := range g.config.DataSources {
+		if ds.Name == resourceName {
+			return true
+		}
+	}
+	return false
+}
+
+func splitResourceName(name string) (string, string) {
+	parts := strings.SplitN(name, "_", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return "core", name // Fallback to core
 }

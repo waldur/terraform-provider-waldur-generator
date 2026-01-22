@@ -17,12 +17,8 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		return fmt.Errorf("failed to parse datasource template: %w", err)
 	}
 
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "datasources", fmt.Sprintf("%s.go", dataSource.Name))
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+	var f *os.File
+	var outputPath string
 
 	ops := dataSource.OperationIDs()
 
@@ -145,8 +141,12 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	}
 	FillDescriptions(filteredResponseFields)
 
+	service, cleanName := splitResourceName(dataSource.Name)
+
 	data := map[string]interface{}{
 		"Name":           dataSource.Name,
+		"Service":        service,
+		"CleanName":      cleanName,
 		"Operations":     ops,
 		"ListPath":       listPath,
 		"RetrievePath":   retrievePath,
@@ -154,6 +154,18 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		"ResponseFields": filteredResponseFields,
 		"ModelFields":    filteredResponseFields,
 	}
+
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", service, cleanName)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+
+	outputPath = filepath.Join(outputDir, "datasource.go")
+	f, err = os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return err

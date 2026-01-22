@@ -1,86 +1,34 @@
 {{- define "resource_create_order" }}
 	// Phase 1: Payload Construction
-	attributes := map[string]interface{}{}
+	attributes := {{ .Name | title }}CreateAttributes{
+		{{- range .CreateFields }}
+		{{- if and (ne .Name "project") (ne .Name "offering") }}
+		{{- if or (eq .Type "string") (eq .Type "integer") (eq .Type "boolean") (eq .Type "number") }}
+		{{ .Name | title }}: data.{{ .Name | title }}.Value{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Pointer(),
+		{{- end }}
+		{{- end }}
+		{{- end }}
+	}
+
 	{{- range .CreateFields }}
 	{{- if and (ne .Name "project") (ne .Name "offering") }}
-	{{- if .Required }}
-		{{- if eq .Type "string" }}
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
-		{{- else if eq .Type "integer" }}
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
-		{{- else if eq .Type "boolean" }}
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
-		{{- else if eq .Type "number" }}
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
-		{{- else if eq .Type "array" }}
-		items := make([]interface{}, 0)
-		{{- if eq .ItemType "string" }}
-		for _, elem := range data.{{ .Name | title }}.Elements() {
-			if strVal, ok := elem.(types.String); ok {
-				items = append(items, strVal.ValueString())
-			}
+	{{- if eq .Type "array" }}
+	PopulateSliceField(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})
+	{{- else if eq .Type "object" }}
+	{
+		var obj {{ $.Name | title }}Create{{ .Name | title }}Request
+		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
+			attributes.{{ .Name | title }} = &obj
 		}
-		{{- else if eq .ItemType "integer" }}
-		for _, elem := range data.{{ .Name | title }}.Elements() {
-			if intVal, ok := elem.(types.Int64); ok {
-				items = append(items, intVal.ValueInt64())
-			}
-		}
-		{{- else if eq .ItemType "object" }}
-		for _, elem := range data.{{ .Name | title }}.Elements() {
-			items = append(items, ConvertTFValue(elem))
-		}
-		{{- end }}
-		attributes["{{ .Name }}"] = items
-		{{- end }}
-	{{- else }}
-	{{- if eq .Type "string" }}
-	if !data.{{ .Name | title }}.IsNull() {
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
 	}
-	{{- else if eq .Type "integer" }}
-	if !data.{{ .Name | title }}.IsNull() {
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
-	}
-	{{- else if eq .Type "boolean" }}
-	if !data.{{ .Name | title }}.IsNull() {
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
-	}
-	{{- else if eq .Type "number" }}
-	if !data.{{ .Name | title }}.IsNull() {
-		attributes["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
-	}
-	{{- else if eq .Type "array" }}
-	if !data.{{ .Name | title }}.IsNull() {
-		items := make([]interface{}, 0)
-		{{- if eq .ItemType "string" }}
-		for _, elem := range data.{{ .Name | title }}.Elements() {
-			if strVal, ok := elem.(types.String); ok {
-				items = append(items, strVal.ValueString())
-			}
-		}
-		{{- else if eq .ItemType "integer" }}
-		for _, elem := range data.{{ .Name | title }}.Elements() {
-			if intVal, ok := elem.(types.Int64); ok {
-				items = append(items, intVal.ValueInt64())
-			}
-		}
-		{{- else if eq .ItemType "object" }}
-		for _, elem := range data.{{ .Name | title }}.Elements() {
-			items = append(items, ConvertTFValue(elem))
-		}
-		{{- end }}
-		attributes["{{ .Name }}"] = items
-	}
-	{{- end }}
 	{{- end }}
 	{{- end }}
 	{{- end }}
 
-	payload := map[string]interface{}{
-		"project":    data.Project.ValueString(),
-		"offering":   data.Offering.ValueString(),
-		"attributes": attributes,
+	payload := {{ .Name | title }}CreateRequest{
+		Project:    data.Project.ValueStringPointer(),
+		Offering:   data.Offering.ValueStringPointer(),
+		Attributes: attributes,
 	}
 
 	// Phase 2: Submit Order
@@ -212,7 +160,7 @@
 
 {{- define "resource_update_order" }}
 	// Phase 1: Standard PATCH (Simple fields)
-	patchPayload := map[string]interface{}{}
+	var patchPayload {{ .Name | title }}UpdateRequest
 	{{- range .UpdateFields }}
 	{{- $fieldName := .Name }}
 	{{- $isAction := false }}
@@ -222,19 +170,19 @@
 	{{- if and (not $isAction) (not .ReadOnly) }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.Equal(state.{{ .Name | title }}) {
 		{{- if eq .Type "string" }}
-		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
 		{{- else if eq .Type "integer" }}
-		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueInt64Pointer()
 		{{- else if eq .Type "boolean" }}
-		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueBoolPointer()
 		{{- else if eq .Type "number" }}
-		patchPayload["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
+		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueFloat64Pointer()
 		{{- end }}
 	}
 	{{- end }}
 	{{- end }}
 
-	if len(patchPayload) > 0 {
+	{
 		var result map[string]interface{}
 		err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), patchPayload, &result)
 		if err != nil {
@@ -261,27 +209,19 @@
 		{{- end }}
 		
 		// Convert Terraform value to API payload
+		var req {{ $.Name | title }}{{ $action.Name | title }}ActionRequest
 		{{- if eq $field.GoType "types.List" }}
-		{{ template "tfListToGo" (dict "ItemType" $field.ItemType "FieldName" ($action.Param | title) "Suffix" ($action.Name | title)) }}
-		actionPayload{{ $action.Name | title }} := map[string]interface{}{
-			"{{ $action.Param }}": items{{ $action.Name | title }},
-		}
+		PopulateSliceField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})
 		{{- else if eq $field.GoType "types.Object" }}
-		actionPayload{{ $action.Name | title }} := map[string]interface{}{
-			"{{ $action.Param }}": ConvertTFValue(data.{{ $action.Param | title }}),
-		}
+		var objVal {{ $.Name | title }}Create{{ $action.Param | title }}Request
+		data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})
+		req.{{ $action.Param | title }} = &objVal
 		{{- else if eq $field.GoType "types.String" }}
-		actionPayload{{ $action.Name | title }} := map[string]interface{}{
-			"{{ $action.Param }}": data.{{ $action.Param | title }}.ValueString(),
-		}
+		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueStringPointer()
 		{{- else if eq $field.GoType "types.Int64" }}
-		actionPayload{{ $action.Name | title }} := map[string]interface{}{
-			"{{ $action.Param }}": data.{{ $action.Param | title }}.ValueInt64(),
-		}
+		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueInt64Pointer()
 		{{- else if eq $field.GoType "types.Bool" }}
-		actionPayload{{ $action.Name | title }} := map[string]interface{}{
-			"{{ $action.Param }}": data.{{ $action.Param | title }}.ValueBool(),
-		}
+		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueBoolPointer()
 		{{- end }}
 		
 		{{- if $action.Path }}
@@ -290,7 +230,7 @@
 		actionUrl{{ $action.Name | title }} := fmt.Sprintf("/api/{{ $.Operations.List | replace "_list" "" | replace "_" "-" }}/%s/{{ $action.Name }}/", data.UUID.ValueString())
 		{{- end }}
 		var actionResult{{ $action.Name | title }} map[string]interface{}
-		if err := r.client.Post(ctx, actionUrl{{ $action.Name | title }}, actionPayload{{ $action.Name | title }}, &actionResult{{ $action.Name | title }}); err != nil {
+		if err := r.client.Post(ctx, actionUrl{{ $action.Name | title }}, req, &actionResult{{ $action.Name | title }}); err != nil {
 			resp.Diagnostics.AddError("RPC Action Failed: {{ $action.Name }}", err.Error())
 			return
 		}

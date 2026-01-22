@@ -16,36 +16,90 @@
 {{- define "fieldAssignment" -}}
 {{- if .Required }}
 	{{- if eq .Type "string" }}
-	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueString()
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
 	{{- else if eq .Type "integer" }}
-	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueInt64Pointer()
 	{{- else if eq .Type "boolean" }}
-	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueBoolPointer()
 	{{- else if eq .Type "number" }}
-	requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
-	{{- else if or (eq .Type "array") (eq .Type "object") }}
-	if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
-		requestBody["{{ .Name }}"] = v
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueFloat64Pointer()
+	{{- else if eq .GoType "types.Map" }}
+	{
+		var mapItems map[string]interface{}
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false); !diags.HasError() && len(mapItems) > 0 {
+			requestBody.{{ .Name | title }} = mapItems
+		}
+	}
+	{{- else if eq .Type "array" }}
+	{
+		{{- if eq .ItemType "string" }}
+		var items []string
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
+			requestBody.{{ .Name | title }} = items
+		}
+		{{- else if eq .ItemType "integer" }}
+		var items []int64
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
+			requestBody.{{ .Name | title }} = items
+		}
+		{{- else }}
+		// Object array or other
+		var items []{{ $.Prefix }}{{ .Name | title }}Request
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
+			requestBody.{{ .Name | title }} = items
+		}
+		{{- end }}
+	}
+	{{- else if eq .Type "object" }}
+	{
+		var obj {{ $.Prefix }}{{ .Name | title }}Request
+		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
+			requestBody.{{ .Name | title }} = &obj
+		}
 	}
 	{{- end }}
 {{- else }}
-	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+	// Optional fields
 	{{- if eq .Type "string" }}
-		if v := data.{{ .Name | title }}.ValueString(); v != "" {
-			requestBody["{{ .Name }}"] = v
-		}
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
 	{{- else if eq .Type "integer" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueInt64()
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueInt64Pointer()
 	{{- else if eq .Type "boolean" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueBool()
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueBoolPointer()
 	{{- else if eq .Type "number" }}
-		requestBody["{{ .Name }}"] = data.{{ .Name | title }}.ValueFloat64()
-	{{- else if or (eq .Type "array") (eq .Type "object") }}
-		if v := ConvertTFValue(data.{{ .Name | title }}); v != nil {
-			requestBody["{{ .Name }}"] = v
+	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueFloat64Pointer()
+	{{- else if eq .GoType "types.Map" }}
+		var mapItems map[string]interface{}
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false); !diags.HasError() && len(mapItems) > 0 {
+			requestBody.{{ .Name | title }} = mapItems
 		}
+	{{- else if eq .Type "array" }}
+    {
+		{{- if eq .ItemType "string" }}
+		var items []string
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
+			requestBody.{{ .Name | title }} = items
+		}
+		{{- else if eq .ItemType "integer" }}
+		var items []int64
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
+			requestBody.{{ .Name | title }} = items
+		}
+		{{- else }}
+		var items []{{ $.Prefix }}{{ .Name | title }}Request
+		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
+			requestBody.{{ .Name | title }} = items
+		}
+		{{- end }}
+    }
+	{{- else if eq .Type "object" }}
+    {
+		var obj {{ $.Prefix }}{{ .Name | title }}Request
+		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
+			requestBody.{{ .Name | title }} = &obj
+		}
+    }
 	{{- end }}
-	}
 {{- end }}
 {{- end -}}
 
@@ -53,14 +107,14 @@
 {{- define "buildRequestBody" -}}
 {{- /* Expects: .Fields ([]FieldInfo), .Operation (for path param check, can be nil) */ -}}
 	// Prepare request body
-	requestBody := map[string]interface{}{}
+	// Prepare request body
 {{- range .Fields }}
 {{- if $.Operation }}
 {{- if not (isPathParam $.Operation .Name) }}
-{{- template "fieldAssignment" . }}
+{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" $.Operation }}
 {{- end }}
 {{- else }}
-{{- template "fieldAssignment" . }}
+{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" nil }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -85,14 +139,16 @@
 	createPath = strings.Replace(createPath, "{{"{"}}{{ $key }}{{"}"}}", data.{{ $value | title }}.ValueString(), 1)
 	{{- end }}
 	{{- if $hasBodyFields }}
-	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" .CreateOperation }}
+	var requestBody {{ .Name | title }}CreateRequest
+	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" .CreateOperation "Prefix" (printf "%sCreate" (.Name | title)) }}
 	err := r.client.Post(ctx, createPath, requestBody, &apiResp)
 	{{- else }}
 	err := r.client.Post(ctx, createPath, nil, &apiResp)
 	{{- end }}
 	{{- else }}
 	{{- if $hasBodyFields }}
-	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" nil }}
+	var requestBody {{ .Name | title }}CreateRequest
+	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" nil "Prefix" (printf "%sCreate" (.Name | title)) }}
 	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", requestBody, &apiResp)
 	{{- else }}
 	err := r.client.Create(ctx, "{{ .APIPaths.Create }}", nil, &apiResp)
@@ -199,7 +255,8 @@
 {{- end }}
 
 {{- define "resource_update_standard" }}
-	{{- template "buildRequestBody" dict "Fields" .UpdateFields "Operation" nil }}
+	var requestBody {{ .Name | title }}UpdateRequest
+	{{- template "buildRequestBody" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
 
 	// Call Waldur API to update resource
 	var apiResp {{ .Name | title }}ApiResponse

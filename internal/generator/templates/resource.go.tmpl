@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -20,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -47,6 +49,42 @@ type {{ .Name | title }}ApiResponse struct {
 }
 
 {{ template "apiResponseNestedStructs" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
+
+// {{ .Name | title }}CreateRequest is the API request model for creation.
+{{- if .IsOrder }}
+type {{ .Name | title }}CreateAttributes struct {
+	{{ template "apiRequestAttributesStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
+}
+
+type {{ .Name | title }}CreateRequest struct {
+	Project  *string `json:"project"`
+	Offering *string `json:"offering"`
+	Attributes {{ .Name | title }}CreateAttributes `json:"attributes"`
+}
+{{- else }}
+type {{ .Name | title }}CreateRequest struct {
+	{{ template "apiRequestStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
+}
+{{- end }}
+{{ template "apiRequestNestedStructs" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
+
+
+// {{ .Name | title }}UpdateRequest is the API request model for updates.
+type {{ .Name | title }}UpdateRequest struct {
+	{{ template "apiRequestStructFields" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) }}
+}
+{{ template "apiRequestNestedStructs" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) }}
+
+{{- range $action := .UpdateActions }}
+// {{ $.Name | title }}{{ .Name | title }}ActionRequest is the API request model for the {{ .Name }} action.
+type {{ $.Name | title }}{{ .Name | title }}ActionRequest struct {
+	{{- range $field := $.ModelFields }}
+	{{- if eq $field.Name $action.Param }}
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}[]{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }} `json:"{{ .Name }}"`
+	{{- end }}
+	{{- end }}
+}
+{{- end }}
 
 // {{ .Name | title }}ResourceModel describes the resource data model.
 type {{ .Name | title }}ResourceModel struct {

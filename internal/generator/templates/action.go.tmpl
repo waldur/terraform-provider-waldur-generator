@@ -3,12 +3,12 @@ package actions
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/action/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/waldur/terraform-provider-{{ .ProviderName }}/internal/client"
+	"github.com/waldur/terraform-provider-{{ .ProviderName }}/internal/sdk"
 )
 
 // Ensure implementation satisfies interfaces.
@@ -16,7 +16,7 @@ var _ action.Action = &{{ .ResourceName | title }}{{ .ActionName | title }}Actio
 var _ action.ActionWithConfigure = &{{ .ResourceName | title }}{{ .ActionName | title }}Action{}
 
 type {{ .ResourceName | title }}{{ .ActionName | title }}Action struct {
-	client *client.Client
+	client *sdk.Client
 }
 
 func New{{ .ResourceName | title }}{{ .ActionName | title }}Action() action.Action {
@@ -43,7 +43,7 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Configure(c
 		return
 	}
 
-	client, ok := req.ProviderData.(*client.Client)
+	clientRaw, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Action Configure Type",
@@ -52,7 +52,7 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Configure(c
 		return
 	}
 
-	a.client = client
+	a.client = sdk.NewClient(clientRaw)
 }
 type {{ .ResourceName | title }}{{ .ActionName | title }}Model struct {
 	{{ .IdentifierParam | title }} types.String `tfsdk:"{{ .IdentifierParam }}"`
@@ -69,11 +69,7 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx 
 
 	uuid := data.{{ .IdentifierParam | title }}.ValueString()
 	// Perform the action
-	path := "{{ .Path }}"
-	path = strings.Replace(path, "{uuid}", uuid, 1)
-
-	err := a.client.Post(ctx, path, nil, nil) 
- 
+	err := a.client.{{ .ResourceName | title }}{{ .ActionName | title }}(ctx, uuid)
 
 	if err != nil {
 		resp.Diagnostics.AddError(

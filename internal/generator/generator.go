@@ -36,6 +36,7 @@ type ResourceData struct {
 	LinkCheckKey          string
 	OfferingType          string
 	UpdateActions         []UpdateAction
+	StandaloneActions     []UpdateAction
 	TerminationAttributes []config.ParameterConfig
 	CreateOperation       *config.CreateOperationConfig
 	CompositeKeys         []string

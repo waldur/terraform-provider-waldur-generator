@@ -118,6 +118,20 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		updateActions = append(updateActions, action)
 	}
 
+	// Resolve standalone actions (for "actions" plugin)
+	var standaloneActions []UpdateAction
+	for _, actionName := range resource.Actions {
+		operationID := fmt.Sprintf("%s_%s", resource.BaseOperationID, actionName)
+		action := UpdateAction{
+			Name:      actionName,
+			Operation: operationID,
+		}
+		if _, actionPath, _, err := g.parser.GetOperation(operationID); err == nil {
+			action.Path = actionPath
+		}
+		standaloneActions = append(standaloneActions, action)
+	}
+
 	// Extract fields
 	var createFields []FieldInfo
 	var updateFields []FieldInfo
@@ -524,6 +538,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		LinkCheckKey:          resource.LinkCheckKey,
 		OfferingType:          resource.OfferingType,
 		UpdateActions:         updateActions, // Use enriched UpdateAction slice with resolved paths
+		StandaloneActions:     standaloneActions,
 		TerminationAttributes: resource.TerminationAttributes,
 		CreateOperation:       resource.CreateOperation, // Custom create operation config
 		CompositeKeys:         resource.CompositeKeys,   // Fields forming composite key

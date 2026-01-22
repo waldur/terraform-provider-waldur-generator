@@ -38,10 +38,6 @@
 		return
 	}
 	
-	if orderRes.UUID == nil {
-		resp.Diagnostics.AddError("Invalid Response", "Order UUID not found")
-		return
-	}
 	orderUUID := *orderRes.UUID
 
 	// Phase 3: Poll for Completion
@@ -64,11 +60,11 @@
 		}
 		
 		if mpUUID != "" {
-			var mpRes map[string]interface{}
-			err = r.client.GetByUUID(ctx, "/api/marketplace-resources/{uuid}/", mpUUID, &mpRes)
+			mpRes, err := r.client.GetMarketplaceResource(ctx, mpUUID)
 			if err == nil {
 				// Plugin Resource UUID
-				if pluginUUID, ok := mpRes["resource_uuid"].(string); ok && pluginUUID != "" {
+				if mpRes.ResourceUuid != nil && *mpRes.ResourceUuid != "" {
+					pluginUUID := *mpRes.ResourceUuid
 					data.UUID = types.StringValue(pluginUUID)
 					
 					// Fetch Plugin Resource Typed
@@ -86,18 +82,19 @@
 		Target:  []string{"done"},
 		Refresh: func() (interface{}, string, error) {
 			// Poll Order
-			var resMap map[string]interface{}
-			err := r.client.GetByUUID(ctx, "/api/marketplace-orders/{uuid}/", orderUUID, &resMap)
+			res, err := r.client.GetMarketplaceOrder(ctx, orderUUID)
 			if err != nil {
 				return nil, "", err
 			}
 			
-			state, _ := resMap["state"].(string)
+			state := ""
+			if res.State != nil { state = *res.State }
 			if state == "erred" || state == "rejected" {
-				msg, _ := resMap["error_message"].(string)
-				return resMap, "failed", fmt.Errorf("order failed: %s", msg)
+				msg := ""
+				if res.ErrorMessage != nil { msg = *res.ErrorMessage }
+				return res, "failed", fmt.Errorf("order failed: %s", msg)
 			}
-			return resMap, state, nil
+			return res, state, nil
 		},
 		Timeout: func() time.Duration {
 			timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
@@ -234,13 +231,12 @@
 			Pending: []string{"pending", "executing", "created"},
 			Target:  []string{"done"},
 			Refresh: func() (interface{}, string, error) {
-				var res map[string]interface{}
-				// Use Untyped GetByUUID for order usage as fallback
-				err := r.client.GetByUUID(ctx, "/api/marketplace-orders/{uuid}/", orderUUID, &res)
+				res, err := r.client.GetMarketplaceOrder(ctx, orderUUID)
 				if err != nil {
 					return nil, "", err
 				}
-				state, _ := res["state"].(string)
+				state := ""
+				if res.State != nil { state = *res.State }
 				if state == "erred" || state == "rejected" {
 					return res, "failed", fmt.Errorf("termination order failed")
 				}

@@ -49,9 +49,7 @@ func (c *Client) ListWithFilter(ctx context.Context, path string, filter map[str
 {{- if .IsOrder }}
 func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*MarketplaceOrderResponse, error) {
 	var apiResp MarketplaceOrderResponse
-	path := "/api/marketplace-orders/"
-	
-	err := c.Client.Post(ctx, path, req, &apiResp)
+	err := c.Client.Post(ctx, "/api/marketplace-orders/", req, &apiResp)
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +181,13 @@ func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Co
 	{{- end }}
 	var res map[string]interface{}
 	return c.Client.Post(ctx, path, req, &res)
+}
+{{- end }}
+
+{{- range $action := .StandaloneActions }}
+func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Context, id string) error {
+	path := strings.Replace("{{ $action.Path }}", "{uuid}", id, 1)
+	return c.Client.Post(ctx, path, nil, nil)
 }
 {{- end }}
 {{- end }}

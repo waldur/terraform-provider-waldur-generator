@@ -39,6 +39,7 @@ type FilterParam struct {
 	Name        string
 	Type        string // String, Int64, Bool, Float64
 	Description string
+	Enum        []string // Allowed values for enum filters
 }
 
 // UpdateAction represents an enriched update action with resolved API path

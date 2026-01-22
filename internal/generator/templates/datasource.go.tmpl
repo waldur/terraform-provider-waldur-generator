@@ -8,7 +8,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 
 	"github.com/waldur/terraform-provider-waldur/internal/client"
 )
@@ -75,7 +77,12 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 					{{- range .FilterParams }}
 					"{{ .Name }}": schema.{{ .Type }}Attribute{
 						Optional:            true,
-						MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
+						MarkdownDescription: "{{ or (.Description | sanitize) " " }}{{- if .Enum }} Allowed values: {{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}`{{ $e }}`{{ end }}.{{ end }}",
+						{{- if and (eq .Type "String") .Enum }}
+						Validators: []validator.String{
+							stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
+						},
+						{{- end }}
 					},
 					{{- end }}
 				},

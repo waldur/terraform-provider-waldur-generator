@@ -57,19 +57,43 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 
 				description := param.Value.Description
 
-				// Determine Terraform type
-				tfType := "String" // Default
+				// Determine Terraform type and extract enum values
+				tfType := "String" // Default - arrays are treated as comma-separated strings
+				var enumValues []string
 				if param.Value.Schema != nil && param.Value.Schema.Value != nil {
-					// Get the Go type string (e.g. "types.Int64") from the OpenAPI type
-					goType := GetGoType(getSchemaType(param.Value.Schema.Value))
-					// Convert it to the simple string identifier used in FilterParam
-					tfType = GetFilterParamType(goType)
+					schema := param.Value.Schema.Value
+					schemaType := getSchemaType(schema)
+
+					// For non-array types, get the TF type
+					if schemaType != "array" {
+						goType := GetGoType(schemaType)
+						tfType = GetFilterParamType(goType)
+					}
+
+					// Extract enum values - check both direct enum and array items enum
+					if len(schema.Enum) > 0 {
+						for _, e := range schema.Enum {
+							if str, ok := e.(string); ok {
+								enumValues = append(enumValues, str)
+							}
+						}
+					} else if schemaType == "array" && schema.Items != nil && schema.Items.Value != nil {
+						// For array types, check items schema for enum
+						if len(schema.Items.Value.Enum) > 0 {
+							for _, e := range schema.Items.Value.Enum {
+								if str, ok := e.(string); ok {
+									enumValues = append(enumValues, str)
+								}
+							}
+						}
+					}
 				}
 
 				filterParams = append(filterParams, FilterParam{
 					Name:        paramName,
 					Type:        tfType,
 					Description: description,
+					Enum:        enumValues,
 				})
 			}
 		}

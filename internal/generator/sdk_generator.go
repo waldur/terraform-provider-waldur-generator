@@ -34,38 +34,43 @@ func (g *Generator) generateSDKTypes(outputDir string) error {
 		return fmt.Errorf("failed to parse sdk types template: %w", err)
 	}
 
-	// Collect data from resources
-	var resources []ResourceData
-	var allFields []FieldInfo
-	resourceNames := make(map[string]bool)
+	// Collect and merge data from resources and datasources
+	mergedResources := make(map[string]*ResourceData)
+	var resourceOrder []string
 
 	for _, res := range g.config.Resources {
 		rd, err := g.prepareResourceData(&res)
 		if err != nil {
 			return fmt.Errorf("failed to prepare data for resource %s: %w", res.Name, err)
 		}
-		resources = append(resources, *rd)
-		resourceNames[res.Name] = true
-
-		allFields = append(allFields, rd.CreateFields...)
-		allFields = append(allFields, rd.UpdateFields...)
-		allFields = append(allFields, rd.ResponseFields...)
+		mergedResources[res.Name] = rd
+		resourceOrder = append(resourceOrder, res.Name)
 	}
 
-	// Also collect data from datasource-only definitions
 	for _, ds := range g.config.DataSources {
-		// Skip if already processed as resource
-		if resourceNames[ds.Name] {
-			continue
-		}
-
-		// Create minimal ResourceData for datasource
 		dd, err := g.prepareDatasourceData(&ds)
 		if err != nil {
 			return fmt.Errorf("failed to prepare data for datasource %s: %w", ds.Name, err)
 		}
-		resources = append(resources, *dd)
-		allFields = append(allFields, dd.ResponseFields...)
+
+		if existing, ok := mergedResources[ds.Name]; ok {
+			// Merge response fields
+			existing.ResponseFields = mergeFields(existing.ResponseFields, dd.ResponseFields)
+			existing.ModelFields = mergeFields(existing.ModelFields, dd.ModelFields)
+		} else {
+			mergedResources[ds.Name] = dd
+			resourceOrder = append(resourceOrder, ds.Name)
+		}
+	}
+
+	var resources []ResourceData
+	var allFields []FieldInfo
+	for _, name := range resourceOrder {
+		rd := mergedResources[name]
+		resources = append(resources, *rd)
+		allFields = append(allFields, rd.CreateFields...)
+		allFields = append(allFields, rd.UpdateFields...)
+		allFields = append(allFields, rd.ResponseFields...)
 	}
 
 	sharedStructs := collectUniqueStructs(allFields)
@@ -94,28 +99,36 @@ func (g *Generator) generateSDKClient(outputDir string) error {
 		return fmt.Errorf("failed to parse sdk client template: %w", err)
 	}
 
-	var resources []ResourceData
-	resourceNames := make(map[string]bool)
+	mergedResources := make(map[string]*ResourceData)
+	var resourceOrder []string
 
 	for _, res := range g.config.Resources {
 		rd, err := g.prepareResourceData(&res)
 		if err != nil {
 			return err
 		}
-		resources = append(resources, *rd)
-		resourceNames[res.Name] = true
+		mergedResources[res.Name] = rd
+		resourceOrder = append(resourceOrder, res.Name)
 	}
 
-	// Also include datasource-only definitions
 	for _, ds := range g.config.DataSources {
-		if resourceNames[ds.Name] {
-			continue
-		}
 		dd, err := g.prepareDatasourceData(&ds)
 		if err != nil {
 			return err
 		}
-		resources = append(resources, *dd)
+
+		if existing, ok := mergedResources[ds.Name]; ok {
+			existing.ResponseFields = mergeFields(existing.ResponseFields, dd.ResponseFields)
+			existing.ModelFields = mergeFields(existing.ModelFields, dd.ModelFields)
+		} else {
+			mergedResources[ds.Name] = dd
+			resourceOrder = append(resourceOrder, ds.Name)
+		}
+	}
+
+	var resources []ResourceData
+	for _, name := range resourceOrder {
+		resources = append(resources, *mergedResources[name])
 	}
 
 	data := map[string]interface{}{
@@ -171,6 +184,7 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	return &ResourceData{
 		Name:           dataSource.Name,
 		ResponseFields: responseFields,
+		ModelFields:    responseFields,
 		APIPaths: map[string]string{
 			"Base":     listPath,
 			"Retrieve": retrievePath,
@@ -179,5 +193,25 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	}, nil
 }
 
-// prepareResourceData extracts fields and info for a resource
-// This logic is extracted from generateResource to be reusable
+// mergeFields combines two slices of FieldInfo while avoiding duplicates by name
+func mergeFields(fields1, fields2 []FieldInfo) []FieldInfo {
+	seen := make(map[string]bool)
+	var result []FieldInfo
+
+	for _, f := range fields1 {
+		if !seen[f.Name] {
+			seen[f.Name] = true
+			result = append(result, f)
+		}
+	}
+
+	for _, f := range fields2 {
+		if !seen[f.Name] {
+			seen[f.Name] = true
+			result = append(result, f)
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	return result
+}

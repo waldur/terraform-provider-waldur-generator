@@ -152,6 +152,7 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		"RetrievePath":   retrievePath,
 		"FilterParams":   filterParams,
 		"ResponseFields": filteredResponseFields,
+		"ModelFields":    filteredResponseFields,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

@@ -24,6 +24,10 @@ type FieldInfo struct {
 	ItemType   string      // For arrays: type of items ("string", "integer", "object", etc.)
 	ItemSchema *FieldInfo  // For arrays of objects: nested schema
 	Properties []FieldInfo // For nested objects: object properties
+
+	// Ref support
+	RefName     string // Ref name for object type
+	ItemRefName string // Ref name for array item type
 }
 
 // ExtractFields extracts field information from an OpenAPI schema reference
@@ -72,12 +76,19 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 		prop := propSchema.Value
 		typeStr := getSchemaType(prop)
 
+		refName := ""
+		if propSchema.Ref != "" {
+			parts := strings.Split(propSchema.Ref, "/")
+			refName = parts[len(parts)-1]
+		}
+
 		field := FieldInfo{
 			Name:        propName,
 			Type:        typeStr,
 			Required:    requiredMap[propName],
 			ReadOnly:    prop.ReadOnly,
 			Description: prop.Description,
+			RefName:     refName,
 		}
 
 		// Handle different types
@@ -105,6 +116,12 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 				itemType := getSchemaType(prop.Items.Value)
 				field.ItemType = itemType
 
+				// Extract item ref name
+				if prop.Items.Ref != "" {
+					parts := strings.Split(prop.Items.Ref, "/")
+					field.ItemRefName = parts[len(parts)-1]
+				}
+
 				if itemType == "string" {
 					field.GoType = "types.List"
 					fields = append(fields, field)
@@ -117,6 +134,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 								Type:       "object",
 								GoType:     "types.Object",
 								Properties: nestedFields,
+								RefName:    field.ItemRefName, // Propagate ref name to item schema
 							}
 						}
 						field.GoType = "types.List"
@@ -127,6 +145,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 
 		case "object":
 			// Nested object - extract properties
+			// Pass the RefName to the recursive call? No, ExtractFields works on schema.
 			if nestedFields, err := extractFieldsRecursive(propSchema, depth+1, maxDepth); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields
 				field.GoType = "types.Object"

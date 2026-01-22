@@ -80,6 +80,11 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate shared utils: %w", err)
 	}
 
+	// Generate shared types (OpenAPI components)
+	if err := g.GenerateSharedTypes(); err != nil {
+		return fmt.Errorf("failed to generate shared types: %w", err)
+	}
+
 	// Generate E2E tests
 	if err := g.generateE2ETests(); err != nil {
 		return fmt.Errorf("failed to generate E2E tests: %w", err)

@@ -491,6 +491,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		"TerminationAttributes": resource.TerminationAttributes,
 		"CreateOperation":       resource.CreateOperation, // Custom create operation config
 		"CompositeKeys":         resource.CompositeKeys,   // Fields forming composite key
+		"NestedStructs":         collectUniqueStructs(createFields, updateFields, responseFields),
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {
@@ -498,4 +499,47 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	}
 
 	return nil
+}
+
+// collectUniqueStructs gathers all Nested structs that have a RefName (Component) defined
+func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
+	seen := make(map[string]bool)
+	var result []FieldInfo
+	var traverse func([]FieldInfo)
+
+	traverse = func(fields []FieldInfo) {
+		for _, f := range fields {
+			// Check object type with Ref
+			if f.GoType == "types.Object" {
+				if f.RefName != "" {
+					if !seen[f.RefName] {
+						seen[f.RefName] = true
+						result = append(result, f)
+						traverse(f.Properties)
+					}
+				} else {
+					traverse(f.Properties)
+				}
+			}
+			// Check list of objects with Ref
+			if f.GoType == "types.List" && f.ItemSchema != nil {
+				if f.ItemSchema.RefName != "" {
+					if !seen[f.ItemSchema.RefName] {
+						seen[f.ItemSchema.RefName] = true
+						result = append(result, *f.ItemSchema)
+						traverse(f.ItemSchema.Properties)
+					}
+				} else {
+					traverse(f.ItemSchema.Properties)
+				}
+			}
+		}
+	}
+
+	for _, p := range params {
+		traverse(p)
+	}
+
+	sort.Slice(result, func(i, j int) bool { return result[i].RefName < result[j].RefName })
+	return result
 }

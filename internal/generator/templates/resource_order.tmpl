@@ -16,7 +16,7 @@
 	PopulateSliceField(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})
 	{{- else if eq .Type "object" }}
 	{
-		var obj {{ $.Name | title }}Create{{ .Name | title }}Request
+		var obj {{ if .RefName }}{{ if hasSuffix .RefName "Request" }}{{ .RefName }}{{ else }}{{ .RefName }}Request{{ end }}{{ else }}{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
 			attributes.{{ .Name | title }} = &obj
 		}
@@ -213,7 +213,7 @@
 		{{- if eq $field.GoType "types.List" }}
 		PopulateSliceField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})
 		{{- else if eq $field.GoType "types.Object" }}
-		var objVal {{ $.Name | title }}Create{{ $action.Param | title }}Request
+		var objVal {{ if $field.RefName }}{{ if hasSuffix $field.RefName "Request" }}{{ $field.RefName }}{{ else }}{{ $field.RefName }}Request{{ end }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
 		data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})
 		req.{{ $action.Param | title }} = &objVal
 		{{- else if eq $field.GoType "types.String" }}

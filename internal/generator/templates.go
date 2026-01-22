@@ -102,6 +102,7 @@ func GetFuncMap() template.FuncMap {
 		"displayName": displayName,
 		"toAttrType":  ToAttrType,
 		"lower":       strings.ToLower,
+		"hasSuffix":   strings.HasSuffix,
 		"sanitize": func(s string) string {
 			// Replace problematic characters in descriptions
 			s = strings.ReplaceAll(s, "\\", "\\\\") // Escape backslashes first

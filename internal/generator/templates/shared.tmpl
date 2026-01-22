@@ -2,7 +2,7 @@
 {{- define "apiRequestStructFields" }}
 	{{- $prefix := .Prefix }}
 	{{- range .Fields }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Request{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ if hasSuffix .ItemSchema.RefName "Request" }}{{ .ItemSchema.RefName }}{{ else }}{{ .ItemSchema.RefName }}Request{{ end }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if hasSuffix .RefName "Request" }}*{{ .RefName }}{{ else }}*{{ .RefName }}Request{{ end }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
 	{{- end }}
 {{- end }}
 
@@ -11,15 +11,19 @@
 {{- $prefix := .Prefix }}
 {{- range .Fields }}
 {{- if eq .Type "object" }}
+{{- if not .RefName }}
 type {{ $prefix }}{{ .Name | title }}Request struct {
 	{{ template "apiRequestStructFields" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
 }
 {{ template "apiRequestNestedStructs" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+{{- end }}
 {{- else if and (eq .Type "array") (eq .ItemType "object") }}
+{{- if not .ItemSchema.RefName }}
 type {{ $prefix }}{{ .Name | title }}Request struct {
 	{{ template "apiRequestStructFields" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
 }
 {{ template "apiRequestNestedStructs" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -28,7 +32,7 @@ type {{ $prefix }}{{ .Name | title }}Request struct {
 	{{- $prefix := .Prefix }}
 	{{- range .Fields }}
 	{{- if and (ne .Name "project") (ne .Name "offering") }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Request{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ if hasSuffix .ItemSchema.RefName "Request" }}{{ .ItemSchema.RefName }}{{ else }}{{ .ItemSchema.RefName }}Request{{ end }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if hasSuffix .RefName "Request" }}*{{ .RefName }}{{ else }}*{{ .RefName }}Request{{ end }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
 	{{- end }}
 	{{- end }}
 {{- end }}

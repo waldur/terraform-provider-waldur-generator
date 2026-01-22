@@ -44,7 +44,7 @@
 		}
 		{{- else }}
 		// Object array or other
-		var items []{{ $.Prefix }}{{ .Name | title }}Request
+		var items []{{ if .ItemSchema.RefName }}{{ if hasSuffix .ItemSchema.RefName "Request" }}{{ .ItemSchema.RefName }}{{ else }}{{ .ItemSchema.RefName }}Request{{ end }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
 			requestBody.{{ .Name | title }} = items
 		}
@@ -52,14 +52,14 @@
 	}
 	{{- else if eq .Type "object" }}
 	{
-		var obj {{ $.Prefix }}{{ .Name | title }}Request
+		var obj {{ if .RefName }}{{ if hasSuffix .RefName "Request" }}{{ .RefName }}{{ else }}{{ .RefName }}Request{{ end }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
 			requestBody.{{ .Name | title }} = &obj
 		}
 	}
 	{{- end }}
 {{- else }}
-	// Optional fields
+	{{- /* Optional fields */ -}}
 	{{- if eq .Type "string" }}
 	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
 	{{- else if eq .Type "integer" }}
@@ -86,7 +86,7 @@
 			requestBody.{{ .Name | title }} = items
 		}
 		{{- else }}
-		var items []{{ $.Prefix }}{{ .Name | title }}Request
+		var items []{{ if .ItemSchema.RefName }}{{ if hasSuffix .ItemSchema.RefName "Request" }}{{ .ItemSchema.RefName }}{{ else }}{{ .ItemSchema.RefName }}Request{{ end }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
 			requestBody.{{ .Name | title }} = items
 		}
@@ -94,7 +94,7 @@
     }
 	{{- else if eq .Type "object" }}
     {
-		var obj {{ $.Prefix }}{{ .Name | title }}Request
+		var obj {{ if .RefName }}{{ if hasSuffix .RefName "Request" }}{{ .RefName }}{{ else }}{{ .RefName }}Request{{ end }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
 			requestBody.{{ .Name | title }} = &obj
 		}
@@ -111,10 +111,10 @@
 {{- range .Fields }}
 {{- if $.Operation }}
 {{- if not (isPathParam $.Operation .Name) }}
-{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" $.Operation }}
+{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" $.Operation "ItemSchema" .ItemSchema "RefName" .RefName }}
 {{- end }}
 {{- else }}
-{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" nil }}
+{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" nil "ItemSchema" .ItemSchema "RefName" .RefName }}
 {{- end }}
 {{- end }}
 {{- end -}}

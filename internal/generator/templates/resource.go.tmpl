@@ -68,6 +68,8 @@ type {{ .Name | title }}CreateRequest struct {
 {{- end }}
 {{ template "apiRequestNestedStructs" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
 
+// Shared Nested Structs are generated in shared_types.go
+
 
 // {{ .Name | title }}UpdateRequest is the API request model for updates.
 type {{ .Name | title }}UpdateRequest struct {
@@ -80,7 +82,7 @@ type {{ .Name | title }}UpdateRequest struct {
 type {{ $.Name | title }}{{ .Name | title }}ActionRequest struct {
 	{{- range $field := $.ModelFields }}
 	{{- if eq $field.Name $action.Param }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}[]{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }} `json:"{{ .Name }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ if hasSuffix .ItemSchema.RefName "Request" }}{{ .ItemSchema.RefName }}{{ else }}{{ .ItemSchema.RefName }}Request{{ end }}{{ else }}[]{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if hasSuffix .RefName "Request" }}*{{ .RefName }}{{ else }}*{{ .RefName }}Request{{ end }}{{ else }}*{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}"`
 	{{- end }}
 	{{- end }}
 }

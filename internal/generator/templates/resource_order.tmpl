@@ -41,81 +41,34 @@
 	orderUUID := *orderRes.UUID
 
 	// Phase 3: Poll for Completion
-	// Attempt to resolve UUID
-	if orderRes.ResourceUuid != nil {
-		data.UUID = types.StringPointerValue(orderRes.ResourceUuid)
-	} else if orderRes.MarketplaceResourceUuid != nil {
-		data.UUID = types.StringPointerValue(orderRes.MarketplaceResourceUuid)
-	} else {
-		data.UUID = types.StringValue(orderUUID)
-	}
-
-	// Attempt to fetch the resource to populate state
-	{
-		var mpUUID string
-		if orderRes.ResourceUuid != nil {
-			mpUUID = *orderRes.ResourceUuid
-		} else if orderRes.MarketplaceResourceUuid != nil { 
-			mpUUID = *orderRes.MarketplaceResourceUuid
-		}
+	// Attempt to resolve UUID immediately if possible
+	data.UUID = types.StringValue(orderUUID)
+	if uuid := ResolveResourceUUID(orderRes); uuid != "" {
+		data.UUID = types.StringValue(uuid)
 		
-		if mpUUID != "" {
-			mpRes, err := r.client.GetMarketplaceResource(ctx, mpUUID)
-			if err == nil {
-				// Plugin Resource UUID
-				if mpRes.ResourceUuid != nil && *mpRes.ResourceUuid != "" {
-					pluginUUID := *mpRes.ResourceUuid
-					data.UUID = types.StringValue(pluginUUID)
-					
-					// Fetch Plugin Resource Typed
-					apiResp, err := r.client.Get{{ .Name | title }}(ctx, pluginUUID)
-					if err == nil {
-						resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
-					}
-				}
-			}
+		// Fetch Plugin Resource Typed if UUID resolved early
+		apiResp, err := r.client.Get{{ .Name | title }}(ctx, uuid)
+		if err == nil {
+			resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 		}
 	}
 
-	stateConf := &retry.StateChangeConf{
-		Pending: []string{"pending", "executing", "created"},
-		Target:  []string{"done"},
-		Refresh: func() (interface{}, string, error) {
-			// Poll Order
-			res, err := r.client.GetMarketplaceOrder(ctx, orderUUID)
-			if err != nil {
-				return nil, "", err
-			}
-			
-			state := ""
-			if res.State != nil { state = *res.State }
-			if state == "erred" || state == "rejected" {
-				msg := ""
-				if res.ErrorMessage != nil { msg = *res.ErrorMessage }
-				return res, "failed", fmt.Errorf("order failed: %s", msg)
-			}
-			return res, state, nil
-		},
-		Timeout: func() time.Duration {
-			timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
-			resp.Diagnostics.Append(diags...)
-			return timeout
-		}(),
-		Delay: 10 * time.Second,
-		MinTimeout: 5 * time.Second,
+	timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	rawResult, err := stateConf.WaitForStateContext(ctx)
+	finalOrder, err := WaitForOrder(ctx, r.client, orderUUID, timeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Order Failed", err.Error())
 		return
 	}
 	
-	result := rawResult.(map[string]interface{})
-	if resourceUUID, ok := result["marketplace_resource_uuid"].(string); ok {
-		data.UUID = types.StringValue(resourceUUID)
+	if uuid := ResolveResourceUUID(finalOrder); uuid != "" {
+		data.UUID = types.StringValue(uuid)
 	} else {
-		resp.Diagnostics.AddError("Resource UUID Missing", "Order completed but marketplace_resource_uuid is missing")
+		resp.Diagnostics.AddError("Resource UUID Missing", "Order completed but resource UUID is missing")
 		return
 	}
 
@@ -227,30 +180,13 @@
 	
 	// Wait for deletion if order UUID is returned
 	if orderUUID != "" {
-		stateConf := &retry.StateChangeConf{
-			Pending: []string{"pending", "executing", "created"},
-			Target:  []string{"done"},
-			Refresh: func() (interface{}, string, error) {
-				res, err := r.client.GetMarketplaceOrder(ctx, orderUUID)
-				if err != nil {
-					return nil, "", err
-				}
-				state := ""
-				if res.State != nil { state = *res.State }
-				if state == "erred" || state == "rejected" {
-					return res, "failed", fmt.Errorf("termination order failed")
-				}
-				return res, state, nil
-			},
-			Timeout: func() time.Duration {
-				timeout, diags := data.Timeouts.Delete(ctx, 45*time.Minute)
-				resp.Diagnostics.Append(diags...)
-				return timeout
-			}(),
-			Delay: 10 * time.Second,
-			MinTimeout: 5 * time.Second,
+		timeout, diags := data.Timeouts.Delete(ctx, 45*time.Minute)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
-		_, err := stateConf.WaitForStateContext(ctx)
+
+		_, err := WaitForOrder(ctx, r.client, orderUUID, timeout)
 		if err != nil {
 			resp.Diagnostics.AddError("Termination Order Failed", err.Error())
 			return

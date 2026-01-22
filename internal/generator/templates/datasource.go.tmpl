@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 
 	"github.com/waldur/terraform-provider-waldur/internal/client"
+	"github.com/waldur/terraform-provider-waldur/internal/sdk"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -23,16 +24,8 @@ func New{{ .Name | title }}DataSource() datasource.DataSource {
 
 // {{ .Name | title }}DataSource defines the data source implementation.
 type {{ .Name | title }}DataSource struct {
-	client *client.Client
+	client *sdk.Client
 }
-
-// {{ .Name | title }}ApiResponse is the API response model.
-type {{ .Name | title }}ApiResponse struct {
-	UUID *string `json:"uuid"`
-	{{ template "apiResponseStructFields" dict "Fields" .ResponseFields "Prefix" (.Name | title) }}
-}
-
-{{ template "apiResponseNestedStructs" dict "Fields" .ResponseFields "Prefix" (.Name | title) }}
 
 {{- if .FilterParams }}
 // {{ .Name | title }}FiltersModel contains the filter parameters for querying.
@@ -129,7 +122,7 @@ func (d *{{ .Name | title }}DataSource) Configure(ctx context.Context, req datas
 		return
 	}
 
-	client, ok := req.ProviderData.(*client.Client)
+	rawClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
@@ -138,7 +131,7 @@ func (d *{{ .Name | title }}DataSource) Configure(ctx context.Context, req datas
 		return
 	}
 
-	d.client = client
+	d.client = sdk.NewClient(rawClient)
 }
 
 func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
@@ -153,9 +146,8 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 
 	// Check if UUID is provided for direct lookup
 	if !data.UUID.IsNull() && data.UUID.ValueString() != "" {
-		var apiResp {{ .Name | title }}ApiResponse
-		
-		err := d.client.GetByUUID(ctx, "{{ .RetrievePath }}", data.UUID.ValueString(), &apiResp)
+		// Use typed Get method
+		apiResp, err := d.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to Read {{ .Name | humanize }}",
@@ -164,12 +156,10 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 
-		resp.Diagnostics.Append(d.mapResponseToModel(ctx, apiResp, &data)...)
+		resp.Diagnostics.Append(d.mapResponseToModel(ctx, *apiResp, &data)...)
 
 	} else {
 		// Filter by provided parameters
-		var results []{{ .Name | title }}ApiResponse
-		
 		filters := BuildQueryFilters(data.Filters)
 		
 		if len(filters) == 0 {
@@ -180,7 +170,8 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 		
-		err := d.client.ListWithFilter(ctx, "{{ .ListPath }}", filters, &results)
+		// Use typed List method
+		results, err := d.client.List{{ .Name | title }}(ctx, filters)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to List {{ .Name | humanize }}",
@@ -213,7 +204,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (d *{{ .Name | title }}DataSource) mapResponseToModel(ctx context.Context, apiResp {{ .Name | title }}ApiResponse, model *{{ .Name | title }}DataSourceModel) diag.Diagnostics {
+func (d *{{ .Name | title }}DataSource) mapResponseToModel(ctx context.Context, apiResp sdk.{{ .Name | title }}Response, model *{{ .Name | title }}DataSourceModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	model.UUID = types.StringPointerValue(apiResp.UUID)

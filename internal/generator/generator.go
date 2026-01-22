@@ -30,6 +30,7 @@ type ResourceData struct {
 	ModelFields           []FieldInfo
 	IsOrder               bool
 	IsLink                bool
+	IsDatasourceOnly      bool // True if this is a datasource-only definition (no resource)
 	Source                *config.LinkResourceConfig
 	Target                *config.LinkResourceConfig
 	LinkCheckKey          string

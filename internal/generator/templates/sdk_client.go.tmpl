@@ -45,7 +45,7 @@ func (c *Client) ListWithFilter(ctx context.Context, path string, filter map[str
 {{ range .Resources }}
 // {{ .Name | title }} Operations
 
-
+{{ if not .IsDatasourceOnly -}}
 {{- if .IsOrder }}
 func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*MarketplaceOrderResponse, error) {
 	var apiResp MarketplaceOrderResponse
@@ -88,6 +88,7 @@ func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | 
 	return &apiResp, nil
 }
 {{- end }}
+{{- end }}
 
 
 func (c *Client) Get{{ .Name | title }}(ctx context.Context, id string) (*{{ .Name | title }}Response, error) {
@@ -99,6 +100,7 @@ func (c *Client) Get{{ .Name | title }}(ctx context.Context, id string) (*{{ .Na
 	return &apiResp, nil
 }
 
+{{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Update }}
 func (c *Client) Update{{ .Name | title }}(ctx context.Context, id string, req *{{ .Name | title }}UpdateRequest) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
@@ -115,6 +117,7 @@ func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error
 	return c.Client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", id)
 }
 {{- end }}
+{{- end }}
 
 
 // List{{ .Name | title }}
@@ -128,6 +131,7 @@ func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]
 	return listResult, nil
 }
 
+{{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Terminate }}
 func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {
 	path := strings.Replace("{{ .APIPaths.Terminate }}", "{uuid}", id, 1)
@@ -181,7 +185,6 @@ func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Co
 	return c.Client.Post(ctx, path, req, &res)
 }
 {{- end }}
-
+{{- end }}
 
 {{ end }}
-

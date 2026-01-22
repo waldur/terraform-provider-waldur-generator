@@ -3,11 +3,11 @@ package datasources
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/waldur/terraform-provider-waldur/internal/client"
@@ -33,13 +33,22 @@ type {{ .Name | title }}ApiResponse struct {
 
 {{ template "apiResponseNestedStructs" dict "Fields" .ResponseFields "Prefix" (.Name | title) }}
 
-// {{ .Name | title }}DataSourceModel describes the data source data model.
-type {{ .Name | title }}DataSourceModel struct {
-	UUID types.String `tfsdk:"id"`
+{{- if .FilterParams }}
+// {{ .Name | title }}FiltersModel contains the filter parameters for querying.
+type {{ .Name | title }}FiltersModel struct {
 	{{- range .FilterParams }}
 	{{ .Name | title }} types.{{ .Type }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
-	{{- range .UniqueResponseFields }}
+}
+{{- end }}
+
+// {{ .Name | title }}DataSourceModel describes the data source data model.
+type {{ .Name | title }}DataSourceModel struct {
+	UUID types.String `tfsdk:"id"`
+	{{- if .FilterParams }}
+	Filters *{{ .Name | title }}FiltersModel `tfsdk:"filters"`
+	{{- end }}
+	{{- range .ResponseFields }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
 }
@@ -58,13 +67,21 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 				Computed:            true,
 				MarkdownDescription: "Resource UUID",
 			},
-			{{- range .FilterParams }}
-			"{{ .Name }}": schema.{{ .Type }}Attribute{
+			{{- if .FilterParams }}
+			"filters": schema.SingleNestedAttribute{
 				Optional:            true,
-				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
+				MarkdownDescription: "Filter parameters for querying {{ .Name | humanize }}",
+				Attributes: map[string]schema.Attribute{
+					{{- range .FilterParams }}
+					"{{ .Name }}": schema.{{ .Type }}Attribute{
+						Optional:            true,
+						MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
+					},
+					{{- end }}
+				},
 			},
 			{{- end }}
-			{{- range .UniqueResponseFields }}
+			{{- range .ResponseFields }}
 			"{{ .Name }}": {{- if and (eq .GoType "types.List") (eq .ItemType "object") }}schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
@@ -147,32 +164,36 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 		// Filter by provided parameters
 		var results []{{ .Name | title }}ApiResponse
 		
-		type filterDef struct {
-			name string
-			val  attr.Value
-		}
-		filterDefs := []filterDef{
-			{{- range .FilterParams }}
-			{"{{ .Name }}", data.{{ .Name | title }}},
-			{{- end }}
-		}
-		
 		filters := make(map[string]string)
-		for _, fd := range filterDefs {
-			if fd.val.IsNull() || fd.val.IsUnknown() {
-				continue
+		{{- if .FilterParams }}
+		if data.Filters != nil {
+			type filterDef struct {
+				name string
+				val  attr.Value
 			}
-			switch v := fd.val.(type) {
-			case types.String:
-				filters[fd.name] = v.ValueString()
-			case types.Int64:
-				filters[fd.name] = fmt.Sprintf("%d", v.ValueInt64())
-			case types.Bool:
-				filters[fd.name] = fmt.Sprintf("%t", v.ValueBool())
-			case types.Float64:
-				filters[fd.name] = fmt.Sprintf("%f", v.ValueFloat64())
+			filterDefs := []filterDef{
+				{{- range .FilterParams }}
+				{"{{ .Name }}", data.Filters.{{ .Name | title }}},
+				{{- end }}
+			}
+			
+			for _, fd := range filterDefs {
+				if fd.val.IsNull() || fd.val.IsUnknown() {
+					continue
+				}
+				switch v := fd.val.(type) {
+				case types.String:
+					filters[fd.name] = v.ValueString()
+				case types.Int64:
+					filters[fd.name] = fmt.Sprintf("%d", v.ValueInt64())
+				case types.Bool:
+					filters[fd.name] = fmt.Sprintf("%t", v.ValueBool())
+				case types.Float64:
+					filters[fd.name] = fmt.Sprintf("%f", v.ValueFloat64())
+				}
 			}
 		}
+		{{- end }}
 		
 		if len(filters) == 0 {
 			resp.Diagnostics.AddError(

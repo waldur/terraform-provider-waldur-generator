@@ -90,12 +90,6 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
-	// Deduplicate and handle type compatibility
-	filterTypes := make(map[string]string)
-	for _, fp := range filterParams {
-		filterTypes[fp.Name] = fp.Type
-	}
-
 	// Look up corresponding Resource to determine if it's an Order resource
 	isOrder := false
 	for _, res := range g.config.Resources {
@@ -107,64 +101,33 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
-	var dedupedResponseFields []FieldInfo
-	var mappableFields []FieldInfo // Fields safe to map (type compatible with filters if colliding)
-
+	// Apply field exclusion for non-order resources
+	var filteredResponseFields []FieldInfo
 	for _, rf := range responseFields {
-		// Apply exclusion only for non-order resources
 		if !isOrder && ExcludedFields[rf.Name] {
 			continue
 		}
-
-		fType, isFilter := filterTypes[rf.Name]
-		if !isFilter {
-			dedupedResponseFields = append(dedupedResponseFields, rf)
-			mappableFields = append(mappableFields, rf)
-		} else {
-			// Check compatibility
-			compatible := false
-			switch fType {
-			case "String":
-				compatible = rf.GoType == "types.String"
-			case "Int64":
-				compatible = rf.GoType == "types.Int64"
-			case "Bool":
-				compatible = rf.GoType == "types.Bool"
-			case "Float64":
-				compatible = rf.GoType == "types.Float64"
-			}
-
-			if compatible {
-				mappableFields = append(mappableFields, rf)
-			}
-		}
+		filteredResponseFields = append(filteredResponseFields, rf)
 	}
 
 	// Sort fields for deterministic output
 	sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
-	sort.Slice(dedupedResponseFields, func(i, j int) bool { return dedupedResponseFields[i].Name < dedupedResponseFields[j].Name })
-	sort.Slice(mappableFields, func(i, j int) bool { return mappableFields[i].Name < mappableFields[j].Name })
-	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
+	sort.Slice(filteredResponseFields, func(i, j int) bool { return filteredResponseFields[i].Name < filteredResponseFields[j].Name })
 
-	// Apply description filling to all field sets
+	// Apply description filling
 	for i := range filterParams {
 		fp := &filterParams[i]
 		fp.Description = GetDefaultDescription(fp.Name, fp.Description)
 	}
-
-	FillDescriptions(dedupedResponseFields)
-	FillDescriptions(mappableFields)
-	FillDescriptions(responseFields)
+	FillDescriptions(filteredResponseFields)
 
 	data := map[string]interface{}{
-		"Name":                 dataSource.Name,
-		"Operations":           ops,
-		"ListPath":             listPath,
-		"RetrievePath":         retrievePath,
-		"FilterParams":         filterParams,
-		"ResponseFields":       responseFields,        // Full list for API Struct
-		"ModelFields":          mappableFields,        // Safe list for Mapping
-		"UniqueResponseFields": dedupedResponseFields, // Deduped list for Model definition
+		"Name":           dataSource.Name,
+		"Operations":     ops,
+		"ListPath":       listPath,
+		"RetrievePath":   retrievePath,
+		"FilterParams":   filterParams,
+		"ResponseFields": filteredResponseFields,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

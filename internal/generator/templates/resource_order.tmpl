@@ -38,28 +38,14 @@
 		return
 	}
 	
-	orderUUID := *orderRes.UUID
-
 	// Phase 3: Poll for Completion
-	// Attempt to resolve UUID immediately if possible
-	data.UUID = types.StringValue(orderUUID)
-	if uuid := ResolveResourceUUID(orderRes); uuid != "" {
-		data.UUID = types.StringValue(uuid)
-		
-		// Fetch Plugin Resource Typed if UUID resolved early
-		apiResp, err := r.client.Get{{ .Name | title }}(ctx, uuid)
-		if err == nil {
-			resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
-		}
-	}
-
 	timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	finalOrder, err := WaitForOrder(ctx, r.client, orderUUID, timeout)
+	finalOrder, err := WaitForOrder(ctx, r.client, *orderRes.UUID, timeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Order Failed", err.Error())
 		return

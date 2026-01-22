@@ -1,0 +1,130 @@
+package sdk
+
+// Shared Structs
+{{ range .SharedStructs }}
+type {{ .RefName }} struct {
+	{{ template "sdkStructFields" dict "Fields" .Properties "Prefix" .RefName }}
+}
+{{ template "sdkNestedStructs" dict "Fields" .Properties "Prefix" .RefName }}
+{{ end }}
+
+// Resource Structs
+{{ range .Resources }}
+// {{ .Name | title }} Structs
+
+// Create Request
+type {{ .Name | title }}CreateRequest struct {
+	{{- if .IsOrder }}
+	Project  *string `json:"project" tfsdk:"project"`
+	Offering *string `json:"offering" tfsdk:"offering"`
+	Attributes {{ .Name | title }}CreateAttributes `json:"attributes" tfsdk:"attributes"`
+	{{- else }}
+	{{ template "sdkStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
+	{{- end }}
+}
+
+{{- if .IsOrder }}
+type {{ .Name | title }}CreateAttributes struct {
+	{{ template "sdkAttributesStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
+}
+{{- end }}
+
+{{ template "sdkNestedStructs" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
+
+// Update Request
+{{- if .UpdateFields }}
+type {{ .Name | title }}UpdateRequest struct {
+	{{ template "sdkStructFields" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) }}
+}
+{{ template "sdkNestedStructs" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) }}
+{{- end }}
+
+// Update Actions Structs
+{{- $resName := .Name }}
+{{- $modelFields := .ModelFields }}
+{{- range $action := .UpdateActions }}
+// {{ $action.Name }} Action
+type {{ $resName | title }}{{ $action.Name | title }}ActionRequest struct {
+    // Action fields
+	{{- range $field := $modelFields }}
+	{{- if eq $field.Name $action.Param }}
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ .ItemSchema.RefName }}{{ else }}[]{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}*{{ .RefName }}{{ else }}*{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .Name }}"`
+	{{- end }}
+	{{- end }}
+}
+{{- end }}
+
+// Response Struct
+type {{ .Name | title }}Response struct {
+	UUID *string `json:"uuid"`
+	{{ template "sdkResponseStructFields" dict "Fields" .ResponseFields "Prefix" (.Name | title) }}
+}
+{{ template "sdkResponseNestedStructs" dict "Fields" .ResponseFields "Prefix" (.Name | title) }}
+
+{{ end }}
+
+{{- /* SDK Helper: Generate Request Struct Fields */ -}}
+{{- define "sdkStructFields" }}
+	{{- $prefix := .Prefix }}
+	{{- range .Fields }}
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ .ItemSchema.RefName }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}*{{ .RefName }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{- end }}
+{{- end }}
+
+{{- /* SDK Helper: Generate Nested Request Structs */ -}}
+{{- define "sdkNestedStructs" }}
+{{- $prefix := .Prefix }}
+{{- range .Fields }}
+{{- if eq .Type "object" }}
+{{- if not .RefName }}
+type {{ $prefix }}{{ .Name | title }}Request struct {
+	{{ template "sdkStructFields" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+}
+{{ template "sdkNestedStructs" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+{{- end }}
+{{- else if and (eq .Type "array") (eq .ItemType "object") }}
+{{- if not .ItemSchema.RefName }}
+type {{ $prefix }}{{ .Name | title }}Request struct {
+	{{ template "sdkStructFields" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+}
+{{ template "sdkNestedStructs" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- /* SDK Helper: Generate Attributes Struct Fields (Filtering) */ -}}
+{{- define "sdkAttributesStructFields" }}
+	{{- $prefix := .Prefix }}
+	{{- range .Fields }}
+	{{- if and (ne .Name "project") (ne .Name "offering") }}
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ .ItemSchema.RefName }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}*{{ .RefName }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{- end }}
+	{{- end }}
+{{- end }}
+
+{{- /* SDK Helper: Generate Response Struct Fields */ -}}
+{{- define "sdkResponseStructFields" }}
+	{{- $prefix := .Prefix }}
+	{{- range .Fields }}
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else }}[]{{ $prefix }}{{ .Name | title }}Response{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Response{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .Name }}"`
+	{{- end }}
+{{- end }}
+
+{{- /* SDK Helper: Generate Nested Response Structs */ -}}
+{{- define "sdkResponseNestedStructs" }}
+{{- $prefix := .Prefix }}
+{{- range .Fields }}
+{{- if eq .Type "object" }}
+type {{ $prefix }}{{ .Name | title }}Response struct {
+	{{ template "sdkResponseStructFields" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+}
+{{ template "sdkResponseNestedStructs" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+{{- else if and (eq .Type "array") (eq .ItemType "object") }}
+type {{ $prefix }}{{ .Name | title }}Response struct {
+	{{ template "sdkResponseStructFields" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+}
+{{ template "sdkResponseNestedStructs" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
+{{- end }}
+{{- end }}
+{{- end }}

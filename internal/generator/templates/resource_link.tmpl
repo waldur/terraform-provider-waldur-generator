@@ -1,27 +1,25 @@
 {{- define "resource_create_link" }}
 	// Link Plugin Create Logic
 	sourceUUID := data.{{ .Source.Param | title }}.ValueString()
-	linkPath := strings.Replace("{{ .APIPaths.Link }}", "{uuid}", sourceUUID, 1)
 
-	requestBody := map[string]interface{}{
-		"{{ .Target.Param }}": data.{{ .Target.Param | title }}.ValueString(),
+	requestBody := sdk.{{ .Name | title }}CreateRequest{
+		{{ .Target.Param | title }}: data.{{ .Target.Param | title }}.ValueStringPointer(),
 		{{- range .CreateFields }}
 		{{- if and (ne .Name $.Source.Param) (ne .Name $.Target.Param) }}
 		{{- if eq .Type "string" }}
-		"{{ .Name }}": data.{{ .Name | title }}.ValueString(),
+		{{ .Name | title }}: data.{{ .Name | title }}.ValueStringPointer(),
 		{{- else if eq .Type "integer" }}
-		"{{ .Name }}": data.{{ .Name | title }}.ValueInt64(),
+		{{ .Name | title }}: data.{{ .Name | title }}.ValueInt64Pointer(),
 		{{- else if eq .Type "boolean" }}
-		"{{ .Name }}": data.{{ .Name | title }}.ValueBool(),
+		{{ .Name | title }}: data.{{ .Name | title }}.ValueBoolPointer(),
 		{{- else if eq .Type "number" }}
-		"{{ .Name }}": data.{{ .Name | title }}.ValueFloat64(),
+		{{ .Name | title }}: data.{{ .Name | title }}.ValueFloat64Pointer(),
 		{{- end }}
 		{{- end }}
 		{{- end }}
 	}
 
-	var apiResp {{ .Name | title }}ApiResponse
-	err := r.client.Post(ctx, linkPath, requestBody, &apiResp)
+	apiResp, err := r.client.Link{{ .Name | title }}(ctx, &requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError("Link Operation Failed", err.Error())
 		return
@@ -30,7 +28,7 @@
 	// For Link resources, ID is composite of Source and Target UUIDs
 	data.UUID = types.StringValue(sourceUUID + "/" + data.{{ .Target.Param | title }}.ValueString())
 
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 {{- end }}
 
 {{- define "resource_read_link" }}
@@ -43,9 +41,8 @@
 	sourceUUID := parts[0]
 	targetUUID := parts[1]
 
-	sourcePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", sourceUUID, 1)
 	var result map[string]interface{}
-	err := r.client.GetByUUID(ctx, sourcePath, sourceUUID, &result)
+	err := r.client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", sourceUUID, &result)
 	if err != nil {
 		if client.IsNotFoundError(err) {
 			resp.State.RemoveResource(ctx)
@@ -107,9 +104,8 @@
 		return
 	}
 	sourceUUID := parts[0]
-	unlinkPath := strings.Replace("{{ .APIPaths.Unlink }}", "{uuid}", sourceUUID, 1)
 	
-	err := r.client.Post(ctx, unlinkPath, nil, nil)
+	err := r.client.Unlink{{ .Name | title }}(ctx, sourceUUID)
 	if err != nil {
 		resp.Diagnostics.AddError("Unlink Failed", err.Error())
 		return

@@ -1,6 +1,6 @@
 {{- define "resource_create_order" }}
 	// Phase 1: Payload Construction
-	attributes := {{ .Name | title }}CreateAttributes{
+	attributes := sdk.{{ .Name | title }}CreateAttributes{
 		{{- range .CreateFields }}
 		{{- if and (ne .Name "project") (ne .Name "offering") }}
 		{{- if or (eq .Type "string") (eq .Type "integer") (eq .Type "boolean") (eq .Type "number") }}
@@ -16,7 +16,7 @@
 	PopulateSliceField(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})
 	{{- else if eq .Type "object" }}
 	{
-		var obj {{ if .RefName }}{{ if hasSuffix .RefName "Request" }}{{ .RefName }}{{ else }}{{ .RefName }}Request{{ end }}{{ else }}{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}
+		var obj {{ if .RefName }}sdk.{{ .RefName }}{{ else }}sdk.{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}
 		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
 			attributes.{{ .Name | title }} = &obj
 		}
@@ -25,30 +25,31 @@
 	{{- end }}
 	{{- end }}
 
-	payload := {{ .Name | title }}CreateRequest{
+	payload := sdk.{{ .Name | title }}CreateRequest{
 		Project:    data.Project.ValueStringPointer(),
 		Offering:   data.Offering.ValueStringPointer(),
 		Attributes: attributes,
 	}
 
 	// Phase 2: Submit Order
-	var orderRes map[string]interface{}
-	err := r.client.Post(ctx, "/api/marketplace-orders/", payload, &orderRes)
+	orderRes, err := r.client.Create{{ .Name | title }}Order(ctx, &payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Order Submission Failed", err.Error())
 		return
 	}
 	
-	orderUUID, ok := orderRes["uuid"].(string)
-	if !ok {
+	if orderRes.UUID == nil {
 		resp.Diagnostics.AddError("Invalid Response", "Order UUID not found")
 		return
 	}
+	orderUUID := *orderRes.UUID
 
 	// Phase 3: Poll for Completion
 	// Attempt to resolve UUID
-	if uuid, ok := orderRes["resource_uuid"].(string); ok {
-		data.UUID = types.StringValue(uuid)
+	if orderRes.ResourceUuid != nil {
+		data.UUID = types.StringPointerValue(orderRes.ResourceUuid)
+	} else if orderRes.MarketplaceResourceUuid != nil {
+		data.UUID = types.StringPointerValue(orderRes.MarketplaceResourceUuid)
 	} else {
 		data.UUID = types.StringValue(orderUUID)
 	}
@@ -56,74 +57,47 @@
 	// Attempt to fetch the resource to populate state
 	{
 		var mpUUID string
-		if uuid, ok := orderRes["resource_uuid"].(string); ok {
-			mpUUID = uuid
-		} else if uuid, ok := orderRes["marketplace_resource_uuid"].(string); ok {
-			mpUUID = uuid
+		if orderRes.ResourceUuid != nil {
+			mpUUID = *orderRes.ResourceUuid
+		} else if orderRes.MarketplaceResourceUuid != nil { 
+			mpUUID = *orderRes.MarketplaceResourceUuid
 		}
 		
 		if mpUUID != "" {
 			var mpRes map[string]interface{}
 			err = r.client.GetByUUID(ctx, "/api/marketplace-resources/{uuid}/", mpUUID, &mpRes)
 			if err == nil {
-				// Debug logging
-				tflog.Warn(ctx, fmt.Sprintf("Fetched MP Resource: %+v", mpRes))
-				if val, exists := mpRes["resource_uuid"]; exists {
-					tflog.Warn(ctx, fmt.Sprintf("resource_uuid type: %T, value: %v", val, val))
-				} else {
-					tflog.Warn(ctx, "resource_uuid key missing in MP response")
-				}
-
-				// Plugin Resource UUID is available directly in resource_uuid field
-				if pluginUUID, ok := mpRes["resource_uuid"].(string); ok {
-					if pluginUUID != "" {
-						data.UUID = types.StringValue(pluginUUID)
-						
-						// Fetch Plugin Resource
-						var apiResp {{ .Name | title }}ApiResponse
-						retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", pluginUUID, 1)
-						tflog.Warn(ctx, "Attempting to fetch plugin resource at: " + retrievePath)
-						err = r.client.GetByUUID(ctx, retrievePath, pluginUUID, &apiResp)
-						if err == nil {
-							tflog.Warn(ctx, "Successfully fetched plugin resource")
-							resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
-						} else {
-							tflog.Warn(ctx, "Failed to fetch plugin resource: " + err.Error())
-						}
-					} else {
-						tflog.Warn(ctx, "resource_uuid is empty string")
+				// Plugin Resource UUID
+				if pluginUUID, ok := mpRes["resource_uuid"].(string); ok && pluginUUID != "" {
+					data.UUID = types.StringValue(pluginUUID)
+					
+					// Fetch Plugin Resource Typed
+					apiResp, err := r.client.Get{{ .Name | title }}(ctx, pluginUUID)
+					if err == nil {
+						resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 					}
-				} else {
-					tflog.Warn(ctx, "Failed to cast resource_uuid to string")
 				}
-			} else {
-				tflog.Warn(ctx, "Failed to fetch MP resource: " + err.Error())
 			}
 		}
-	}
-
-	if os.Getenv("WALDUR_E2E_SKIP_WAIT") != "" {
-		tflog.Warn(ctx, "Skipping wait for order completion due to WALDUR_E2E_SKIP_WAIT")
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
 	}
 
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{"pending", "executing", "created"},
 		Target:  []string{"done"},
 		Refresh: func() (interface{}, string, error) {
-			var res map[string]interface{}
-			err := r.client.GetByUUID(ctx, "/api/marketplace-orders/{uuid}/", orderUUID, &res)
+			// Poll Order
+			var resMap map[string]interface{}
+			err := r.client.GetByUUID(ctx, "/api/marketplace-orders/{uuid}/", orderUUID, &resMap)
 			if err != nil {
 				return nil, "", err
 			}
 			
-			state, _ := res["state"].(string)
+			state, _ := resMap["state"].(string)
 			if state == "erred" || state == "rejected" {
-				msg, _ := res["error_message"].(string)
-				return res, "failed", fmt.Errorf("order failed: %s", msg)
+				msg, _ := resMap["error_message"].(string)
+				return resMap, "failed", fmt.Errorf("order failed: %s", msg)
 			}
-			return res, state, nil
+			return resMap, state, nil
 		},
 		Timeout: func() time.Duration {
 			timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
@@ -149,18 +123,17 @@
 	}
 
 	// Fetch final resource state
-	var apiResp {{ .Name | title }}ApiResponse
-	err = r.client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", data.UUID.ValueString(), &apiResp)
+	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to Read Resource", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 {{- end }}
 
 {{- define "resource_update_order" }}
 	// Phase 1: Standard PATCH (Simple fields)
-	var patchPayload {{ .Name | title }}UpdateRequest
+	var patchPayload sdk.{{ .Name | title }}UpdateRequest
 	{{- range .UpdateFields }}
 	{{- $fieldName := .Name }}
 	{{- $isAction := false }}
@@ -183,37 +156,29 @@
 	{{- end }}
 
 	{
-		var result map[string]interface{}
-		err := r.client.Update(ctx, "{{ .APIPaths.Update }}", data.UUID.ValueString(), patchPayload, &result)
+		_, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &patchPayload)
 		if err != nil {
 			resp.Diagnostics.AddError("Update Failed", err.Error())
 			return
 		}
-		_ = result
 	}
 
 	// Phase 2: RPC Actions
-	if os.Getenv("WALDUR_E2E_SKIP_WAIT") != "" {
-		tflog.Warn(ctx, "Skipping wait for update order completion due to WALDUR_E2E_SKIP_WAIT")
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
-	}
-
 	{{- range $action := .UpdateActions }}
 	if !data.{{ $action.Param | title }}.Equal(state.{{ $action.Param | title }}) {
+		// Convert Terraform value to API payload
+		var req sdk.{{ $.Name | title }}{{ $action.Name | title }}ActionRequest
 		{{- $field := index $.ModelFields 0 }}
 		{{- range $.ModelFields }}
 		{{- if eq .Name $action.Param }}
 		{{- $field = . }}
 		{{- end }}
 		{{- end }}
-		
-		// Convert Terraform value to API payload
-		var req {{ $.Name | title }}{{ $action.Name | title }}ActionRequest
+
 		{{- if eq $field.GoType "types.List" }}
 		PopulateSliceField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})
 		{{- else if eq $field.GoType "types.Object" }}
-		var objVal {{ if $field.RefName }}{{ if hasSuffix $field.RefName "Request" }}{{ $field.RefName }}{{ else }}{{ $field.RefName }}Request{{ end }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
+		var objVal {{ if $field.RefName }}sdk.{{ $field.RefName }}{{ else }}sdk.{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
 		data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})
 		req.{{ $action.Param | title }} = &objVal
 		{{- else if eq $field.GoType "types.String" }}
@@ -223,14 +188,8 @@
 		{{- else if eq $field.GoType "types.Bool" }}
 		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueBoolPointer()
 		{{- end }}
-		
-		{{- if $action.Path }}
-		actionUrl{{ $action.Name | title }} := strings.Replace("{{ $action.Path }}", "{uuid}", data.UUID.ValueString(), 1)
-		{{- else }}
-		actionUrl{{ $action.Name | title }} := fmt.Sprintf("/api/{{ $.Operations.List | replace "_list" "" | replace "_" "-" }}/%s/{{ $action.Name }}/", data.UUID.ValueString())
-		{{- end }}
-		var actionResult{{ $action.Name | title }} map[string]interface{}
-		if err := r.client.Post(ctx, actionUrl{{ $action.Name | title }}, req, &actionResult{{ $action.Name | title }}); err != nil {
+
+		if err := r.client.{{ $.Name | title }}{{ $action.Name | title }}(ctx, data.UUID.ValueString(), &req); err != nil {
 			resp.Diagnostics.AddError("RPC Action Failed: {{ $action.Name }}", err.Error())
 			return
 		}
@@ -238,12 +197,7 @@
 	{{- end }}
 
 	// Fetch updated state
-	// Call Waldur API to read resource
-	var apiResp {{ .Name | title }}ApiResponse
-
-	retrievePath := strings.Replace("{{ .APIPaths.Retrieve }}", "{uuid}", data.UUID.ValueString(), 1)
-
-	err := r.client.GetByUUID(ctx, retrievePath, data.UUID.ValueString(), &apiResp)
+	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
 	if err != nil {
 		if client.IsNotFoundError(err) {
 			resp.State.RemoveResource(ctx)
@@ -252,7 +206,7 @@
 		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, apiResp, &data)...)
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 {{- end }}
 
 {{- define "resource_delete_order" }}
@@ -268,21 +222,20 @@
 	}
 	{{- end }}
 
-	url := fmt.Sprintf("/api/marketplace-resources/%s/terminate/", data.UUID.ValueString())
-	var res map[string]interface{}
-	err := r.client.Post(ctx, url, payload, &res)
+	orderUUID, err := r.client.Terminate{{ .Name | title }}(ctx, data.UUID.ValueString(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Termination Failed", err.Error())
 		return
 	}
 	
 	// Wait for deletion if order UUID is returned
-	if orderUUID, ok := res["uuid"].(string); ok {
+	if orderUUID != "" {
 		stateConf := &retry.StateChangeConf{
 			Pending: []string{"pending", "executing", "created"},
 			Target:  []string{"done"},
 			Refresh: func() (interface{}, string, error) {
 				var res map[string]interface{}
+				// Use Untyped GetByUUID for order usage as fallback
 				err := r.client.GetByUUID(ctx, "/api/marketplace-orders/{uuid}/", orderUUID, &res)
 				if err != nil {
 					return nil, "", err

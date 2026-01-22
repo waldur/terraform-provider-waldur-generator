@@ -10,13 +10,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/list/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/waldur/terraform-provider-{{ .ProviderName }}/internal/client"
+	"github.com/waldur/terraform-provider-waldur/internal/client"
+	"github.com/waldur/terraform-provider-waldur/internal/sdk"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 )
 
 var _ list.ListResource = &{{ .Name | title }}List{}
 
 type {{ .Name | title }}List struct {
-	client *client.Client
+	client *sdk.Client
 }
 
 func New{{ .Name | title }}List() list.ListResource {
@@ -54,7 +56,7 @@ func (l *{{ .Name | title }}List) Configure(ctx context.Context, req resource.Co
 		return
 	}
 
-	l.client = client
+	l.client = sdk.NewClient(client)
 }
 
 type {{ .Name | title }}ListModel struct {
@@ -90,8 +92,7 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 	{{- end }}
 
 	// Call API
-	var listResult []{{ .Name | title }}ApiResponse
-	err := l.client.ListWithFilter(ctx, "{{ .APIPaths.Base }}", filters, &listResult)
+	listResult, err := l.client.List{{ .Name | title }}(ctx, filters)
 	if err != nil {
 		// Return error diagnostics
 		resp.AddError("Failed to list resources", err.Error())
@@ -110,7 +111,7 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 			
 			var diags diag.Diagnostics
 
-			model.UUID = types.StringPointerValue(apiResp.UUID)
+			data.UUID = types.StringPointerValue(apiResp.UUID)
 			{{- template "mapResponseToModel" . }}
 			
 			// Set the resource state

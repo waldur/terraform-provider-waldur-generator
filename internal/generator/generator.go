@@ -17,6 +17,30 @@ type Generator struct {
 	parser *openapi.Parser
 }
 
+// ResourceData holds all data required to generate resource/sdk code
+type ResourceData struct {
+	Name                  string
+	Plugin                string
+	CheckingLink          bool
+	Operations            config.OperationSet
+	APIPaths              map[string]string
+	CreateFields          []FieldInfo
+	UpdateFields          []FieldInfo
+	ResponseFields        []FieldInfo
+	ModelFields           []FieldInfo
+	IsOrder               bool
+	IsLink                bool
+	Source                *config.LinkResourceConfig
+	Target                *config.LinkResourceConfig
+	LinkCheckKey          string
+	OfferingType          string
+	UpdateActions         []UpdateAction
+	TerminationAttributes []config.ParameterConfig
+	CreateOperation       *config.CreateOperationConfig
+	CompositeKeys         []string
+	NestedStructs         []FieldInfo // Only used for legacy resource generation if needed
+}
+
 // New creates a new generator instance
 func New(cfg *config.Config, parser *openapi.Parser) *Generator {
 	return &Generator{
@@ -83,6 +107,11 @@ func (g *Generator) Generate() error {
 	// Generate shared types (OpenAPI components)
 	if err := g.GenerateSharedTypes(); err != nil {
 		return fmt.Errorf("failed to generate shared types: %w", err)
+	}
+
+	// Generate SDK
+	if err := g.GenerateSDK(); err != nil {
+		return fmt.Errorf("failed to generate sdk: %w", err)
 	}
 
 	// Generate E2E tests

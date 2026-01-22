@@ -101,9 +101,14 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 
 {{- define "mapResponseToModel" }}
 	{{- $prefix := .Name | title }}
-	{{- $fields := .ResponseFields }}
-	{{- if .ModelFields }}{{ $fields = .ModelFields }}{{ end }}
+	{{- $fields := .ModelFields }}
 	{{- range $fields }}
+	{{- $fieldName := .Name }}
+	{{- $inResponse := false }}
+	{{- range $.ResponseFields }}
+		{{- if eq .Name $fieldName }}{{ $inResponse = true }}{{ end }}
+	{{- end }}
+	{{- if $inResponse }}
 	{{- if eq .Type "string" }}
 	model.{{ .Name | title }} = types.StringPointerValue(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "integer" }}
@@ -136,6 +141,7 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 	} else {
 		model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
 	}
+	{{- end }}
 	{{- end }}
 	{{- end }}
 {{- end }}

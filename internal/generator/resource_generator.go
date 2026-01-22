@@ -25,6 +25,21 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	}
 	defer f.Close()
 
+	// Prepare data
+	data, err := g.prepareResourceData(resource)
+	if err != nil {
+		return err
+	}
+
+	if err := tmpl.Execute(f, data); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// prepareResourceData extracts fields and info for a resource
+func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceData, error) {
 	ops := resource.OperationIDs()
 
 	// Extract API paths from OpenAPI operations
@@ -119,7 +134,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 
 		offeringSchema, err := g.parser.GetSchema(schemaName)
 		if err != nil {
-			return fmt.Errorf("failed to find offering schema %s: %w", schemaName, err)
+			return nil, fmt.Errorf("failed to find offering schema %s: %w", schemaName, err)
 		}
 
 		if fields, err := ExtractFields(offeringSchema); err == nil {
@@ -138,8 +153,24 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 			}
 		}
 
-		// 3. Merge fields
+		// 3. Merge fields (MergeOrderFields adds project and offering fields to modelFields)
 		modelFields = MergeOrderFields(createFields, responseFields)
+
+		// Also add offering and project to createFields so they're available in template
+		createFields = append(createFields, FieldInfo{
+			Name:        "offering",
+			Type:        "string",
+			Description: "Offering UUID",
+			GoType:      "types.String",
+			Required:    true,
+		})
+		createFields = append(createFields, FieldInfo{
+			Name:        "project",
+			Type:        "string",
+			Description: "Project UUID",
+			GoType:      "types.String",
+			Required:    true,
+		})
 
 		// 4. Add Termination Attributes
 		for _, term := range resource.TerminationAttributes {
@@ -158,7 +189,6 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 				Type:        term.Type,
 				Description: "Termination attribute",
 				GoType:      goType,
-				// Required: false, ReadOnly: false -> Optional: true
 			})
 		}
 
@@ -267,119 +297,124 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 				}
 			}
 		}
+	}
 
-		// Inject Path Params for Custom Create Operation as strict Input Fields
-		if resource.CreateOperation != nil && len(resource.CreateOperation.PathParams) > 0 {
-			for _, paramName := range resource.CreateOperation.PathParams {
-				// Check if already exists in createFields
-				found := false
-				for _, f := range createFields {
-					if f.Name == paramName {
-						found = true
-						break
-					}
-				}
-				if !found {
-					createFields = append(createFields, FieldInfo{
-						Name:        paramName,
-						Type:        "string",
-						Description: "Required path parameter for resource creation",
-						GoType:      "types.String",
-						Required:    true,
-						ReadOnly:    false,
-					})
-				}
-			}
-		}
+	if isOrder {
+		// API Paths handled in template
+	}
 
-		// Extract Update fields
-		if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
-			if fields, err := ExtractFields(updateSchema); err == nil {
-				updateFields = fields
-			}
-		}
-
-		// Extract Response fields (prefer Retrieve operation as it's usually most complete)
-		if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-			if fields, err := ExtractFields(responseSchema); err == nil {
-				responseFields = fields
-			}
-		} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Create); err == nil {
-			// Fallback to Create response
-			if fields, err := ExtractFields(responseSchema); err == nil {
-				responseFields = fields
-			}
-		}
-
-		// Merge fields for the model (Create + Response)
-		allFields := MergeFields(createFields, responseFields)
-
-		// Filter out marketplace and other fields for non-order resources
-		if !isOrder {
-			// Create a set of input fields to protect them from removal
-			inputFields := make(map[string]bool)
-			for _, f := range createFields {
-				inputFields[f.Name] = true
-			}
-
-			modelFields = make([]FieldInfo, 0)
-			for _, f := range allFields {
-				// Remove if it's in exclude list AND NOT an input field
-				if ExcludedFields[f.Name] && !inputFields[f.Name] {
-					continue
-				}
-				modelFields = append(modelFields, f)
-			}
-		} else {
-			modelFields = allFields
-		}
-
-		// Override attributes field to use Map for flexibility
-		if resource.Name == "marketplace_order" {
+	// Inject Path Params for Custom Create Operation as strict Input Fields
+	if resource.CreateOperation != nil && len(resource.CreateOperation.PathParams) > 0 {
+		for _, paramName := range resource.CreateOperation.PathParams {
+			// Check if already exists in createFields
 			found := false
-			for i, f := range modelFields {
-				if f.Name == "attributes" {
-					modelFields[i].GoType = "types.Map"
-					modelFields[i].ItemType = "string"
-					modelFields[i].Type = "object"
-					modelFields[i].Properties = nil // Clear nested properties
+			for _, f := range createFields {
+				if f.Name == paramName {
 					found = true
 					break
 				}
 			}
 			if !found {
-				modelFields = append(modelFields, FieldInfo{
-					Name:        "attributes",
-					Type:        "object",
-					Description: "Order attributes",
-					GoType:      "types.Map",
-					Required:    true,
-					ItemType:    "string",
-				})
-			}
-
-			// Also update createFields
-			foundCreate := false
-			for j, cf := range createFields {
-				if cf.Name == "attributes" {
-					createFields[j].GoType = "types.Map"
-					createFields[j].ItemType = "string"
-					createFields[j].Type = "object"
-					createFields[j].Properties = nil
-					foundCreate = true
-					break
-				}
-			}
-			if !foundCreate {
 				createFields = append(createFields, FieldInfo{
-					Name:        "attributes",
-					Type:        "object",
-					Description: "Order attributes",
-					GoType:      "types.Map",
+					Name:        paramName,
+					Type:        "string",
+					Description: "Required path parameter for resource creation",
+					GoType:      "types.String",
 					Required:    true,
-					ItemType:    "string",
+					ReadOnly:    false,
 				})
 			}
+		}
+	}
+
+	// Extract Update fields
+	if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
+		if fields, err := ExtractFields(updateSchema); err == nil {
+			updateFields = fields
+		}
+	}
+
+	// Extract Response fields (prefer Retrieve operation as it's usually most complete)
+	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
+		if fields, err := ExtractFields(responseSchema); err == nil {
+			responseFields = fields
+		}
+	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Create); err == nil {
+		// Fallback to Create response
+		if fields, err := ExtractFields(responseSchema); err == nil {
+			responseFields = fields
+		}
+	}
+
+	// Merge fields for the model (Create + Response)
+	// Note: For Order resources, modelFields was already set in the Order block above
+	allFields := MergeFields(createFields, responseFields)
+
+	// Filter out marketplace and other fields for non-order resources
+	if !isOrder {
+		// Create a set of input fields to protect them from removal
+		inputFields := make(map[string]bool)
+		for _, f := range createFields {
+			inputFields[f.Name] = true
+		}
+
+		modelFields = make([]FieldInfo, 0)
+		for _, f := range allFields {
+			// Remove if it's in exclude list AND NOT an input field
+			if ExcludedFields[f.Name] && !inputFields[f.Name] {
+				continue
+			}
+			modelFields = append(modelFields, f)
+		}
+	}
+	// Note: For Order resources (isOrder=true), modelFields is already set correctly
+	// with termination attributes, so we don't overwrite it here
+
+	// Override attributes field to use Map for flexibility
+	if resource.Name == "marketplace_order" {
+		found := false
+		for i, f := range modelFields {
+			if f.Name == "attributes" {
+				modelFields[i].GoType = "types.Map"
+				modelFields[i].ItemType = "string"
+				modelFields[i].Type = "object"
+				modelFields[i].Properties = nil // Clear nested properties
+				found = true
+				break
+			}
+		}
+		if !found {
+			modelFields = append(modelFields, FieldInfo{
+				Name:        "attributes",
+				Type:        "object",
+				Description: "Order attributes",
+				GoType:      "types.Map",
+				Required:    true,
+				ItemType:    "string",
+			})
+		}
+
+		// Also update createFields
+		foundCreate := false
+		for j, cf := range createFields {
+			if cf.Name == "attributes" {
+				createFields[j].GoType = "types.Map"
+				createFields[j].ItemType = "string"
+				createFields[j].Type = "object"
+				createFields[j].Properties = nil
+				foundCreate = true
+				break
+			}
+		}
+		if !foundCreate {
+			createFields = append(createFields, FieldInfo{
+				Name:        "attributes",
+				Type:        "object",
+				Description: "Order attributes",
+				GoType:      "types.Map",
+				Required:    true,
+				ItemType:    "string",
+			})
 		}
 	}
 
@@ -473,32 +508,27 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 	sort.Slice(updateActions, func(i, j int) bool { return updateActions[i].Name < updateActions[j].Name })
 
-	data := map[string]interface{}{
-		"Name":                  resource.Name,
-		"Operations":            ops,
-		"APIPaths":              apiPaths,
-		"CreateFields":          createFields,
-		"UpdateFields":          updateFields,
-		"ResponseFields":        responseFields,
-		"ModelFields":           modelFields,
-		"IsOrder":               isOrder,
-		"IsLink":                resource.LinkOp != "", // Check if it's a link plugin
-		"Source":                resource.Source,
-		"Target":                resource.Target,
-		"LinkCheckKey":          resource.LinkCheckKey,
-		"OfferingType":          resource.OfferingType,
-		"UpdateActions":         updateActions, // Use enriched UpdateAction slice with resolved paths
-		"TerminationAttributes": resource.TerminationAttributes,
-		"CreateOperation":       resource.CreateOperation, // Custom create operation config
-		"CompositeKeys":         resource.CompositeKeys,   // Fields forming composite key
-		"NestedStructs":         collectUniqueStructs(createFields, updateFields, responseFields),
-	}
-
-	if err := tmpl.Execute(f, data); err != nil {
-		return err
-	}
-
-	return nil
+	return &ResourceData{
+		Name:                  resource.Name,
+		Plugin:                resource.Plugin,
+		Operations:            ops,
+		APIPaths:              apiPaths,
+		CreateFields:          createFields,
+		UpdateFields:          updateFields,
+		ResponseFields:        responseFields,
+		ModelFields:           modelFields,
+		IsOrder:               isOrder,
+		IsLink:                resource.LinkOp != "", // Check if it's a link plugin
+		Source:                resource.Source,
+		Target:                resource.Target,
+		LinkCheckKey:          resource.LinkCheckKey,
+		OfferingType:          resource.OfferingType,
+		UpdateActions:         updateActions, // Use enriched UpdateAction slice with resolved paths
+		TerminationAttributes: resource.TerminationAttributes,
+		CreateOperation:       resource.CreateOperation, // Custom create operation config
+		CompositeKeys:         resource.CompositeKeys,   // Fields forming composite key
+		NestedStructs:         collectUniqueStructs(createFields, updateFields, responseFields),
+	}, nil
 }
 
 // collectUniqueStructs gathers all Nested structs that have a RefName (Component) defined

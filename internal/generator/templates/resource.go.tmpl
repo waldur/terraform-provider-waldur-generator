@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
 	"github.com/waldur/terraform-provider-waldur/internal/client"
+	"github.com/waldur/terraform-provider-waldur/internal/sdk"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -39,54 +40,8 @@ func New{{ .Name | title }}Resource() resource.Resource {
 
 // {{ .Name | title }}Resource defines the resource implementation.
 type {{ .Name | title }}Resource struct {
-	client *client.Client
+	client *sdk.Client
 }
-
-// {{ .Name | title }}ApiResponse is the API response model.
-type {{ .Name | title }}ApiResponse struct {
-	UUID *string `json:"uuid"`
-	{{ template "apiResponseStructFields" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
-}
-
-{{ template "apiResponseNestedStructs" dict "Fields" .ModelFields "Prefix" (.Name | title) }}
-
-// {{ .Name | title }}CreateRequest is the API request model for creation.
-{{- if .IsOrder }}
-type {{ .Name | title }}CreateAttributes struct {
-	{{ template "apiRequestAttributesStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
-}
-
-type {{ .Name | title }}CreateRequest struct {
-	Project  *string `json:"project"`
-	Offering *string `json:"offering"`
-	Attributes {{ .Name | title }}CreateAttributes `json:"attributes"`
-}
-{{- else }}
-type {{ .Name | title }}CreateRequest struct {
-	{{ template "apiRequestStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
-}
-{{- end }}
-{{ template "apiRequestNestedStructs" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) }}
-
-// Shared Nested Structs are generated in shared_types.go
-
-
-// {{ .Name | title }}UpdateRequest is the API request model for updates.
-type {{ .Name | title }}UpdateRequest struct {
-	{{ template "apiRequestStructFields" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) }}
-}
-{{ template "apiRequestNestedStructs" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) }}
-
-{{- range $action := .UpdateActions }}
-// {{ $.Name | title }}{{ .Name | title }}ActionRequest is the API request model for the {{ .Name }} action.
-type {{ $.Name | title }}{{ .Name | title }}ActionRequest struct {
-	{{- range $field := $.ModelFields }}
-	{{- if eq $field.Name $action.Param }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ if hasSuffix .ItemSchema.RefName "Request" }}{{ .ItemSchema.RefName }}{{ else }}{{ .ItemSchema.RefName }}Request{{ end }}{{ else }}[]{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if hasSuffix .RefName "Request" }}*{{ .RefName }}{{ else }}*{{ .RefName }}Request{{ end }}{{ else }}*{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}"`
-	{{- end }}
-	{{- end }}
-}
-{{- end }}
 
 // {{ .Name | title }}ResourceModel describes the resource data model.
 type {{ .Name | title }}ResourceModel struct {
@@ -128,8 +83,6 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 	}
 }
 
-
-
 func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
@@ -145,7 +98,7 @@ func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resourc
 		return
 	}
 
-	r.client = client
+	r.client = sdk.NewClient(client)
 }
 
 func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -197,8 +150,6 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 	{{- else }}
 	{{ template "resource_read_standard" . }}
 	{{- end }}
-
-
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -269,7 +220,7 @@ func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resou
 	{{- end }}
 }
 
-func (r *{{ .Name | title }}Resource) mapResponseToModel(ctx context.Context, apiResp {{ .Name | title }}ApiResponse, model *{{ .Name | title }}ResourceModel) diag.Diagnostics {
+func (r *{{ .Name | title }}Resource) mapResponseToModel(ctx context.Context, apiResp sdk.{{ .Name | title }}Response, model *{{ .Name | title }}ResourceModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	model.UUID = types.StringPointerValue(apiResp.UUID)

@@ -42,8 +42,6 @@ export WALDUR_API_URL="https://api.waldur.example.com/"
 export WALDUR_API_TOKEN="your-real-token"
 export VCR_RECORD=true
 export TF_ACC=1
-# Optional: Skip waiting for orders (useful for quick validation)
-export WALDUR_E2E_SKIP_WAIT=true
 ```
 
 ### B. Run the Test

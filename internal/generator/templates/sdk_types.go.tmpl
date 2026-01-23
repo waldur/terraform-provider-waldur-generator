@@ -67,7 +67,9 @@ type {{ .Name | title }}Response struct {
 	{{- $prefix := .Prefix }}
 	{{- $pkgName := .Package }}
 	{{- range .Fields }}
+	{{- if not .IsPathParam }}
 	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{- end }}
 	{{- end }}
 {{- end }}
 

@@ -107,7 +107,6 @@
 {{- /* Helper template for building request body from fields */ -}}
 {{- define "buildRequestBody" -}}
 {{- /* Expects: .Fields ([]FieldInfo), .Operation (for path param check, can be nil) */ -}}
-	// Prepare request body
 {{- range .Fields }}
 {{- if $.Operation }}
 {{- if not (isPathParam $.Operation .Name) }}
@@ -131,7 +130,7 @@
 	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" nil "Prefix" (printf "%sCreate" (.Name | title)) }}
 	{{- end }}
 
-	apiResp, err := r.client.Create{{ .Name | title }}(ctx, &requestBody)
+	apiResp, err := r.client.Create{{ .Name | title }}(ctx, {{ if .CreateOperation }}{{ range $key, $value := .CreateOperation.PathParams }}data.{{ $value | title }}.ValueString(), {{ end }}{{ end }}&requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create {{ .Name | humanize }}",
@@ -158,7 +157,7 @@
 	{{- end }}
 	data.UUID = types.StringValue(compositeID)
 	{{- else }}
-	data.UUID = types.StringPointerValue(apiResp.UUID)
+	data.UUID = types.StringValue(apiResp.UUID)
 	{{- end }}
 
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
@@ -195,9 +194,7 @@
 			}
 			
 			if len(listResult) == 1 {
-				if listResult[0].UUID != nil {
-					data.UUID = types.StringPointerValue(listResult[0].UUID)
-				}
+				data.UUID = types.StringPointerValue(listResult[0].UUID)
 			} else if len(listResult) > 1 {
 				resp.Diagnostics.AddError("Ambiguous resource", fmt.Sprintf("Found %d resources matching composite keys", len(listResult)))
 				return
@@ -239,11 +236,6 @@
 			"An error occurred while updating the {{ .Name | humanize }}: "+err.Error(),
 		)
 		return
-	}
-
-	// Update UUID from response
-	if apiResp.UUID != nil {
-		data.UUID = types.StringPointerValue(apiResp.UUID)
 	}
 
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)

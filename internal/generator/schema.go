@@ -18,6 +18,7 @@ type FieldInfo struct {
 	GoType         string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
 	ForceNew       bool   // Whether field requires replacement on change (immutable)
 	ServerComputed bool   // Whether value can be set by server (readOnly or response-only)
+	IsPathParam    bool   // Whether field is a path parameter (should not be in JSON body)
 
 	// Complex type support
 	Enum       []string    // For enums: allowed values (only for string type)

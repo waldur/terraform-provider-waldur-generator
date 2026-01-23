@@ -341,6 +341,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 					GoType:      "types.String",
 					Required:    true,
 					ReadOnly:    false,
+					IsPathParam: true,
 				})
 			}
 		}

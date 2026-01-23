@@ -12,19 +12,23 @@
 {{- end }}
 {{- end -}}
 
-{{- /* Helper template for field assignment based on type */ -}}
-{{- define "fieldAssignment" -}}
-{{- if .Required }}
-	{{- /* Required: Assign pointer to value from Terraform data plan/state */ -}}
+{{- /* Helper template for simple field assignment (Struct Literal) */ -}}
+{{- define "simpleFieldAssignment" -}}
+	{{- /* Assign pointer to value from Terraform data plan/state */ -}}
 	{{- if eq .Type "string" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
+	{{ .Name | title }}: data.{{ .Name | title }}.ValueStringPointer(),
 	{{- else if eq .Type "integer" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueInt64Pointer()
+	{{ .Name | title }}: data.{{ .Name | title }}.ValueInt64Pointer(),
 	{{- else if eq .Type "boolean" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueBoolPointer()
+	{{ .Name | title }}: data.{{ .Name | title }}.ValueBoolPointer(),
 	{{- else if eq .Type "number" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueFloat64Pointer()
-	{{- else if eq .GoType "types.Map" }}
+	{{ .Name | title }}: data.{{ .Name | title }}.ValueFloat64Pointer(),
+	{{- end }}
+{{- end -}}
+
+{{- /* Helper template for complex field assignment (Post-Init) */ -}}
+{{- define "complexFieldAssignment" -}}
+	{{- if eq .GoType "types.Map" }}
 	{
 		var mapItems map[string]interface{}
 		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false); !diags.HasError() && len(mapItems) > 0 {
@@ -59,61 +63,34 @@
 		}
 	}
 	{{- end }}
+{{- end -}}
+
+{{- /* Helper template for building SIMPLE request body fields (Struct Literal) */ -}}
+{{- define "buildSimpleRequestBodyFields" -}}
+{{- range .Fields }}
+{{- if not (or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map")) }}
+{{- if $.Operation }}
+{{- if not (isPathParam $.Operation .Name) }}
+{{- template "simpleFieldAssignment" . }}
+{{- end }}
 {{- else }}
-	{{- /* Optional fields */ -}}
-	{{- if eq .Type "string" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
-	{{- else if eq .Type "integer" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueInt64Pointer()
-	{{- else if eq .Type "boolean" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueBoolPointer()
-	{{- else if eq .Type "number" }}
-	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueFloat64Pointer()
-	{{- else if eq .GoType "types.Map" }}
-		var mapItems map[string]interface{}
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false); !diags.HasError() && len(mapItems) > 0 {
-			requestBody.{{ .Name | title }} = mapItems
-		}
-	{{- else if eq .Type "array" }}
-    {
-		{{- if eq .ItemType "string" }}
-		var items []string
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
-			requestBody.{{ .Name | title }} = items
-		}
-		{{- else if eq .ItemType "integer" }}
-		var items []int64
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
-			requestBody.{{ .Name | title }} = items
-		}
-		{{- else }}
-		var items []{{ if .ItemSchema.RefName }}common.{{ .ItemSchema.RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
-			requestBody.{{ .Name | title }} = items
-		}
-		{{- end }}
-    }
-	{{- else if eq .Type "object" }}
-    {
-		var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
-		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
-			requestBody.{{ .Name | title }} = &obj
-		}
-    }
-	{{- end }}
+{{- template "simpleFieldAssignment" . }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end -}}
 
-{{- /* Helper template for building request body from fields */ -}}
-{{- define "buildRequestBody" -}}
-{{- /* Expects: .Fields ([]FieldInfo), .Operation (for path param check, can be nil) */ -}}
+{{- /* Helper template for building COMPLEX request body fields (Post-Init) */ -}}
+{{- define "buildComplexRequestBodyFields" -}}
 {{- range .Fields }}
+{{- if or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map") }}
 {{- if $.Operation }}
 {{- if not (isPathParam $.Operation .Name) }}
-{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" $.Operation "ItemSchema" .ItemSchema "RefName" .RefName }}
+{{- template "complexFieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" $.Operation "ItemSchema" .ItemSchema "RefName" .RefName }}
 {{- end }}
 {{- else }}
-{{- template "fieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" nil "ItemSchema" .ItemSchema "RefName" .RefName }}
+{{- template "complexFieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" nil "ItemSchema" .ItemSchema "RefName" .RefName }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -123,11 +100,17 @@
 	{{- /* Check if there are any body fields (non-path-param fields) */ -}}
 	{{- $hasCreate := or .APIPaths.Create .CreateOperation }}
 	{{- if $hasCreate }}
-	var requestBody {{ .Name | title }}CreateRequest
+	requestBody := {{ .Name | title }}CreateRequest{
+		{{- if .CreateOperation }}
+		{{- template "buildSimpleRequestBodyFields" dict "Fields" .CreateFields "Operation" .CreateOperation "Prefix" (printf "%sCreate" (.Name | title)) }}
+		{{- else }}
+		{{- template "buildSimpleRequestBodyFields" dict "Fields" .CreateFields "Operation" nil "Prefix" (printf "%sCreate" (.Name | title)) }}
+		{{- end }}
+	}
 	{{- if .CreateOperation }}
-	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" .CreateOperation "Prefix" (printf "%sCreate" (.Name | title)) }}
+	{{- template "buildComplexRequestBodyFields" dict "Fields" .CreateFields "Operation" .CreateOperation "Prefix" (printf "%sCreate" (.Name | title)) }}
 	{{- else }}
-	{{- template "buildRequestBody" dict "Fields" .CreateFields "Operation" nil "Prefix" (printf "%sCreate" (.Name | title)) }}
+	{{- template "buildComplexRequestBodyFields" dict "Fields" .CreateFields "Operation" nil "Prefix" (printf "%sCreate" (.Name | title)) }}
 	{{- end }}
 
 	apiResp, err := r.client.Create{{ .Name | title }}(ctx, {{ if .CreateOperation }}{{ range $key, $value := .CreateOperation.PathParams }}data.{{ $value | title }}.ValueString(), {{ end }}{{ end }}&requestBody)
@@ -226,8 +209,10 @@
 {{- /* Standard Update Operation */ -}}
 {{- define "resource_update_standard" }}
 	{{- if .APIPaths.Update }}
-	var requestBody {{ .Name | title }}UpdateRequest
-	{{- template "buildRequestBody" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
+	requestBody := {{ .Name | title }}UpdateRequest{
+		{{- template "buildSimpleRequestBodyFields" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
+	}
+	{{- template "buildComplexRequestBodyFields" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
 
 	apiResp, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &requestBody)
 	if err != nil {

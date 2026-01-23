@@ -589,6 +589,13 @@ func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 					traverse(f.ItemSchema.Properties)
 				}
 			}
+			// Check string type with Ref (Enums)
+			if f.GoType == "types.String" && f.RefName != "" {
+				if !seen[f.RefName] {
+					seen[f.RefName] = true
+					result = append(result, f)
+				}
+			}
 		}
 	}
 

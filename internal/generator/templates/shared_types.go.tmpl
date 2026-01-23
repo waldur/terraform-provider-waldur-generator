@@ -2,6 +2,16 @@ package {{ .Package }}
 
 
 {{ range .Structs }}
+{{ $struct := . }}
+{{ if eq .GoType "types.String" }}
+type {{ .RefName }} string
+
+const (
+{{- range .Enum }}
+	{{ $struct.RefName }}{{ . | title | replace "-" "" | replace " " "" }} {{ $struct.RefName }} = "{{ . }}"
+{{- end }}
+)
+{{ else }}
 type {{ .RefName }} struct {
 	{{ template "apiRequestStructFields" dict "Fields" .Properties "Prefix" .RefName }}
 	{{ if eq .RefName "OrderDetails" }}
@@ -9,4 +19,5 @@ type {{ .RefName }} struct {
 	{{ end }}
 }
 {{ template "apiRequestNestedStructs" dict "Fields" .Properties "Prefix" .RefName }}
+{{ end }}
 {{ end }}

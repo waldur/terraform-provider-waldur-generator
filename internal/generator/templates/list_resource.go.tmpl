@@ -34,7 +34,7 @@ func (l *{{ .Name | title }}List) ListResourceConfigSchema(ctx context.Context, 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			{{- range .FilterParams }}
-			"{{ .Name }}": schema.{{ replace .GoType "types." "" }}Attribute{
+			"{{ .Name }}": schema.{{ .GoType | replace "types." "" }}Attribute{
 				Description: "{{ .Description | sanitize }}",
 				Optional:    true,
 			},

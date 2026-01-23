@@ -85,6 +85,23 @@ func (g *Generator) generateSharedSDKTypes() error {
 		if !usedTypes[name] {
 			continue
 		}
+
+		// Detect if it's an enum (string type with enum values)
+		if schemaRef.Value.Type != nil && (*schemaRef.Value.Type)[0] == "string" && len(schemaRef.Value.Enum) > 0 {
+			var enumValues []string
+			for _, e := range schemaRef.Value.Enum {
+				if s, ok := e.(string); ok {
+					enumValues = append(enumValues, s)
+				}
+			}
+			allFields = append(allFields, FieldInfo{
+				RefName: name,
+				GoType:  "types.String",
+				Enum:    enumValues,
+			})
+			continue
+		}
+
 		fields, _ := ExtractFields(schemaRef)
 		allFields = append(allFields, FieldInfo{
 			RefName:    name,
@@ -92,7 +109,6 @@ func (g *Generator) generateSharedSDKTypes() error {
 			Properties: fields,
 		})
 	}
-
 	uniqueStructs := collectUniqueStructs(allFields)
 	data := map[string]interface{}{
 		"Structs": uniqueStructs,

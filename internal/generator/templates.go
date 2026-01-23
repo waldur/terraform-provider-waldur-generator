@@ -101,8 +101,6 @@ func GetFuncMap() template.FuncMap {
 		"humanize":    humanize,
 		"displayName": displayName,
 		"toAttrType":  ToAttrType,
-		"lower":       strings.ToLower,
-		"hasSuffix":   strings.HasSuffix,
 		"sanitize": func(s string) string {
 			// Replace problematic characters in descriptions
 			s = strings.ReplaceAll(s, "\\", "\\\\") // Escape backslashes first
@@ -116,17 +114,7 @@ func GetFuncMap() template.FuncMap {
 			}
 			return strings.TrimSpace(s)
 		},
-		"len": func(v interface{}) int {
-			// Handle different types if needed, for now assume []FieldInfo
-			if fields, ok := v.([]FieldInfo); ok {
-				return len(fields)
-			}
-			return 0
-		},
-		"sub": func(a, b int) int {
-			return a - b
-		},
-		"replace": func(s, old, new string) string {
+		"replace": func(old, new, s string) string {
 			return strings.ReplaceAll(s, old, new)
 		},
 		"isPathParam": func(op *config.CreateOperationConfig, fieldName string) bool {

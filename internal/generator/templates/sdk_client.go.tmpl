@@ -74,7 +74,7 @@ func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | 
 // Get{{ .Name | title }} retrieves a resource by its UUID.
 func (c *Client) Get{{ .Name | title }}(ctx context.Context, id string) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
-	err := c.Client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", id, &apiResp)
+	err := c.Client.Get(ctx, "{{ .APIPaths.Retrieve }}", id, &apiResp)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *Client) Update{{ .Name | title }}(ctx context.Context, id string, req *
 {{- if .APIPaths.Delete }}
 // Delete{{ .Name | title }} deletes a resource.
 func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error {
-	return c.Client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", id)
+	return c.Client.Delete(ctx, "{{ .APIPaths.Delete }}", id)
 }
 {{- end }}
 {{- end }}
@@ -106,7 +106,7 @@ func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error
 // List{{ .Name | title }} retrieves a list of resources with optional filtering.
 func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]string) ([]{{ .Name | title }}Response, error) {
 	var listResult []{{ .Name | title }}Response
-	err := c.Client.ListWithFilter(ctx, "{{ .APIPaths.Base }}", filter, &listResult)
+	err := c.Client.List(ctx, "{{ .APIPaths.Base }}", filter, &listResult)
 	if err != nil {
 		return nil, err
 	}

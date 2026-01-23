@@ -52,7 +52,7 @@
 	targetUUID := parts[1]
 
 	var result map[string]interface{}
-	err := r.client.Client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", sourceUUID, &result)
+	err := r.client.Client.Get(ctx, "{{ .APIPaths.Retrieve }}", sourceUUID, &result)
 	if err != nil {
 		if client.IsNotFoundError(err) {
 			resp.State.RemoveResource(ctx)

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestListWithFilter(t *testing.T) {
+func TestList(t *testing.T) {
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify query parameters
@@ -37,7 +37,7 @@ func TestListWithFilter(t *testing.T) {
 		"name": "test-project",
 	}
 	
-	err = client.ListWithFilter(context.Background(), "/api/projects/", filters, &results)
+	err = client.List(context.Background(), "/api/projects/", filters, &results)
 	if err != nil {
 		t.Fatalf("ListWithFilter failed: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestGetByUUID_WithTemplate(t *testing.T) {
 
 	// Test GetByUUID with templated path
 	var result map[string]interface{}
-	err = client.GetByUUID(context.Background(), "/api/projects/{uuid}/", "abc-123", &result)
+	err = client.Get(context.Background(), "/api/projects/{uuid}/", "abc-123", &result)
 	if err != nil {
 		t.Fatalf("GetByUUID failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestDeleteByUUID_WithTemplate(t *testing.T) {
 	}
 
 	// Test DeleteByUUID with templated path
-	err = client.DeleteByUUID(context.Background(), "/api/projects/{uuid}/", "abc-123")
+	err = client.Delete(context.Background(), "/api/projects/{uuid}/", "abc-123")
 	if err != nil {
 		t.Fatalf("DeleteByUUID failed: %v", err)
 	}

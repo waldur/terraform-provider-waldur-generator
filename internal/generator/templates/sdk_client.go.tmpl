@@ -52,8 +52,20 @@ func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, re
 // Create{{ .Name | title }} creates a new resource.
 func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
-	path := "{{ .APIPaths.Create }}"
 	
+	{{- $customCreate := false }}
+	{{- if .CreateOperation }}
+	{{- if eq (len .CreateOperation.PathParams) 1 }}
+	{{- if .CreateOperation.PathParams.uuid }}
+	{{- $customCreate = true }}
+	{{- $fieldName := index .CreateOperation.PathParams "uuid" }}
+	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Create }}", *req.{{ $fieldName | title }}, req, &apiResp)
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
+	{{- if not $customCreate }}
+	path := "{{ .APIPaths.Create }}"
 	{{- if .CreateOperation }}
 	{{- range $key, $value := .CreateOperation.PathParams }}
 	path = strings.Replace(path, "{{"{"}}{{ $key }}{{"}"}}", *req.{{ $value | title }}, 1)
@@ -61,6 +73,7 @@ func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | 
 	{{- end }}
 
 	err := c.Client.Post(ctx, path, req, &apiResp)
+	{{- end }}
 	if err != nil {
 		return nil, err
 	}

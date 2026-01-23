@@ -37,31 +37,6 @@ func (g *Generator) generateSharedUtils() error {
 	return nil
 }
 
-func (g *Generator) writeUtilsFile(outputPath string, content []byte, packageName string) error {
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory for utils.go: %w", err)
-	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Replace package name if needed
-	contentStr := string(content)
-	if packageName != "resources" {
-		contentStr = strings.Replace(contentStr, "package resources", "package "+packageName, 1)
-	}
-
-	if _, err := f.WriteString(contentStr); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // GenerateSharedTypes generates shared struct definitions from OpenAPI components
 func (g *Generator) GenerateSharedTypes() error {
 	tmpl, err := template.New("shared_types.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/shared_types.go.tmpl")

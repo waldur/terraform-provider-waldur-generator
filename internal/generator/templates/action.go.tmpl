@@ -15,6 +15,10 @@ import (
 var _ action.Action = &{{ .ResourceName | title }}{{ .ActionName | title }}Action{}
 var _ action.ActionWithConfigure = &{{ .ResourceName | title }}{{ .ActionName | title }}Action{}
 
+type {{ .ResourceName | title }}{{ .ActionName | title }}Model struct {
+	{{ .IdentifierParam | title }} types.String `tfsdk:"{{ .IdentifierParam }}"`
+}
+
 type {{ .ResourceName | title }}{{ .ActionName | title }}Action struct {
 	client *Client
 }
@@ -26,6 +30,7 @@ func New{{ .ResourceName | title }}{{ .ActionName | title }}Action() action.Acti
 func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Metadata(ctx context.Context, req action.MetadataRequest, resp *action.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_{{ .ResourceName }}_{{ .ActionName }}"
 }
+
 func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Schema(ctx context.Context, req action.SchemaRequest, resp *action.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "{{ .Description }}",
@@ -53,9 +58,6 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Configure(c
 	}
 
 	a.client = NewClient(clientRaw)
-}
-type {{ .ResourceName | title }}{{ .ActionName | title }}Model struct {
-	{{ .IdentifierParam | title }} types.String `tfsdk:"{{ .IdentifierParam }}"`
 }
 
 func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx context.Context, req action.InvokeRequest, resp *action.InvokeResponse) {

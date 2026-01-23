@@ -6,7 +6,6 @@ import (
 )
 {{ end }}
 
-// Shared Structs
 {{ range .SharedStructs }}
 type {{ .RefName }} struct {
 	{{ template "sdkStructFields" dict "Fields" .Properties "Prefix" .RefName "Package" $.Package }}
@@ -14,11 +13,9 @@ type {{ .RefName }} struct {
 {{ template "sdkNestedStructs" dict "Fields" .Properties "Prefix" .RefName "Package" $.Package }}
 {{ end }}
 
-// Resource Structs
 {{ range .Resources }}
 // {{ .Name | title }} Structs
 
-// Create Request
 type {{ .Name | title }}CreateRequest struct {
 	{{- if .IsOrder }}
 	Project  *string `json:"project" tfsdk:"project"`
@@ -37,7 +34,6 @@ type {{ .Name | title }}CreateAttributes struct {
 
 {{ template "sdkNestedStructs" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) "Package" $.Package }}
 
-// Update Request
 {{- if .UpdateFields }}
 type {{ .Name | title }}UpdateRequest struct {
 	{{ template "sdkStructFields" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) "Package" $.Package }}
@@ -45,12 +41,10 @@ type {{ .Name | title }}UpdateRequest struct {
 {{ template "sdkNestedStructs" dict "Fields" .UpdateFields "Prefix" (printf "%sUpdate" (.Name | title)) "Package" $.Package }}
 {{- end }}
 
-// Update Actions Structs
 {{- $resName := .Name }}
 {{- $modelFields := .ModelFields }}
 {{- $pkgName := $.Package }}
 {{- range $action := .UpdateActions }}
-// {{ $action.Name }} Action
 type {{ $resName | title }}{{ $action.Name | title }}ActionRequest struct {
 	{{- range $field := $modelFields }}
 	{{- if eq $field.Name $action.Param }}
@@ -60,7 +54,6 @@ type {{ $resName | title }}{{ $action.Name | title }}ActionRequest struct {
 }
 {{- end }}
 
-// Response Struct
 type {{ .Name | title }}Response struct {
 	UUID *string `json:"uuid"`
 	{{ template "sdkResponseStructFields" dict "Fields" .ResponseFields "Prefix" (.Name | title) "Package" $.Package }}

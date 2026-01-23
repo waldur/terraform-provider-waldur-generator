@@ -19,39 +19,8 @@ func NewClient(c *client.Client) *Client {
 	return &Client{Client: c}
 }
 
-func (c *Client) Create(ctx context.Context, path string, body interface{}, result interface{}) error {
-	return c.Client.Create(ctx, path, body, result)
-}
-
-func (c *Client) GetByUUID(ctx context.Context, path string, uuid string, result interface{}) error {
-	return c.Client.GetByUUID(ctx, path, uuid, result)
-}
-
-func (c *Client) Update(ctx context.Context, path string, uuid string, body interface{}, result interface{}) error {
-	return c.Client.Update(ctx, path, uuid, body, result)
-}
-
-func (c *Client) DeleteByUUID(ctx context.Context, path string, uuid string) error {
-	return c.Client.DeleteByUUID(ctx, path, uuid)
-}
-
-func (c *Client) Post(ctx context.Context, path string, body interface{}, result interface{}) error {
-	return c.Client.Post(ctx, path, body, result)
-}
-
-func (c *Client) ListWithFilter(ctx context.Context, path string, filter map[string]string, result interface{}) error {
-	return c.Client.ListWithFilter(ctx, path, filter, result)
-}
-
-func (c *Client) ExecuteAction(ctx context.Context, pathTemplate string, uuid string, body interface{}) (map[string]interface{}, error) {
-	path := strings.Replace(pathTemplate, "{uuid}", uuid, 1)
-	var res map[string]interface{}
-	err := c.Client.Post(ctx, path, body, &res)
-	return res, err
-}
 
 {{ range .Resources }}
-// {{ .Name | title }} Operations
 
 {{ if not .IsDatasourceOnly -}}
 {{- if .IsOrder }}
@@ -65,7 +34,8 @@ func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Na
 }
 
 func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {
-	res, err := c.ExecuteAction(ctx, "/api/marketplace-resources/{uuid}/terminate/", id, req)
+	var res map[string]interface{}
+	err := c.Client.ExecuteAction(ctx, "/api/marketplace-resources/{uuid}/terminate/", id, req, &res)
 	if err != nil {
 		return "", err
 	}
@@ -128,8 +98,7 @@ func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error
 
 func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]string) ([]{{ .Name | title }}Response, error) {
 	var listResult []{{ .Name | title }}Response
-	path := "{{ .APIPaths.Base }}"
-	err := c.Client.ListWithFilter(ctx, path, filter, &listResult)
+	err := c.Client.ListWithFilter(ctx, "{{ .APIPaths.Base }}", filter, &listResult)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +108,8 @@ func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]
 {{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Terminate }}
 func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {
-	res, err := c.ExecuteAction(ctx, "{{ .APIPaths.Terminate }}", id, req)
+	var res map[string]interface{}
+	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Terminate }}", id, req, &res)
 	if err != nil {
 		return "", err
 	}
@@ -154,13 +124,12 @@ func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, re
 func (c *Client) Link{{ .Name | title }}(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
 	{{- if .Source.Param }}
 	sourceUUID := *req.{{ .Source.Param | title }}
-	path := strings.Replace("{{ .APIPaths.Link }}", "{uuid}", sourceUUID, 1)
 	{{- else }}
-	path := "{{ .APIPaths.Link }}"
+	sourceUUID := ""
 	{{- end }}
 	
 	var apiResp {{ .Name | title }}Response
-	err := c.Client.Post(ctx, path, req, &apiResp)
+	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Link }}", sourceUUID, req, &apiResp)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +139,7 @@ func (c *Client) Link{{ .Name | title }}(ctx context.Context, req *{{ .Name | ti
 
 {{- if .APIPaths.Unlink }}
 func (c *Client) Unlink{{ .Name | title }}(ctx context.Context, sourceUUID string) error {
-	_, err := c.ExecuteAction(ctx, "{{ .APIPaths.Unlink }}", sourceUUID, nil)
+	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Unlink }}", sourceUUID, nil, nil)
 	return err
 }
 {{- end }}
@@ -184,14 +153,14 @@ func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Co
 	{{- else }}
 	path := fmt.Sprintf("/api/{{ $ops.List | replace "_list" "" | replace "_" "-" }}/%s/{{ $action.Name }}/", "%s")
 	{{- end }}
-	_, err := c.ExecuteAction(ctx, path, id, req)
+	err := c.Client.ExecuteAction(ctx, path, id, req, nil)
 	return err
 }
 {{- end }}
 
 {{- range $action := .StandaloneActions }}
 func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Context, id string) error {
-	_, err := c.ExecuteAction(ctx, "{{ $action.Path }}", id, nil)
+	err := c.Client.ExecuteAction(ctx, "{{ $action.Path }}", id, nil, nil)
 	return err
 }
 {{- end }}

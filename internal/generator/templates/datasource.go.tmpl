@@ -36,7 +36,6 @@ type {{ .Name | title }}FiltersModel struct {
 }
 {{- end }}
 
-// {{ .Name | title }}DataSourceModel describes the data source data model.
 type {{ .Name | title }}DataSourceModel struct {
 	UUID types.String `tfsdk:"id"`
 	{{- if .FilterParams }}

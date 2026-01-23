@@ -140,8 +140,23 @@
 	{{- end }}
 	data.UUID = types.StringValue(compositeID)
 	{{- else }}
-	data.UUID = types.StringValue(apiResp.UUID)
+	data.UUID = types.StringPointerValue(apiResp.UUID)
 	{{- end }}
+
+	createTimeout, diags := data.Timeouts.Create(ctx, 30*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	newResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
+		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+	}, createTimeout)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
+		return
+	}
+	apiResp = newResp
 
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 	{{- else }}
@@ -223,6 +238,21 @@
 		return
 	}
 
+	updateTimeout, diags := data.Timeouts.Update(ctx, 30*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	newResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
+		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+	}, updateTimeout)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to wait for resource update", err.Error())
+		return
+	}
+	apiResp = newResp
+
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 	{{- else }}
 	resp.Diagnostics.AddError("Update Not Supported", "This resource cannot be updated via the API.")
@@ -238,6 +268,20 @@
 			"Unable to Delete {{ .Name | humanize }}",
 			"An error occurred while deleting the {{ .Name | humanize }}: "+err.Error(),
 		)
+		return
+	}
+
+	deleteTimeout, diags := data.Timeouts.Delete(ctx, 10*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	err = common.WaitForDeletion(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
+		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+	}, deleteTimeout)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to wait for resource deletion", err.Error())
 		return
 	}
 	{{- else }}

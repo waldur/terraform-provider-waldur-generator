@@ -56,7 +56,8 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	model.{{ .Name | title }} = types.Float64PointerValue(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "array" }}
 	{{- if eq .ItemType "string" }}
-	model.{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
+	listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
+	model.{{ .Name | title }} = listVal{{ .Name | title }}
 	diags.Append(listDiags{{ .Name | title }}...)
 	{{- else if eq .ItemType "object" }}
 	{{/* For list of objects, convert each item to Terraform object */}}

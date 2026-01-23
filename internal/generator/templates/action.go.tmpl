@@ -3,6 +3,8 @@ package {{ .CleanName }}
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/action/schema"
@@ -17,6 +19,7 @@ var _ action.ActionWithConfigure = &{{ .ResourceName | title }}{{ .ActionName | 
 
 type {{ .ResourceName | title }}{{ .ActionName | title }}Model struct {
 	{{ .IdentifierParam | title }} types.String `tfsdk:"{{ .IdentifierParam }}"`
+	Timeout types.String `tfsdk:"timeout"`
 }
 
 type {{ .ResourceName | title }}{{ .ActionName | title }}Action struct {
@@ -38,6 +41,10 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Schema(ctx 
 			"{{ .IdentifierParam }}": schema.StringAttribute{
 				Description: "{{ .IdentifierDesc }}",
 				Required:    true,
+			},
+			"timeout": schema.StringAttribute{
+				Description: "Timeout for the action execution and state stabilization (e.g. '10m').",
+				Optional:    true,
 			},
 		},
 	}
@@ -77,5 +84,23 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx 
 			fmt.Sprintf("Failed to perform {{ .ActionName }} on %s: %s", uuid, err),
 		)
 		return
+	}
+
+	// Wait for resource to stabilize
+	timeout := 10 * time.Minute
+	if !data.Timeout.IsNull() {
+		var err error
+		timeout, err = time.ParseDuration(data.Timeout.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Invalid timeout", "Failed to parse timeout: "+err.Error())
+			return
+		}
+	}
+
+	_, err = common.WaitForResource(ctx, func(ctx context.Context) (*{{ .ResourceName | title }}Response, error) {
+		return a.client.Get{{ .ResourceName | title }}(ctx, uuid)
+	}, timeout)
+	if err != nil {
+		resp.Diagnostics.AddWarning("Resource state check failed", err.Error())
 	}
 }

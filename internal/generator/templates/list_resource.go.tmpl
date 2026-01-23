@@ -112,7 +112,7 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 			
 			var diags diag.Diagnostics
 
-			data.UUID = types.StringValue(apiResp.UUID)
+			data.UUID = types.StringPointerValue(apiResp.UUID)
 			{{- template "mapResponseToModel" . }}
 			
 			// Set the resource state

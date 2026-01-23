@@ -31,77 +31,7 @@ type {{ $prefix }}{{ .Name | title }} struct {
 {{- end }}
 {{- end }}
 
-{{- /* Helper: Generate Request Struct Fields with Filtering (for Attributes) */ -}}
-{{- define "apiRequestAttributesStructFields" }}
-	{{- $prefix := .Prefix }}
-	{{- range .Fields }}
-	{{- /* Skip top-level order fields project and offering from attributes */ -}}
-	{{- if and (ne .Name "project") (ne .Name "offering") }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ .ItemSchema.RefName }}{{ else }}[]{{ $prefix }}{{ .Name | title }}{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}*{{ .RefName }}{{ else }}*{{ $prefix }}{{ .Name | title }}{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
-	{{ end }}
-	{{- end }}
-{{- end }}
-{{- define "tfListToGo" -}}
-{{- if eq .ItemType "string" }}
-var items{{ .Suffix }} []interface{}
-for _, elem := range data.{{ .FieldName }}.Elements() {
-	if strVal, ok := elem.(types.String); ok {
-		items{{ .Suffix }} = append(items{{ .Suffix }}, strVal.ValueString())
-	}
-}
-{{- else if eq .ItemType "integer" }}
-var items{{ .Suffix }} []interface{}
-for _, elem := range data.{{ .FieldName }}.Elements() {
-	if intVal, ok := elem.(types.Int64); ok {
-		items{{ .Suffix }} = append(items{{ .Suffix }}, intVal.ValueInt64())
-	}
-}
-{{- else if eq .ItemType "object" }}
-var items{{ .Suffix }} []interface{}
-for _, elem := range data.{{ .FieldName }}.Elements() {
-	if objVal, ok := elem.(types.Object); ok {
-		objMap := make(map[string]interface{})
-		for key, attr := range objVal.Attributes() {
-			switch v := attr.(type) {
-			case types.String:
-				objMap[key] = v.ValueString()
-			case types.Int64:
-				objMap[key] = v.ValueInt64()
-			case types.Bool:
-				objMap[key] = v.ValueBool()
-			case types.Float64:
-				objMap[key] = v.ValueFloat64()
-			}
-		}
-		items{{ .Suffix }} = append(items{{ .Suffix }}, objMap)
-	}
-}
-{{- end }}
-{{- end -}}
 
-{{- define "apiResponseStructFields" }}
-	{{- $prefix := .Prefix }}
-	{{- range .Fields }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else }}[]{{ $prefix }}{{ .Name | title }}Response{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Response{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .Name }}"`
-	{{- end }}
-{{- end }}
-
-{{- define "apiResponseNestedStructs" }}
-{{- $prefix := .Prefix }}
-{{- range .Fields }}
-{{- if eq .Type "object" }}
-type {{ $prefix }}{{ .Name | title }}Response struct {
-	{{ template "apiResponseStructFields" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
-}
-{{ template "apiResponseNestedStructs" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
-{{- else if and (eq .Type "array") (eq .ItemType "object") }}
-type {{ $prefix }}{{ .Name | title }}Response struct {
-	{{ template "apiResponseStructFields" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
-}
-{{ template "apiResponseNestedStructs" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
-{{- end }}
-{{- end }}
-{{- end }}
 
 
 {{- /* Helper: Map Response Struct to Terraform Model */ -}}

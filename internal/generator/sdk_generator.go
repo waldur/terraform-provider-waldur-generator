@@ -29,10 +29,62 @@ func (g *Generator) generateSharedSDKTypes() error {
 		return fmt.Errorf("failed to parse shared types template: %w", err)
 	}
 
+	usedTypes := make(map[string]bool)
+
+	// Helper to collect types recursively
+	var collectTypes func([]FieldInfo)
+	collectTypes = func(fields []FieldInfo) {
+		for _, f := range fields {
+			if f.RefName != "" {
+				if !usedTypes[f.RefName] {
+					usedTypes[f.RefName] = true
+					// Find schema and recurse
+					if schemaRef, ok := g.parser.Document().Components.Schemas[f.RefName]; ok {
+						if nestedFields, err := ExtractFields(schemaRef); err == nil {
+							collectTypes(nestedFields)
+						}
+					}
+				}
+			}
+			if f.ItemSchema != nil {
+				collectTypes([]FieldInfo{*f.ItemSchema})
+			}
+			if len(f.Properties) > 0 {
+				collectTypes(f.Properties)
+			}
+		}
+	}
+
+	// 1. Collect types from Resources
+	// Explicitly add types used in utils.go
+	usedTypes["OrderDetails"] = true
+
+	for _, res := range g.config.Resources {
+		rd, err := g.prepareResourceData(&res)
+		if err != nil {
+			return err
+		}
+		collectTypes(rd.CreateFields)
+		collectTypes(rd.UpdateFields)
+		collectTypes(rd.ResponseFields)
+	}
+
+	// 2. Collect types from DataSources
+	for _, ds := range g.config.DataSources {
+		dd, err := g.prepareDatasourceData(&ds)
+		if err != nil {
+			return err
+		}
+		collectTypes(dd.ResponseFields)
+	}
+
 	var allFields []FieldInfo
 
-	// Collect all schemas from OpenAPI components
+	// Collect only used schemas
 	for name, schemaRef := range g.parser.Document().Components.Schemas {
+		if !usedTypes[name] {
+			continue
+		}
 		fields, _ := ExtractFields(schemaRef)
 		allFields = append(allFields, FieldInfo{
 			RefName:    name,

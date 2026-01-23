@@ -15,6 +15,7 @@
 {{- /* Helper template for field assignment based on type */ -}}
 {{- define "fieldAssignment" -}}
 {{- if .Required }}
+	{{- /* Required: Assign pointer to value from Terraform data plan/state */ -}}
 	{{- if eq .Type "string" }}
 	requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
 	{{- else if eq .Type "integer" }}
@@ -118,6 +119,7 @@
 {{- end }}
 {{- end -}}
 
+{{- /* Standard Create Operation */ -}}
 {{- define "resource_create_standard" }}
 	{{- /* Check if there are any body fields (non-path-param fields) */ -}}
 	{{- $hasCreate := or .APIPaths.Create .CreateOperation }}
@@ -166,6 +168,7 @@
 
 {{- end }}
 
+{{- /* Standard Read Operation */ -}}
 {{- define "resource_read_standard" }}
 	{{- if .CompositeKeys }}
 	// If UUID is unknown or contains slashes (composite key), try to look it up using composite keys
@@ -223,6 +226,7 @@
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 {{- end }}
 
+{{- /* Standard Update Operation */ -}}
 {{- define "resource_update_standard" }}
 	{{- if .APIPaths.Update }}
 	var requestBody {{ .Name | title }}UpdateRequest
@@ -248,6 +252,7 @@
 	{{- end }}
 {{- end }}
 
+{{- /* Standard Delete Operation */ -}}
 {{- define "resource_delete_standard" }}
 	{{- if .APIPaths.Delete }}
 	err := r.client.Delete{{ .Name | title }}(ctx, data.UUID.ValueString())
@@ -263,6 +268,7 @@
 	{{- end }}
 {{- end }}
 
+{{- /* Standard Import Operation */ -}}
 {{- define "resource_import_standard" }}
 	{{- if .CompositeKeys }}
 	// Parse composite ID: key1/key2/...

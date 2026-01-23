@@ -2,8 +2,9 @@
 {{- define "apiRequestStructFields" }}
 	{{- $prefix := .Prefix }}
 	{{- range .Fields }}
+	{{- /* Generate field with pointer types for optionality and json/tfsdk tags */ -}}
 	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ .ItemSchema.RefName }}{{ else }}[]{{ $prefix }}{{ .Name | title }}{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}*{{ .RefName }}{{ else }}*{{ $prefix }}{{ .Name | title }}{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
-	{{- end }}
+	{{ end }}
 {{- end }}
 
 {{- /* Helper: Generate Nested Request Structs */ -}}
@@ -12,6 +13,7 @@
 {{- range .Fields }}
 {{- if eq .Type "object" }}
 {{- if not .RefName }}
+{{- /* Recursively generate struct for nested object */ -}}
 type {{ $prefix }}{{ .Name | title }} struct {
 	{{ template "apiRequestStructFields" dict "Fields" .Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
 }
@@ -19,6 +21,7 @@ type {{ $prefix }}{{ .Name | title }} struct {
 {{- end }}
 {{- else if and (eq .Type "array") (eq .ItemType "object") }}
 {{- if not .ItemSchema.RefName }}
+{{- /* Recursively generate struct for array of objects */ -}}
 type {{ $prefix }}{{ .Name | title }} struct {
 	{{ template "apiRequestStructFields" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) }}
 }
@@ -27,13 +30,15 @@ type {{ $prefix }}{{ .Name | title }} struct {
 {{- end }}
 {{- end }}
 {{- end }}
+
 {{- /* Helper: Generate Request Struct Fields with Filtering (for Attributes) */ -}}
 {{- define "apiRequestAttributesStructFields" }}
 	{{- $prefix := .Prefix }}
 	{{- range .Fields }}
+	{{- /* Skip top-level order fields project and offering from attributes */ -}}
 	{{- if and (ne .Name "project") (ne .Name "offering") }}
 	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}[]{{ .ItemSchema.RefName }}{{ else }}[]{{ $prefix }}{{ .Name | title }}{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}*{{ .RefName }}{{ else }}*{{ $prefix }}{{ .Name | title }}{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
-	{{- end }}
+	{{ end }}
 	{{- end }}
 {{- end }}
 {{- define "tfListToGo" -}}
@@ -99,6 +104,7 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 {{- end }}
 
 
+{{- /* Helper: Map Response Struct to Terraform Model */ -}}
 {{- define "mapResponseToModel" }}
 	{{- $prefix := .Name | title }}
 	{{- $fields := .ModelFields }}
@@ -109,6 +115,7 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 		{{- if eq .Name $fieldName }}{{ $inResponse = true }}{{ end }}
 	{{- end }}
 	{{- if $inResponse }}
+	{{- /* Handle basic types */ -}}
 	{{- if eq .Type "string" }}
 	model.{{ .Name | title }} = types.StringPointerValue(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "integer" }}
@@ -121,9 +128,12 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 	{{- if eq .ItemType "string" }}
 	model.{{ .Name | title }}, _ = types.ListValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
 	{{- else if eq .ItemType "object" }}
-	listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
-	diags.Append(listDiags{{ .Name | title }}...)
-	model.{{ .Name | title }} = listVal{{ .Name | title }}
+	{{/* For list of objects, convert each item to Terraform object */}}
+	{
+		listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
+		diags.Append(listDiags{{ .Name | title }}...)
+		model.{{ .Name | title }} = listVal{{ .Name | title }}
+	}
 	{{- end }}
 	{{- else if eq .GoType "types.Map" }}
 	if apiResp.{{ .Name | title }} != nil {

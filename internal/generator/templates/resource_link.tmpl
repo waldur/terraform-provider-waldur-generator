@@ -1,3 +1,8 @@
+{{- /* 
+    resource_create_link handles the creation of a Link resource (e.g. Volume Attachment).
+    A Link resource represents a relationship between two other resources (Source and Target).
+    The 'Create' operation effectively creates this relationship in the API.
+*/ -}}
 {{- define "resource_create_link" }}
 	// Link Plugin Create Logic
 	sourceUUID := data.{{ .Source.Param | title }}.ValueString()
@@ -25,12 +30,17 @@
 		return
 	}
 	
-	// For Link resources, ID is composite of Source and Target UUIDs
+	// For Link resources, ID is composite of Source and Target UUIDs because the API might not return a distinct ID for the link itself.
 	data.UUID = types.StringValue(sourceUUID + "/" + data.{{ .Target.Param | title }}.ValueString())
 
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 {{- end }}
 
+{{- /* 
+    resource_read_link verifies if the Link still exists.
+    Since Links might not have a direct GET endpoint, we often read the Source resource
+    and check if the Target resource (or the specific link object) is present in a specific field (e.g. 'volumes' list in an instance).
+*/ -}}
 {{- define "resource_read_link" }}
 	// For Link resources, we read the Source resource and check if Target is linked
 	parts := strings.Split(data.UUID.ValueString(), "/")
@@ -89,13 +99,13 @@
 		return
 	}
 	
-	// Should probably create a mock result map containing source and target UUIDs 
-	// to satisfy mapResponseFields if needed, but for now we just keep result which is Source
-	// We need to ensure we don't overwrite data.UUID with Source UUID
-	// So we delete "uuid" from result before mapping
+	// We delete "uuid" from result before mapping to avoid overwriting the composite ID in data.UUID
 	delete(result, "uuid") 
 {{- end }}
 
+{{- /* 
+    resource_delete_link handles the removal of the relationship (Unlink).
+*/ -}}
 {{- define "resource_delete_link" }}
 	// Link Plugin Delete (Unlink)
 	parts := strings.Split(data.UUID.ValueString(), "/")
@@ -112,6 +122,9 @@
 	}
 {{- end }}
 
+{{- /* 
+    resource_import_link allows importing an existing link using the composite ID source_uuid/target_uuid.
+*/ -}}
 {{- define "resource_import_link" }}
 	// Import ID: source_uuid/target_uuid
 	parts := strings.Split(req.ID, "/")

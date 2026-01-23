@@ -1,7 +1,16 @@
+{{- /* 
+    resource_create_order handles the creation workflow for OpenStack and other order-based resources.
+    The workflow consists of 3 phases:
+    1. Construct payload (Marketplace Order) with attributes.
+    2. Submit the Order via the Marketplace API.
+    3. Poll the Order status until it completes, then resolve the Resource UUID.
+*/ -}}
 {{- define "resource_create_order" }}
 	// Phase 1: Payload Construction
+	// We map the Terraform schema fields to the 'attributes' map required by the Marketplace Order API.
 	attributes := {{ .Name | title }}CreateAttributes{
 		{{- range .CreateFields }}
+		{{- /* Skip project and offering as they are top-level order fields, not attributes */ -}}
 		{{- if and (ne .Name "project") (ne .Name "offering") }}
 		{{- if or (eq .Type "string") (eq .Type "integer") (eq .Type "boolean") (eq .Type "number") }}
 		{{ .Name | title }}: data.{{ .Name | title }}.Value{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Pointer(),
@@ -25,6 +34,7 @@
 	{{- end }}
 	{{- end }}
 
+	// Construct the Create Order Request
 	payload := {{ .Name | title }}CreateRequest{
 		Project:    data.Project.ValueStringPointer(),
 		Offering:   data.Offering.ValueStringPointer(),
@@ -39,18 +49,21 @@
 	}
 	
 	// Phase 3: Poll for Completion
+	// We use the 'time' package to handle the timeout specified in the TF config or default to 45m.
 	timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Wait for the order to reach a terminal state (done/erred)
 	finalOrder, err := common.WaitForOrder(ctx, r.client.Client, *orderRes.Uuid, timeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Order Failed", err.Error())
 		return
 	}
 	
+	// Resolve the created Resource UUID from the completed order
 	if uuid := common.ResolveResourceUUID(finalOrder); uuid != "" {
 		data.UUID = types.StringValue(uuid)
 	} else {
@@ -58,7 +71,7 @@
 		return
 	}
 
-	// Fetch final resource state
+	// Fetch final resource state to ensure Terraform state matches reality
 	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to Read Resource", err.Error())
@@ -67,8 +80,15 @@
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 {{- end }}
 
+{{- /* 
+    resource_update_order handles updates for order-based resources.
+    Updates can be:
+    1. Standard PATCH updates (e.g. name, description) which are simple API calls.
+    2. RPC Actions (e.g. resize, update_security_groups) which trigger specific endpoints.
+*/ -}}
 {{- define "resource_update_order" }}
 	// Phase 1: Standard PATCH (Simple fields)
+	// We compare the plan (data) with the state (state) to determine which fields changed.
 	var patchPayload {{ .Name | title }}UpdateRequest
 	{{- range .UpdateFields }}
 	{{- $fieldName := .Name }}
@@ -92,6 +112,7 @@
 	{{- end }}
 
 	{
+		// Execute the PATCH request
 		_, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &patchPayload)
 		if err != nil {
 			resp.Diagnostics.AddError("Update Failed", err.Error())
@@ -100,9 +121,10 @@
 	}
 
 	// Phase 2: RPC Actions
+	// These actions are triggered when their corresponding specific fields change.
 	{{- range $action := .UpdateActions }}
 	if !data.{{ $action.Param | title }}.Equal(state.{{ $action.Param | title }}) {
-		// Convert Terraform value to API payload
+		// Convert Terraform value to API payload for the specific action
 		var req {{ $.Name | title }}{{ $action.Name | title }}ActionRequest
 		{{- $field := index $.ModelFields 0 }}
 		{{- range $.ModelFields }}
@@ -125,6 +147,7 @@
 		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueBoolPointer()
 		{{- end }}
 
+		// Execute the Action
 		if err := r.client.{{ $.Name | title }}{{ $action.Name | title }}(ctx, data.UUID.ValueString(), &req); err != nil {
 			resp.Diagnostics.AddError("RPC Action Failed: {{ $action.Name }}", err.Error())
 			return
@@ -132,7 +155,7 @@
 	}
 	{{- end }}
 
-	// Fetch updated state
+	// Fetch updated state after all changes
 	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
 	if err != nil {
 		if client.IsNotFoundError(err) {
@@ -145,6 +168,10 @@
 	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
 {{- end }}
 
+{{- /* 
+    resource_delete_order handles the termination of order-based resources.
+    This typically involves creating a termination order and waiting for it to complete.
+*/ -}}
 {{- define "resource_delete_order" }}
 	// Order-based Delete
 	payload := map[string]interface{}{}
@@ -158,6 +185,7 @@
 	}
 	{{- end }}
 
+	// Submit termination order
 	orderUUID, err := r.client.Terminate{{ .Name | title }}(ctx, data.UUID.ValueString(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Termination Failed", err.Error())

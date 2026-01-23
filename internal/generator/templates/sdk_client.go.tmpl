@@ -20,10 +20,12 @@ func NewClient(c *client.Client) *Client {
 }
 
 
+
 {{ range .Resources }}
 
 {{ if not .IsDatasourceOnly -}}
 {{- if .IsOrder }}
+// Create{{ .Name | title }}Order creates a marketplace order for this resource.
 func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*common.OrderDetails, error) {
 	var apiResp common.OrderDetails
 	err := c.Client.Post(ctx, "/api/marketplace-orders/", req, &apiResp)
@@ -33,6 +35,7 @@ func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Na
 	return &apiResp, nil
 }
 
+// Terminate{{ .Name | title }} terminates the resource via marketplace.
 func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {
 	var res map[string]interface{}
 	err := c.Client.ExecuteAction(ctx, "/api/marketplace-resources/{uuid}/terminate/", id, req, &res)
@@ -46,6 +49,7 @@ func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, re
 }
 {{- else }}
 {{- if .APIPaths.Create }}
+// Create{{ .Name | title }} creates a new resource.
 func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
 	path := "{{ .APIPaths.Create }}"
@@ -67,6 +71,7 @@ func (c *Client) Create{{ .Name | title }}(ctx context.Context, req *{{ .Name | 
 {{- end }}
 
 
+// Get{{ .Name | title }} retrieves a resource by its UUID.
 func (c *Client) Get{{ .Name | title }}(ctx context.Context, id string) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
 	err := c.Client.GetByUUID(ctx, "{{ .APIPaths.Retrieve }}", id, &apiResp)
@@ -78,6 +83,7 @@ func (c *Client) Get{{ .Name | title }}(ctx context.Context, id string) (*{{ .Na
 
 {{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Update }}
+// Update{{ .Name | title }} updates an existing resource.
 func (c *Client) Update{{ .Name | title }}(ctx context.Context, id string, req *{{ .Name | title }}UpdateRequest) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
 	err := c.Client.Update(ctx, "{{ .APIPaths.Update }}", id, req, &apiResp)
@@ -89,6 +95,7 @@ func (c *Client) Update{{ .Name | title }}(ctx context.Context, id string, req *
 {{- end }}
 
 {{- if .APIPaths.Delete }}
+// Delete{{ .Name | title }} deletes a resource.
 func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error {
 	return c.Client.DeleteByUUID(ctx, "{{ .APIPaths.Delete }}", id)
 }
@@ -96,6 +103,7 @@ func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error
 {{- end }}
 
 
+// List{{ .Name | title }} retrieves a list of resources with optional filtering.
 func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]string) ([]{{ .Name | title }}Response, error) {
 	var listResult []{{ .Name | title }}Response
 	err := c.Client.ListWithFilter(ctx, "{{ .APIPaths.Base }}", filter, &listResult)
@@ -107,6 +115,7 @@ func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]
 
 {{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Terminate }}
+// Terminate{{ .Name | title }} performs the terminate action on the resource.
 func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {
 	var res map[string]interface{}
 	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Terminate }}", id, req, &res)
@@ -121,6 +130,7 @@ func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, re
 {{- end }}
 
 {{- if .APIPaths.Link }}
+// Link{{ .Name | title }} performs the link action (e.g. attaching a volume).
 func (c *Client) Link{{ .Name | title }}(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
 	{{- if .Source.Param }}
 	sourceUUID := *req.{{ .Source.Param | title }}
@@ -138,6 +148,7 @@ func (c *Client) Link{{ .Name | title }}(ctx context.Context, req *{{ .Name | ti
 {{- end }}
 
 {{- if .APIPaths.Unlink }}
+// Unlink{{ .Name | title }} performs the unlink action (e.g. detaching a volume).
 func (c *Client) Unlink{{ .Name | title }}(ctx context.Context, sourceUUID string) error {
 	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Unlink }}", sourceUUID, nil, nil)
 	return err
@@ -147,6 +158,7 @@ func (c *Client) Unlink{{ .Name | title }}(ctx context.Context, sourceUUID strin
 {{- $resName := .Name }}
 {{- $ops := .Operations }}
 {{- range $action := .UpdateActions }}
+// {{ $resName | title }}{{ $action.Name | title }} executes the {{ $action.Name }} action.
 func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Context, id string, req *{{ $resName | title }}{{ $action.Name | title }}ActionRequest) error {
 	{{- if $action.Path }}
 	path := "{{ $action.Path }}"
@@ -159,6 +171,7 @@ func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Co
 {{- end }}
 
 {{- range $action := .StandaloneActions }}
+// {{ $resName | title }}{{ $action.Name | title }} executes the {{ $action.Name }} action.
 func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Context, id string) error {
 	err := c.Client.ExecuteAction(ctx, "{{ $action.Path }}", id, nil, nil)
 	return err

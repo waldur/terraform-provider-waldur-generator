@@ -254,17 +254,6 @@ data_sources:
 
   - name: "openstack_port"
     base_operation_id: "openstack_ports"
-
-  - name: "openstack_volume_attachment"
-    base_operation_id: "openstack_volumes" # Use filter params to find attachment? No, volumes attach list? 
-    # Actually volume attachments don't have a list endpoint usually.
-    # The resource config says base_operation_id: "openstack_volumes".
-    # But it's a link resource. Link resources usually don't have data sources unless queryable.
-    # If I add it here, generator will try to find list endpoint.
-    # Wait, `openstack_volumes` list returns volumes.
-    # `openstack_server_group` has list.
-    # `openstack_network_rbac_policy` has list.
-    # `openstack_floating_ip` has list.
     
   - name: "openstack_server_group"
     base_operation_id: "openstack_server_groups"

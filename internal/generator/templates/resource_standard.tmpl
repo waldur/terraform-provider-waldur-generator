@@ -68,7 +68,6 @@
 			{{- end }}
 		}
 		{{- else }}
-		// Object array or other
 		var items []{{ if .ItemSchema.RefName }}common.{{ .ItemSchema.RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
 		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
 		resp.Diagnostics.Append(diags...)
@@ -336,6 +335,41 @@
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{ $key }}"), parts[{{ $i }}])...)
 	{{- end }}
 	{{- else }}
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	uuid := req.ID
+	if uuid == "" {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Import ID cannot be empty. Please provide the UUID of the {{ .Name | humanize }}.",
+		)
+		return
+	}
+
+	tflog.Info(ctx, "Importing {{ .Name | humanize }}", map[string]interface{}{
+		"uuid": uuid,
+	})
+
+	apiResp, err := r.client.Get{{ .Name | title }}(ctx, uuid)
+	if err != nil {
+		if client.IsNotFoundError(err) {
+			resp.Diagnostics.AddError(
+				"Resource Not Found",
+				fmt.Sprintf("{{ .Name | humanize }} with UUID '%s' does not exist or is not accessible.", uuid),
+			)
+			return
+		}
+		resp.Diagnostics.AddError(
+			"Unable to Import {{ .Name | humanize }}",
+			fmt.Sprintf("An error occurred while fetching the {{ .Name | humanize }}: %s", err.Error()),
+		)
+		return
+	}
+
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	{{- end }}
 {{- end }}

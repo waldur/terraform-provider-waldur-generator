@@ -60,6 +60,38 @@ type {{ .Name | title }}Response struct {
 }
 {{ template "sdkResponseNestedStructs" dict "Fields" .ResponseFields "Prefix" (.Name | title) "Package" $.Package }}
 
+func (r *{{ .Name | title }}Response) GetState() string {
+	{{- $hasState := false }}
+	{{- range .ResponseFields }}
+	{{- if eq .Name "state" }}
+	{{- $hasState = true }}
+	{{- end }}
+	{{- end }}
+
+	{{- if $hasState }}
+	if r.State != nil {
+		return *r.State
+	}
+	{{- end }}
+	return "OK"
+}
+
+func (r *{{ .Name | title }}Response) GetErrorMessage() string {
+	{{- $hasError := false }}
+	{{- range .ResponseFields }}
+	{{- if eq .Name "error_message" }}
+	{{- $hasError = true }}
+	{{- end }}
+	{{- end }}
+
+	{{- if $hasError }}
+	if r.ErrorMessage != nil {
+		return *r.ErrorMessage
+	}
+	{{- end }}
+	return ""
+}
+
 {{ end }}
 
 {{- /* SDK Helper: Generate Request Struct Fields */ -}}

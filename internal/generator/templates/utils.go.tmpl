@@ -164,7 +164,7 @@ func WaitForResource[T any](ctx context.Context, getResource func(context.Contex
 						}
 					}
 				}
-				return res, "failed", fmt.Errorf(msg)
+				return res, "failed", fmt.Errorf("%s", msg)
 			}
 			
 			return res, state, nil
@@ -182,7 +182,6 @@ func WaitForResource[T any](ctx context.Context, getResource func(context.Contex
 	return rawResult.(*T), nil
 }
 
-// WaitForDeletion blocks until a resource is gone (404).
 // WaitForDeletion blocks until a resource is gone (404).
 func WaitForDeletion[T any](ctx context.Context, getResource func(context.Context) (*T, error), timeout time.Duration) error {
 	stateConf := &retry.StateChangeConf{
@@ -227,7 +226,7 @@ func WaitForDeletion[T any](ctx context.Context, getResource func(context.Contex
 						}
 					}
 				}
-				return res, "failed", fmt.Errorf(msg)
+				return res, "failed", fmt.Errorf("%s", msg)
 			}
 
 			return res, state, nil

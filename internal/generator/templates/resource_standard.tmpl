@@ -39,19 +39,49 @@
 	{
 		{{- if eq .ItemType "string" }}
 		var items []string
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
-			requestBody.{{ .Name | title }} = items
+		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
+		resp.Diagnostics.Append(diags...)
+		if !diags.HasError() {
+			{{- if .Required }}
+			if len(items) > 0 {
+				requestBody.{{ .Name | title }} = items
+			}
+			{{- else }}
+			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+				requestBody.{{ .Name | title }} = &items
+			}
+			{{- end }}
 		}
 		{{- else if eq .ItemType "integer" }}
 		var items []int64
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
-			requestBody.{{ .Name | title }} = items
+		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
+		resp.Diagnostics.Append(diags...)
+		if !diags.HasError() {
+			{{- if .Required }}
+			if len(items) > 0 {
+				requestBody.{{ .Name | title }} = items
+			}
+			{{- else }}
+			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+				requestBody.{{ .Name | title }} = &items
+			}
+			{{- end }}
 		}
 		{{- else }}
 		// Object array or other
 		var items []{{ if .ItemSchema.RefName }}common.{{ .ItemSchema.RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false); !diags.HasError() && len(items) > 0 {
-			requestBody.{{ .Name | title }} = items
+		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
+		resp.Diagnostics.Append(diags...)
+		if !diags.HasError() {
+			{{- if .Required }}
+			if len(items) > 0 {
+				requestBody.{{ .Name | title }} = items
+			}
+			{{- else }}
+			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+				requestBody.{{ .Name | title }} = &items
+			}
+			{{- end }}
 		}
 		{{- end }}
 	}

@@ -238,7 +238,3 @@ func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resou
 	{{ template "resource_import_standard" . }}
 	{{- end }}
 }
-
-func (r *{{ .Name | title }}Resource) mapResponseToModel(ctx context.Context, apiResp {{ .Name | title }}Response, model *{{ .Name | title }}ResourceModel) diag.Diagnostics {
-	return model.CopyFrom(ctx, apiResp)
-}

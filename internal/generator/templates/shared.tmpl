@@ -32,8 +32,6 @@ type {{ $prefix }}{{ .Name | title }} struct {
 {{- end }}
 
 
-
-
 {{- /* Helper: Map Response Struct to Terraform Model */ -}}
 {{- define "mapResponseToModel" }}
 	{{- $prefix := .Name | title }}

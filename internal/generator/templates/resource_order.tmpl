@@ -182,6 +182,8 @@
 
 		{{- if eq $field.GoType "types.List" }}
 		common.PopulateSliceField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})
+		{{- else if eq $field.GoType "types.Set" }}
+		common.PopulateSetField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})
 		{{- else if eq $field.GoType "types.Object" }}
 		var objVal {{ if $field.RefName }}common.{{ $field.RefName }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
 		data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})

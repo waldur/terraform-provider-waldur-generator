@@ -126,7 +126,11 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 				}
 
 				if itemType == "string" {
-					field.GoType = "types.List"
+					if IsSetField(propName) {
+						field.GoType = "types.Set"
+					} else {
+						field.GoType = "types.List"
+					}
 					fields = append(fields, field)
 				} else if itemType == "object" {
 					// Array of objects - extract nested schema
@@ -140,7 +144,12 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 								RefName:    field.ItemRefName, // Propagate ref name to item schema
 							}
 						}
-						field.GoType = "types.List"
+
+						if IsSetField(propName) {
+							field.GoType = "types.Set"
+						} else {
+							field.GoType = "types.List"
+						}
 						fields = append(fields, field)
 					}
 				}
@@ -338,6 +347,20 @@ var ExcludedFields = map[string]bool{
 	"customer_name":         true,
 	"customer_native_name":  true,
 	"customer_uuid":         true,
+}
+
+// SetFields defines fields that should be treated as Sets instead of Lists
+// This is used for unordered collections to avoid permadiffs in Terraform
+var SetFields = map[string]bool{
+	"security_groups": true,
+	"floating_ips":    true,
+	"tags":            true,
+	"ssh_keys":        true,
+}
+
+// IsSetField checks if a field should be treated as a Set
+func IsSetField(name string) bool {
+	return SetFields[name]
 }
 
 // GetDefaultDescription returns a generated description based on the field name if the current description is empty or too short.

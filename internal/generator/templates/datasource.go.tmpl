@@ -68,36 +68,7 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 			},
 			{{- end }}
 			{{- range .ResponseFields }}
-			"{{ .Name }}": {{- if and (eq .GoType "types.List") (eq .ItemType "object") }}schema.ListNestedAttribute{
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						{{- range .ItemSchema.Properties }}
-						"{{ .Name }}": {{ template "schemaAttribute" . }}
-						{{- end }}
-					},
-				},
-				Computed:            true,
-				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
-			},
-			{{- else if eq .GoType "types.List" }}schema.ListAttribute{
-				ElementType:         types.StringType,
-				Computed:            true,
-				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
-			},
-			{{- else if eq .GoType "types.Object" }}schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					{{- range .Properties }}
-					"{{ .Name }}": {{ template "schemaAttribute" . }}
-					{{- end }}
-				},
-				Computed:            true,
-				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
-			},
-			{{- else }}schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
-				Computed:            true,
-				MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
-			},
-			{{- end }}
+			"{{ .Name }}": {{ template "schemaAttribute" . }}
 			{{- end }}
 		},
 	}

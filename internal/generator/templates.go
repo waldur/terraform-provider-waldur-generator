@@ -79,6 +79,32 @@ func ToAttrType(f FieldInfo) string {
 			elemType = "types.Float64Type"
 		}
 		return "types.ListType{ElemType: " + elemType + "}"
+	case "types.Set":
+		if f.ItemType == "object" && f.ItemSchema != nil {
+			var attrTypes []string
+			// Sort properties for deterministic output
+			sortedProps := f.ItemSchema.Properties
+			// We can't easily sort here without mutating or copying, relying on ExtractFields sort
+			for _, prop := range sortedProps {
+				attrTypes = append(attrTypes, "\""+prop.Name+"\": "+ToAttrType(prop))
+			}
+			content := strings.Join(attrTypes, ",\n")
+			if len(attrTypes) > 0 {
+				content += ","
+			}
+			objType := "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
+			return "types.SetType{ElemType: " + objType + "}"
+		}
+		// Set of primitives
+		elemType := "types.StringType"
+		if f.ItemType == "integer" {
+			elemType = "types.Int64Type"
+		} else if f.ItemType == "boolean" {
+			elemType = "types.BoolType"
+		} else if f.ItemType == "number" {
+			elemType = "types.Float64Type"
+		}
+		return "types.SetType{ElemType: " + elemType + "}"
 	case "types.Object":
 		var attrTypes []string
 		for _, prop := range f.Properties {

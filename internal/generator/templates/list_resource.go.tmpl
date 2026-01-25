@@ -33,12 +33,18 @@ func (l *{{ .Name | title }}List) Metadata(ctx context.Context, req resource.Met
 func (l *{{ .Name | title }}List) ListResourceConfigSchema(ctx context.Context, req list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			{{- range .FilterParams }}
-			"{{ .Name }}": schema.{{ .GoType | replace "types." "" }}Attribute{
-				Description: "{{ .Description | sanitize }}",
+			"filters": schema.SingleNestedAttribute{
 				Optional:    true,
+				Description: "Filter parameters for querying {{ .Name | humanize }}",
+				Attributes: map[string]schema.Attribute{
+					{{- range .FilterParams }}
+					"{{ .Name }}": schema.{{ .GoType | replace "types." "" }}Attribute{
+						Description: "{{ .Description | sanitize }}",
+						Optional:    true,
+					},
+					{{- end }}
+				},
 			},
-			{{- end }}
 		},
 	}
 }
@@ -60,10 +66,14 @@ func (l *{{ .Name | title }}List) Configure(ctx context.Context, req resource.Co
 	l.client = NewClient(client)
 }
 
-type {{ .Name | title }}ListModel struct {
+type {{ .Name | title }}ListFiltersModel struct {
 	{{- range .FilterParams }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
+}
+
+type {{ .Name | title }}ListModel struct {
+	Filters *{{ .Name | title }}ListFiltersModel `tfsdk:"filters"`
 }
 
 func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest, stream *list.ListResultsStream) {
@@ -77,20 +87,7 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 	}
 
 	// Prepare filters
-	filters := make(map[string]string)
-	{{- range .FilterParams }}
-	if !config.{{ .Name | title }}.IsNull() && !config.{{ .Name | title }}.IsUnknown() {
-		{{- if eq .GoType "types.String" }}
-		filters["{{ .Name }}"] = config.{{ .Name | title }}.ValueString()
-		{{- else if eq .GoType "types.Bool" }}
-		filters["{{ .Name }}"] = fmt.Sprintf("%t", config.{{ .Name | title }}.ValueBool())
-		{{- else if eq .GoType "types.Int64" }}
-		filters["{{ .Name }}"] = fmt.Sprintf("%d", config.{{ .Name | title }}.ValueInt64())
-		{{- else if eq .GoType "types.Float64" }}
-		filters["{{ .Name }}"] = fmt.Sprintf("%f", config.{{ .Name | title }}.ValueFloat64())
-		{{- end }}
-	}
-	{{- end }}
+	filters := common.BuildQueryFilters(config.Filters)
 
 	// Call API
 	listResult, err := l.client.List{{ .Name | title }}(ctx, filters)

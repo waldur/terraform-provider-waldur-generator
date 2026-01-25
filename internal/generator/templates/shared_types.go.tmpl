@@ -1,6 +1,12 @@
 package {{ .Package }}
 
+import "time"
 
+const (
+	DefaultCreateTimeout = 45 * time.Minute
+	DefaultUpdateTimeout = 45 * time.Minute
+	DefaultDeleteTimeout = 45 * time.Minute
+)
 {{ range .Structs }}
 {{ $struct := . }}
 {{ if eq .GoType "types.String" }}

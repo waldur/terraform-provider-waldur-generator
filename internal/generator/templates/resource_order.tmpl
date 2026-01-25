@@ -96,8 +96,8 @@
 	}
 	
 	// Phase 3: Poll for Completion
-	// We use the 'time' package to handle the timeout specified in the TF config or default to 45m.
-	timeout, diags := data.Timeouts.Create(ctx, 45*time.Minute)
+	// We use the 'time' package to handle the timeout specified in the TF config or default to global default.
+	timeout, diags := data.Timeouts.Create(ctx, common.DefaultCreateTimeout)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -241,7 +241,7 @@
 	
 	// Wait for deletion if order UUID is returned
 	if orderUUID != "" {
-		timeout, diags := data.Timeouts.Delete(ctx, 45*time.Minute)
+		timeout, diags := data.Timeouts.Delete(ctx, common.DefaultDeleteTimeout)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return

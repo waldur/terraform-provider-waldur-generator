@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
@@ -40,57 +41,49 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	}
 
 	// Extract query parameters from list operation
-	var filterParams []FilterParam
+	var filterParams []FieldInfo
 	if operation, _, _, err := g.parser.GetOperation(ops.List); err == nil {
-		for _, param := range operation.Parameters {
-			if param.Value != nil && param.Value.In == "query" {
-				paramName := param.Value.Name
+		for _, paramRef := range operation.Parameters {
+			if paramRef.Value == nil {
+				continue
+			}
+			param := paramRef.Value
+			if param.In == "query" {
+				paramName := param.Name
 
 				// Skip pagination, ordering, and API optimization parameters
 				if paramName == "page" || paramName == "page_size" || paramName == "o" || paramName == "field" {
 					continue
 				}
 
-				description := param.Value.Description
+				if param.Schema != nil && param.Schema.Value != nil {
+					typeStr := getSchemaType(param.Schema.Value)
+					goType := GetGoType(typeStr)
 
-				// Determine Terraform type and extract enum values
-				tfType := "String" // Default - arrays are treated as comma-separated strings
-				var enumValues []string
-				if param.Value.Schema != nil && param.Value.Schema.Value != nil {
-					schema := param.Value.Schema.Value
-					schemaType := getSchemaType(schema)
-
-					// For non-array types, get the TF type
-					if schemaType != "array" {
-						goType := GetGoType(schemaType)
-						tfType = GetFilterParamType(goType)
+					// Filter out complex types if any
+					if goType == "" || strings.HasPrefix(goType, "types.List") || strings.HasPrefix(goType, "types.Object") {
+						continue
 					}
 
-					// Extract enum values - check both direct enum and array items enum
-					if len(schema.Enum) > 0 {
-						for _, e := range schema.Enum {
+					// Extract enum values
+					var enumValues []string
+					if len(param.Schema.Value.Enum) > 0 {
+						for _, e := range param.Schema.Value.Enum {
 							if str, ok := e.(string); ok {
 								enumValues = append(enumValues, str)
 							}
 						}
-					} else if schemaType == "array" && schema.Items != nil && schema.Items.Value != nil {
-						// For array types, check items schema for enum
-						if len(schema.Items.Value.Enum) > 0 {
-							for _, e := range schema.Items.Value.Enum {
-								if str, ok := e.(string); ok {
-									enumValues = append(enumValues, str)
-								}
-							}
-						}
 					}
-				}
 
-				filterParams = append(filterParams, FilterParam{
-					Name:        paramName,
-					Type:        tfType,
-					Description: description,
-					Enum:        enumValues,
-				})
+					filterParams = append(filterParams, FieldInfo{
+						Name:        param.Name,
+						Type:        typeStr,
+						Description: param.Description,
+						GoType:      goType,
+						Required:    false,
+						Enum:        enumValues,
+					})
+				}
 			}
 		}
 	}
@@ -142,6 +135,22 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	FillDescriptions(filteredResponseFields)
 
 	service, cleanName := splitResourceName(dataSource.Name)
+
+	// If no corresponding resource exists, we need to generate the model file
+	// because datasource.go is using shared models
+	if !g.hasResource(dataSource.Name) {
+		resData := &ResourceData{
+			Name:           dataSource.Name,
+			Service:        service,
+			CleanName:      cleanName,
+			ResponseFields: filteredResponseFields,
+			FilterParams:   filterParams,
+			// Minimal fields required for model generation
+		}
+		if err := g.generateModel(resData); err != nil {
+			return fmt.Errorf("failed to generate model for datasource-only %s: %w", dataSource.Name, err)
+		}
+	}
 
 	data := map[string]interface{}{
 		"Name":           dataSource.Name,

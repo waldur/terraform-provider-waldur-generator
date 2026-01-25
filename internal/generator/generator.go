@@ -145,6 +145,15 @@ func (g *Generator) Generate() error {
 	return nil
 }
 
+func (g *Generator) hasResource(name string) bool {
+	for _, res := range g.config.Resources {
+		if res.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *Generator) hasDataSource(resourceName string) bool {
 	for _, ds := range g.config.DataSources {
 		if ds.Name == resourceName {

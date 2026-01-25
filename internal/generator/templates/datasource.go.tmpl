@@ -23,12 +23,9 @@ func New{{ .Name | title }}DataSource() datasource.DataSource {
 	return &{{ .Name | title }}DataSource{}
 }
 
-// {{ .Name | title }}DataSource defines the data source implementation.
 type {{ .Name | title }}DataSource struct {
 	client *Client
 }
-
-
 
 type {{ .Name | title }}DataSourceModel struct {
 	{{ .Name | title }}Model
@@ -57,10 +54,10 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 				MarkdownDescription: "Filter parameters for querying {{ .Name | humanize }}",
 				Attributes: map[string]schema.Attribute{
 					{{- range .FilterParams }}
-					"{{ .Name }}": schema.{{ .Type }}Attribute{
+					"{{ .Name }}": schema.{{ toFilterParamType .GoType }}Attribute{
 						Optional:            true,
 						MarkdownDescription: "{{ or (.Description | sanitize) " " }}{{- if .Enum }} Allowed values: {{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}`{{ $e }}`{{ end }}.{{ end }}",
-						{{- if and (eq .Type "String") .Enum }}
+						{{- if and (eq .Type "string") .Enum }}
 						Validators: []validator.String{
 							stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
 						},

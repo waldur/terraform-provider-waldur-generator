@@ -97,10 +97,11 @@ func ToAttrType(f FieldInfo) string {
 // GetFuncMap returns the common template functions
 func GetFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"title":       toTitle,
-		"humanize":    humanize,
-		"displayName": displayName,
-		"toAttrType":  ToAttrType,
+		"title":             toTitle,
+		"humanize":          humanize,
+		"displayName":       displayName,
+		"toAttrType":        ToAttrType,
+		"toFilterParamType": GetFilterParamType,
 		"sanitize": func(s string) string {
 			// Replace problematic characters in descriptions
 			s = strings.ReplaceAll(s, "\\", "\\\\") // Escape backslashes first

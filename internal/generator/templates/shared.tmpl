@@ -301,6 +301,28 @@ schema.SingleNestedAttribute{
         {{- if eq .Name "password" }}
         Sensitive: true,
         {{- end }}
+        {{- if or .Enum .Minimum .Maximum .Pattern }}
+        Validators: []validator.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "number" }}Float64{{ end }}{
+            {{- if .Enum }}
+            stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
+            {{- end }}
+            {{- if .Pattern }}
+            stringvalidator.RegexMatches(regexp.MustCompile(`{{ .Pattern }}`), ""),
+            {{- end }}
+            {{- if .Minimum }}
+            {{- $min := formatValidator .Minimum .GoType }}
+            {{- if $min }}
+            {{ if eq .Type "integer" }}int64validator{{ else }}float64validator{{ end }}.AtLeast({{ $min }}),
+            {{- end }}
+            {{- end }}
+            {{- if .Maximum }}
+            {{- $max := formatValidator .Maximum .GoType }}
+            {{- if $max }}
+            {{ if eq .Type "integer" }}int64validator{{ else }}float64validator{{ end }}.AtMost({{ $max }}),
+            {{- end }}
+            {{- end }}
+        },
+        {{- end }}
     },
 {{- end }}
 {{- end }}

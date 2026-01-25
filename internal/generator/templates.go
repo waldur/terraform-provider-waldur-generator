@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -120,6 +121,19 @@ func ToAttrType(f FieldInfo) string {
 	}
 }
 
+// formatValidatorValue formats a float64 for use in validators, handling integer truncation and large values
+func formatValidatorValue(v float64, goType string) string {
+	if goType == "types.Int64" {
+		// If the value is very large (likely representing MaxInt64 but lost precision in float64),
+		// it's safer to skip the validator to avoid overflow errors in generated code.
+		if v > 9e18 || v < -9e18 {
+			return ""
+		}
+		return fmt.Sprintf("%.0f", v)
+	}
+	return fmt.Sprintf("%g", v)
+}
+
 // GetFuncMap returns the common template functions
 func GetFuncMap() template.FuncMap {
 	return template.FuncMap{
@@ -128,6 +142,7 @@ func GetFuncMap() template.FuncMap {
 		"displayName":       displayName,
 		"toAttrType":        ToAttrType,
 		"toFilterParamType": GetFilterParamType,
+		"formatValidator":   formatValidatorValue,
 		"sanitize": func(s string) string {
 			// Replace problematic characters in descriptions
 			s = strings.ReplaceAll(s, "\\", "\\\\") // Escape backslashes first

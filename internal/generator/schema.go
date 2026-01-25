@@ -27,6 +27,11 @@ type FieldInfo struct {
 	ItemSchema *FieldInfo  // For arrays of objects: nested schema
 	Properties []FieldInfo // For nested objects: object properties
 
+	// Validation support
+	Minimum *float64 // Minimum value for numeric fields
+	Maximum *float64 // Maximum value for numeric fields
+	Pattern string   // Regex pattern for string fields
+
 	// Ref support
 	RefName     string // Ref name for object type
 	ItemRefName string // Ref name for array item type
@@ -92,6 +97,9 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 			ReadOnly:    prop.ReadOnly,
 			Description: prop.Description,
 			RefName:     refName,
+			Minimum:     prop.Min,
+			Maximum:     prop.Max,
+			Pattern:     prop.Pattern,
 		}
 
 		// Handle different types

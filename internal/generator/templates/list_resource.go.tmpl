@@ -109,8 +109,7 @@ func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest
 			
 			var diags diag.Diagnostics
 
-			data.UUID = types.StringPointerValue(apiResp.UUID)
-			{{- template "mapResponseToModel" . }}
+			diags.Append(model.CopyFrom(ctx, apiResp)...)
 			
 			// Set the resource state
 			// For ListResource, we generally return the "Resource" state matching the main resource schema.

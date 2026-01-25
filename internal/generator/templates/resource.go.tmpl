@@ -46,12 +46,14 @@ type {{ .Name | title }}Resource struct {
 
 // {{ .Name | title }}ResourceModel describes the resource data model.
 type {{ .Name | title }}ResourceModel struct {
-	UUID types.String `tfsdk:"id"`
-	{{- range .ModelFields }}
-	{{- if eq .Format "date-time" }}
-	{{ .Name | title }} timetypes.RFC3339 `tfsdk:"{{ .Name }}"`
-	{{- else }}
-	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
+	{{ .Name | title }}Model
+	{{- range $field := .ModelFields }}
+	{{- $found := false }}
+	{{- range $.ResponseFields }}
+	{{- if eq .Name $field.Name }}{{ $found = true }}{{ end }}
+	{{- end }}
+	{{- if not $found }}
+	{{ $field.Name | title }} {{ $field.GoType }} `tfsdk:"{{ $field.Name }}"`
 	{{- end }}
 	{{- end }}
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
@@ -233,10 +235,5 @@ func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resou
 }
 
 func (r *{{ .Name | title }}Resource) mapResponseToModel(ctx context.Context, apiResp {{ .Name | title }}Response, model *{{ .Name | title }}ResourceModel) diag.Diagnostics {
-	var diags diag.Diagnostics
-
-	model.UUID = types.StringPointerValue(apiResp.UUID)
-	{{- template "mapResponseToModel" . }}
-
-	return diags
+	return model.CopyFrom(ctx, apiResp)
 }

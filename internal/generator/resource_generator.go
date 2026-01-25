@@ -24,6 +24,11 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 		return err
 	}
 
+	// Generate model
+	if err := g.generateModel(data); err != nil {
+		return fmt.Errorf("failed to generate model: %w", err)
+	}
+
 	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", data.Service, data.CleanName)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
@@ -606,4 +611,25 @@ func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 
 	sort.Slice(result, func(i, j int) bool { return result[i].RefName < result[j].RefName })
 	return result
+}
+
+// generateModel creates the shared model file for a resource
+func (g *Generator) generateModel(res *ResourceData) error {
+	tmpl, err := template.New("model.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/model.go.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse model template: %w", err)
+	}
+
+	outputPath := filepath.Join(g.config.Generator.OutputDir, "services", res.Service, res.CleanName, "model.go")
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return err
+	}
+
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return tmpl.Execute(f, res)
 }

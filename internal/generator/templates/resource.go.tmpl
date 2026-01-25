@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-timetypes/timetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
@@ -47,7 +48,11 @@ type {{ .Name | title }}Resource struct {
 type {{ .Name | title }}ResourceModel struct {
 	UUID types.String `tfsdk:"id"`
 	{{- range .ModelFields }}
+	{{- if eq .Format "date-time" }}
+	{{ .Name | title }} timetypes.RFC3339 `tfsdk:"{{ .Name }}"`
+	{{- else }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
+	{{- end }}
 	{{- end }}
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 }

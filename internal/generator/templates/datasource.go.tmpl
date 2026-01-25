@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-timetypes/timetypes"
 
 	"github.com/waldur/terraform-provider-waldur/internal/client"
 	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
@@ -42,7 +43,11 @@ type {{ .Name | title }}DataSourceModel struct {
 	Filters *{{ .Name | title }}FiltersModel `tfsdk:"filters"`
 	{{- end }}
 	{{- range .ResponseFields }}
+	{{- if eq .Format "date-time" }}
+	{{ .Name | title }} timetypes.RFC3339 `tfsdk:"{{ .Name }}"`
+	{{- else }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
+	{{- end }}
 	{{- end }}
 }
 

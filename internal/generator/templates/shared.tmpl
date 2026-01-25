@@ -47,7 +47,13 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	{{- if $inResponse }}
 	{{- /* Handle basic types */ -}}
 	{{- if eq .Type "string" }}
+	{{- if eq .Format "date-time" }}
+	val{{ .Name | title }}, diags{{ .Name | title }} := timetypes.NewRFC3339PointerValue(apiResp.{{ .Name | title }})
+	diags.Append(diags{{ .Name | title }}...)
+	model.{{ .Name | title }} = val{{ .Name | title }}
+	{{- else }}
 	model.{{ .Name | title }} = types.StringPointerValue(apiResp.{{ .Name | title }})
+	{{- end }}
 	{{- else if eq .Type "integer" }}
 	model.{{ .Name | title }} = types.Int64PointerValue(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "boolean" }}
@@ -210,6 +216,9 @@ schema.SingleNestedAttribute{
 {{- else }}
     {{- /* Primitive Type */ -}}
     schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
+        {{- if and (eq .Type "string") (eq .Format "date-time") }}
+        CustomType: timetypes.RFC3339Type{},
+        {{- end }}
         {{- if .ReadOnly }}
         Computed: true,
         {{- else if .Required }}

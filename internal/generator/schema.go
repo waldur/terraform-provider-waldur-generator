@@ -15,6 +15,7 @@ type FieldInfo struct {
 	Required       bool   // Whether field is in schema.Required array
 	ReadOnly       bool   // Whether field is marked readOnly in schema
 	Description    string // Field description from schema
+	Format         string // OpenAPI format: "date-time", "uuid", etc.
 	GoType         string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
 	ForceNew       bool   // Whether field requires replacement on change (immutable)
 	ServerComputed bool   // Whether value can be set by server (readOnly or response-only)
@@ -86,6 +87,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 		field := FieldInfo{
 			Name:        propName,
 			Type:        typeStr,
+			Format:      prop.Format,
 			Required:    requiredMap[propName],
 			ReadOnly:    prop.ReadOnly,
 			Description: prop.Description,

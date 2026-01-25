@@ -11,6 +11,15 @@ import (
 	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
 )
 
+{{- if .FilterParams }}
+// {{ .Name | title }}FiltersModel contains the filter parameters for querying.
+type {{ .Name | title }}FiltersModel struct {
+	{{- range .FilterParams }}
+	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
+	{{- end }}
+}
+{{- end }}
+
 type {{ .Name | title }}Model struct {
 	UUID types.String `tfsdk:"id"`
 	{{- range .ResponseFields }}

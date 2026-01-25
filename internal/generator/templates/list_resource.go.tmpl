@@ -66,14 +66,8 @@ func (l *{{ .Name | title }}List) Configure(ctx context.Context, req resource.Co
 	l.client = NewClient(client)
 }
 
-type {{ .Name | title }}ListFiltersModel struct {
-	{{- range .FilterParams }}
-	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
-	{{- end }}
-}
-
 type {{ .Name | title }}ListModel struct {
-	Filters *{{ .Name | title }}ListFiltersModel `tfsdk:"filters"`
+	Filters *{{ .Name | title }}FiltersModel `tfsdk:"filters"`
 }
 
 func (l *{{ .Name | title }}List) List(ctx context.Context, req list.ListRequest, stream *list.ListResultsStream) {

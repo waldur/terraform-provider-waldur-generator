@@ -28,14 +28,7 @@ type {{ .Name | title }}DataSource struct {
 	client *Client
 }
 
-{{- if .FilterParams }}
-// {{ .Name | title }}FiltersModel contains the filter parameters for querying.
-type {{ .Name | title }}FiltersModel struct {
-	{{- range .FilterParams }}
-	{{ .Name | title }} types.{{ .Type }} `tfsdk:"{{ .Name }}"`
-	{{- end }}
-}
-{{- end }}
+
 
 type {{ .Name | title }}DataSourceModel struct {
 	{{ .Name | title }}Model

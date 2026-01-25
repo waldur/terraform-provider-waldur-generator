@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
@@ -56,7 +57,9 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	apiPaths := make(map[string]string)
 
 	// Get path from list operation (used as base path)
-	if _, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
+	var listOp *openapi3.Operation
+	if op, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
+		listOp = op
 		// Remove trailing slash and {uuid} if present for base path
 		basePath := listPath
 		apiPaths["Base"] = basePath
@@ -140,6 +143,60 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			action.Path = actionPath
 		}
 		standaloneActions = append(standaloneActions, action)
+	}
+
+	// Extract filter parameters
+	var filterParams []FieldInfo
+	if listOp != nil {
+		for _, paramRef := range listOp.Parameters {
+			if paramRef.Value == nil {
+				continue
+			}
+			param := paramRef.Value
+			if param.In == "query" {
+				paramName := param.Name
+
+				// Skip pagination, ordering, and API optimization parameters
+				if paramName == "page" || paramName == "page_size" || paramName == "o" || paramName == "field" {
+					continue
+				}
+
+				if param.Schema != nil && param.Schema.Value != nil {
+					typeStr := getSchemaType(param.Schema.Value)
+					goType := GetGoType(typeStr)
+
+					// Filter out complex types if any
+					if goType == "" || strings.HasPrefix(goType, "types.List") || strings.HasPrefix(goType, "types.Object") {
+						continue
+					}
+
+					// Extract enum values
+					var enumValues []string
+					if len(param.Schema.Value.Enum) > 0 {
+						for _, e := range param.Schema.Value.Enum {
+							if str, ok := e.(string); ok {
+								enumValues = append(enumValues, str)
+							}
+						}
+					}
+
+					filterParams = append(filterParams, FieldInfo{
+						Name:        param.Name,
+						Type:        typeStr,
+						Description: param.Description,
+						GoType:      goType,
+						Required:    false,
+						Enum:        enumValues,
+					})
+				}
+			}
+		}
+		sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
+
+		for i := range filterParams {
+			fp := &filterParams[i]
+			fp.Description = GetDefaultDescription(fp.Name, fp.Description)
+		}
 	}
 
 	// Extract fields
@@ -559,6 +616,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		CreateOperation:       resource.CreateOperation, // Custom create operation config
 		CompositeKeys:         resource.CompositeKeys,   // Fields forming composite key
 		NestedStructs:         collectUniqueStructs(createFields, updateFields, responseFields),
+		FilterParams:          filterParams,
 		HasDataSource:         g.hasDataSource(resource.Name),
 	}, nil
 }

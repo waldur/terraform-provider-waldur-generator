@@ -45,7 +45,8 @@ type ResourceData struct {
 	CreateOperation       *config.CreateOperationConfig
 	CompositeKeys         []string
 	NestedStructs         []FieldInfo // Only used for legacy resource generation if needed
-	HasDataSource         bool        // True if a corresponding data source exists
+	FilterParams          []FieldInfo
+	HasDataSource         bool // True if a corresponding data source exists
 }
 
 // New creates a new generator instance

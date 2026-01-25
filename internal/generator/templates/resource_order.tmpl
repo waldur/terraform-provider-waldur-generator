@@ -124,7 +124,7 @@
 		resp.Diagnostics.AddError("Failed to Read Resource", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 {{- end }}
 
 {{- /* 
@@ -212,7 +212,7 @@
 		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 {{- end }}
 
 {{- /* 

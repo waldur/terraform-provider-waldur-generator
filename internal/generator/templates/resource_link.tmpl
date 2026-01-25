@@ -33,7 +33,7 @@
 	// For Link resources, ID is composite of Source and Target UUIDs because the API might not return a distinct ID for the link itself.
 	data.UUID = types.StringValue(sourceUUID + "/" + data.{{ .Target.Param | title }}.ValueString())
 
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 {{- end }}
 
 {{- /* 

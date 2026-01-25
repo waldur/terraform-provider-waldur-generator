@@ -152,7 +152,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 
-		resp.Diagnostics.Append(d.mapResponseToModel(ctx, *apiResp, &data)...)
+		resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 
 	} else {
 		filters := common.BuildQueryFilters(data.Filters)
@@ -191,13 +191,11 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 
-		resp.Diagnostics.Append(d.mapResponseToModel(ctx, results[0], &data)...)
+		resp.Diagnostics.Append(data.CopyFrom(ctx, results[0])...)
 	}
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (d *{{ .Name | title }}DataSource) mapResponseToModel(ctx context.Context, apiResp {{ .Name | title }}Response, model *{{ .Name | title }}DataSourceModel) diag.Diagnostics {
-	return model.CopyFrom(ctx, apiResp)
-}
+

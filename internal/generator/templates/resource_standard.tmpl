@@ -187,7 +187,7 @@
 	}
 	apiResp = newResp
 
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 	{{- else }}
 	resp.Diagnostics.AddError("Creation Not Supported", "This resource cannot be created via the API.")
 	{{- end }}
@@ -247,7 +247,7 @@
 		return
 	}
 	
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 {{- end }}
 
 {{- /* Standard Update Operation */ -}}
@@ -282,7 +282,7 @@
 	}
 	apiResp = newResp
 
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 	{{- else }}
 	resp.Diagnostics.AddError("Update Not Supported", "This resource cannot be updated via the API.")
 	{{- end }}
@@ -365,7 +365,7 @@
 	}
 
 	var data {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(r.mapResponseToModel(ctx, *apiResp, &data)...)
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

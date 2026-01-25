@@ -12,7 +12,6 @@ import (
 )
 
 {{- if .FilterParams }}
-// {{ .Name | title }}FiltersModel contains the filter parameters for querying.
 type {{ .Name | title }}FiltersModel struct {
 	{{- range .FilterParams }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`

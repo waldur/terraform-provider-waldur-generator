@@ -159,6 +159,7 @@ func GetFuncMap() template.FuncMap {
 		"replace": func(old, new, s string) string {
 			return strings.ReplaceAll(s, old, new)
 		},
+		"contains": strings.Contains,
 		"isPathParam": func(op *config.CreateOperationConfig, fieldName string) bool {
 			if op == nil {
 				return false

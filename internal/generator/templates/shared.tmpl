@@ -296,7 +296,7 @@ schema.SingleNestedAttribute{
         },
         {{- end }}
         MarkdownDescription: "{{ or (.Description | sanitize) " " }}",
-        {{- if eq .Name "password" }}
+        {{- if contains .Name "password" }}
         Sensitive: true,
         {{- end }}
         {{- if or .Enum .Minimum .Maximum .Pattern }}

@@ -50,6 +50,12 @@ type {{ $resName | title }}{{ $action.Name | title }}ActionRequest struct {
 	{{- end }}
 	{{- end }}
 }
+
+{{- range $field := $modelFields -}}
+{{- if eq $field.Name $action.Param -}}
+{{ template "sdkNestedStructs" dict "Fields" (makeSlice $field) "Prefix" (printf "%sCreate" ($resName | title)) "Package" $pkgName }}
+{{- end -}}
+{{- end -}}
 {{- end }}
 
 type {{ .Name | title }}Response struct {
@@ -92,7 +98,7 @@ func (r *{{ .Name | title }}Response) GetErrorMessage() string {
 
 {{ end }}
 
-	{{- /* SDK Helper: Generate Request Struct Fields */ -}}
+{{- /* SDK Helper: Generate Request Struct Fields */ -}}
 {{- define "sdkStructFields" }}
 	{{- $prefix := .Prefix }}
 	{{- $pkgName := .Package }}

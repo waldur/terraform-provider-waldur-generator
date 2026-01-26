@@ -31,7 +31,9 @@
 	{{- if eq .GoType "types.Map" }}
 	{
 		var mapItems map[string]interface{}
-		if diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false); !diags.HasError() && len(mapItems) > 0 {
+		diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false)
+		resp.Diagnostics.Append(diags...)
+		if !diags.HasError() && len(mapItems) > 0 {
 			requestBody.{{ .Name | title }} = mapItems
 		}
 	}
@@ -87,7 +89,9 @@
 	{{- else if eq .Type "object" }}
 	{
 		var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
-		if diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{}); !diags.HasError() {
+		diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if !diags.HasError() {
 			requestBody.{{ .Name | title }} = &obj
 		}
 	}

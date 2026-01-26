@@ -185,5 +185,8 @@ func GetFuncMap() template.FuncMap {
 			}
 			return dict, nil
 		},
+		"makeSlice": func(items ...interface{}) interface{} {
+			return items
+		},
 	}
 }

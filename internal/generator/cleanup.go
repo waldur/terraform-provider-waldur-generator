@@ -19,22 +19,14 @@ func (g *Generator) cleanupImports() error {
 		}
 	}
 
-	// Clean up datasources
-	datasourcesDir := filepath.Join(g.config.Generator.OutputDir, "internal", "datasources")
-	cmd := exec.Command(toolPath, "-w", datasourcesDir)
+	// Clean up internal
+	commonDir := filepath.Join(g.config.Generator.OutputDir, "internal")
+	cmd := exec.Command(toolPath, "-w", commonDir)
 	if err := cmd.Run(); err != nil {
-		// Don't fail hard on formatting errors, just log and continue
-		fmt.Printf("Warning: failed to format datasources: %v\n", err)
+		fmt.Printf("Warning: failed to format internal: %v\n", err)
 	}
 
-	// Clean up resources
-	resourcesDir := filepath.Join(g.config.Generator.OutputDir, "internal", "resources")
-	cmd = exec.Command(toolPath, "-w", resourcesDir)
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Warning: failed to format resources: %v\n", err)
-	}
-
-	// Clean up services
+	// Clean up services (includes all resources and datasources)
 	servicesDir := filepath.Join(g.config.Generator.OutputDir, "services")
 	cmd = exec.Command(toolPath, "-w", servicesDir)
 	if err := cmd.Run(); err != nil {

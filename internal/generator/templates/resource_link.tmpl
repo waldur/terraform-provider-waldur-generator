@@ -116,8 +116,22 @@
 	sourceUUID := parts[0]
 	
 	err := r.client.Unlink{{ .Name | title }}(ctx, sourceUUID)
-	if err != nil {
+	if err != nil && !IsNotFoundError(err) {
 		resp.Diagnostics.AddError("Unlink Failed", err.Error())
+		return
+	}
+
+	deleteTimeout, diags := data.Timeouts.Delete(ctx, common.DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	err = common.WaitForDeletion(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
+		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+	}, deleteTimeout)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to wait for resource deletion", err.Error())
 		return
 	}
 {{- end }}

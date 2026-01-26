@@ -144,6 +144,7 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 			Service:        service,
 			CleanName:      cleanName,
 			ResponseFields: filteredResponseFields,
+			ModelFields:    filteredResponseFields,
 			FilterParams:   filterParams,
 			// Minimal fields required for model generation
 		}

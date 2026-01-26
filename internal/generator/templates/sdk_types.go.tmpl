@@ -14,8 +14,6 @@ type {{ .RefName }} struct {
 {{ end }}
 
 {{ range .Resources }}
-// {{ .Name | title }} Structs
-
 type {{ .Name | title }}CreateRequest struct {
 	{{- if .IsOrder }}
 	Project  *string `json:"project" tfsdk:"project"`

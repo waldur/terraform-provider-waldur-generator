@@ -54,7 +54,7 @@
 	var result map[string]interface{}
 	err := r.client.Client.Get(ctx, "{{ .APIPaths.Retrieve }}", sourceUUID, &result)
 	if err != nil {
-		if client.IsNotFoundError(err) {
+		if IsNotFoundError(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}

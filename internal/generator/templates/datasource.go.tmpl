@@ -49,7 +49,7 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 			"id": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "Resource UUID",
+				MarkdownDescription: "{{ .Name | humanize }} UUID",
 			},
 			{{- if .FilterParams }}
 			"filters": (&{{ .Name | title }}FiltersModel{}).GetSchema(),

@@ -130,9 +130,9 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	// Apply description filling
 	for i := range filterParams {
 		fp := &filterParams[i]
-		fp.Description = GetDefaultDescription(fp.Name, fp.Description)
+		fp.Description = GetDefaultDescription(fp.Name, humanize(dataSource.Name), fp.Description)
 	}
-	FillDescriptions(filteredResponseFields)
+	FillDescriptions(filteredResponseFields, humanize(dataSource.Name))
 
 	service, cleanName := splitResourceName(dataSource.Name)
 

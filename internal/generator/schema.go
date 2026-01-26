@@ -372,7 +372,7 @@ func IsSetField(name string) bool {
 }
 
 // GetDefaultDescription returns a generated description based on the field name if the current description is empty or too short.
-func GetDefaultDescription(name, currentDesc string) string {
+func GetDefaultDescription(name, resourceName, currentDesc string) string {
 	if len(strings.TrimSpace(currentDesc)) >= 2 {
 		return currentDesc
 	}
@@ -387,11 +387,11 @@ func GetDefaultDescription(name, currentDesc string) string {
 		base := strings.TrimSuffix(name, "_id")
 		return fmt.Sprintf("ID of the %s", strings.ReplaceAll(base, "_", " "))
 	} else if name == "name" {
-		return "Name of the resource"
+		return fmt.Sprintf("Name of the %s", resourceName)
 	} else if name == "description" {
-		return "Description of the resource"
+		return fmt.Sprintf("Description of the %s", resourceName)
 	} else if name == "uuid" {
-		return "UUID of the resource"
+		return fmt.Sprintf("UUID of the %s", resourceName)
 	} else if strings.HasPrefix(name, "is_") {
 		base := strings.TrimPrefix(name, "is_")
 		return fmt.Sprintf("Is %s", strings.ReplaceAll(base, "_", " "))
@@ -409,17 +409,17 @@ func GetDefaultDescription(name, currentDesc string) string {
 // FillDescriptions recursively populates missing descriptions for fields.
 // It uses a combination of direct mappings (e.g. uuid -> "UUID of the resource")
 // and heuristics (trailing suffixes, is_ prefix, snake_case to Sentence case).
-func FillDescriptions(fields []FieldInfo) {
+func FillDescriptions(fields []FieldInfo, resourceName string) {
 	for i := range fields {
 		f := &fields[i]
-		f.Description = GetDefaultDescription(f.Name, f.Description)
+		f.Description = GetDefaultDescription(f.Name, resourceName, f.Description)
 
 		// Recurse for nested properties
 		if len(f.Properties) > 0 {
-			FillDescriptions(f.Properties)
+			FillDescriptions(f.Properties, resourceName)
 		}
 		if f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
-			FillDescriptions(f.ItemSchema.Properties)
+			FillDescriptions(f.ItemSchema.Properties, resourceName)
 		}
 	}
 }

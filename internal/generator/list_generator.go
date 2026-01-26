@@ -212,8 +212,8 @@ func (g *Generator) generateListResource(resource *config.Resource) error {
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
-	FillDescriptions(responseFields)
-	FillDescriptions(modelFields)
+	FillDescriptions(responseFields, humanize(resource.Name))
+	FillDescriptions(modelFields, humanize(resource.Name))
 
 	service, cleanName := splitResourceName(resource.Name)
 

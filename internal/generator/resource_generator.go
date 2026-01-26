@@ -195,7 +195,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 		for i := range filterParams {
 			fp := &filterParams[i]
-			fp.Description = GetDefaultDescription(fp.Name, fp.Description)
+			fp.Description = GetDefaultDescription(fp.Name, humanize(resource.Name), fp.Description)
 		}
 	}
 
@@ -534,7 +534,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	}
 
 	// Fill descriptions for map keys and other fields
-	FillDescriptions(modelFields)
+	FillDescriptions(modelFields, humanize(resource.Name))
 
 	for i, f := range modelFields {
 		// If field is an input field (not ReadOnly) AND not in invalid update fields list

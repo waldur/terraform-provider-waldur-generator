@@ -87,7 +87,7 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx 
 	}
 
 	// Wait for resource to stabilize
-	timeout := 10 * time.Minute
+	timeout := common.DefaultActionTimeout
 	if !data.Timeout.IsNull() {
 		var err error
 		timeout, err = time.ParseDuration(data.Timeout.ValueString())

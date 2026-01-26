@@ -1,5 +1,6 @@
 # Binaries
 terraform-provider-waldur-generator
+waldur-gen
 *.exe
 *.dll
 *.so

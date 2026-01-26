@@ -76,11 +76,21 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx 
 	err := a.client.{{ .ResourceName | title }}{{ .ActionName | title }}(ctx, uuid)
 
 	if err != nil {
+		{{- if eq .ActionName "unlink" }}
+		if !common.IsNotFoundError(err) {
+			resp.Diagnostics.AddError(
+				"Action Failed",
+				fmt.Sprintf("Failed to perform {{ .ActionName }} on %s: %s", uuid, err),
+			)
+			return
+		}
+		{{- else }}
 		resp.Diagnostics.AddError(
 			"Action Failed",
 			fmt.Sprintf("Failed to perform {{ .ActionName }} on %s: %s", uuid, err),
 		)
 		return
+		{{- end }}
 	}
 
 	// Wait for resource to stabilize
@@ -94,10 +104,19 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx 
 		}
 	}
 
+	{{- if eq .ActionName "unlink" }}
+	err = common.WaitForDeletion(ctx, func(ctx context.Context) (*{{ .ResourceName | title }}Response, error) {
+		return a.client.Get{{ .ResourceName | title }}(ctx, uuid)
+	}, timeout)
+	if err != nil {
+		resp.Diagnostics.AddWarning("Resource deletion check failed", err.Error())
+	}
+	{{- else }}
 	_, err = common.WaitForResource(ctx, func(ctx context.Context) (*{{ .ResourceName | title }}Response, error) {
 		return a.client.Get{{ .ResourceName | title }}(ctx, uuid)
 	}, timeout)
 	if err != nil {
 		resp.Diagnostics.AddWarning("Resource state check failed", err.Error())
 	}
+	{{- end }}
 }

@@ -119,8 +119,8 @@ func WaitForOrder(ctx context.Context, c *client.Client, orderUUID string, timeo
 			return &res, state, nil
 		},
 		Timeout:    timeout,
-		Delay:      10 * time.Second,
-		MinTimeout: 5 * time.Second,
+		Delay:      DefaultPollDelay,
+		MinTimeout: DefaultPollMinTimeout,
 	}
 
 	rawResult, err := stateConf.WaitForStateContext(ctx)
@@ -165,8 +165,8 @@ func WaitForResource[T ResourceWithState](ctx context.Context, getResource func(
 			return res, state, nil
 		},
 		Timeout:    timeout,
-		Delay:      10 * time.Second,
-		MinTimeout: 5 * time.Second,
+		Delay:      DefaultPollDelay,
+		MinTimeout: DefaultPollMinTimeout,
 	}
 
 	rawResult, err := stateConf.WaitForStateContext(ctx)
@@ -205,8 +205,8 @@ func WaitForDeletion[T ResourceWithState](ctx context.Context, getResource func(
 			return res, state, nil
 		},
 		Timeout:    timeout,
-		Delay:      10 * time.Second,
-		MinTimeout: 5 * time.Second,
+		Delay:      DefaultPollDelay,
+		MinTimeout: DefaultPollMinTimeout,
 	}
 
 	_, err := stateConf.WaitForStateContext(ctx)

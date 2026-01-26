@@ -7,6 +7,8 @@ const (
 	DefaultUpdateTimeout = 15 * time.Minute
 	DefaultDeleteTimeout = 15 * time.Minute
 	DefaultActionTimeout = 15 * time.Minute
+	DefaultPollDelay     = 10 * time.Second
+	DefaultPollMinTimeout = 5 * time.Second
 )
 {{ range .Structs }}
 {{ $struct := . }}

@@ -52,23 +52,7 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 				MarkdownDescription: "Resource UUID",
 			},
 			{{- if .FilterParams }}
-			"filters": schema.SingleNestedAttribute{
-				Optional:            true,
-				MarkdownDescription: "Filter parameters for querying {{ .Name | humanize }}",
-				Attributes: map[string]schema.Attribute{
-					{{- range .FilterParams }}
-					"{{ .Name }}": schema.{{ toFilterParamType .GoType }}Attribute{
-						Optional:            true,
-						MarkdownDescription: "{{ or (.Description | sanitize) " " }}{{- if .Enum }} Allowed values: {{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}`{{ $e }}`{{ end }}.{{ end }}",
-						{{- if and (eq .Type "string") .Enum }}
-						Validators: []validator.String{
-							stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
-						},
-						{{- end }}
-					},
-					{{- end }}
-				},
-			},
+			"filters": (&{{ .Name | title }}FiltersModel{}).GetSchema(),
 			{{- end }}
 			{{- range .ResponseFields }}
 			"{{ .Name }}": {{ template "schemaAttribute" . }}

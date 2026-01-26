@@ -33,18 +33,9 @@ func (l *{{ .Name | title }}List) Metadata(ctx context.Context, req resource.Met
 func (l *{{ .Name | title }}List) ListResourceConfigSchema(ctx context.Context, req list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"filters": schema.SingleNestedAttribute{
-				Optional:    true,
-				Description: "Filter parameters for querying {{ .Name | humanize }}",
-				Attributes: map[string]schema.Attribute{
-					{{- range .FilterParams }}
-					"{{ .Name }}": schema.{{ .GoType | replace "types." "" }}Attribute{
-						Description: "{{ .Description | sanitize }}",
-						Optional:    true,
-					},
-					{{- end }}
-				},
-			},
+			{{- if .FilterParams }}
+			"filters": (&{{ .Name | title }}FiltersModel{}).GetSchema(),
+			{{- end }}
 		},
 	}
 }

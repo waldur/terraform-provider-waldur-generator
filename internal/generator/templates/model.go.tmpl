@@ -6,6 +6,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timetypes/timetypes"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
@@ -16,6 +19,26 @@ type {{ .Name | title }}FiltersModel struct {
 	{{- range .FilterParams }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
+}
+
+func (m *{{ .Name | title }}FiltersModel) GetSchema() schema.SingleNestedAttribute {
+	return schema.SingleNestedAttribute{
+		Optional:            true,
+		MarkdownDescription: "Filter parameters for querying {{ .Name | humanize }}",
+		Attributes: map[string]schema.Attribute{
+			{{- range .FilterParams }}
+			"{{ .Name }}": schema.{{ toFilterParamType .GoType }}Attribute{
+				Optional:            true,
+				MarkdownDescription: "{{ or (.Description | sanitize) " " }}{{- if .Enum }} Allowed values: {{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}`{{ $e }}`{{ end }}.{{ end }}",
+				{{- if and (eq .Type "string") .Enum }}
+				Validators: []validator.String{
+					stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
+				},
+				{{- end }}
+			},
+			{{- end }}
+		},
+	}
 }
 {{- end }}
 

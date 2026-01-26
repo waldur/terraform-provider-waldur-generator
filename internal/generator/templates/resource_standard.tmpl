@@ -38,63 +38,23 @@
 		}
 	}
 	{{- else if eq .Type "array" }}
-	{
-		{{- if eq .ItemType "string" }}
-		var items []string
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			{{- if .Required }}
-			if len(items) > 0 {
-				requestBody.{{ .Name | title }} = items
-			}
-			{{- else }}
-			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-				requestBody.{{ .Name | title }} = &items
-			}
-			{{- end }}
-		}
-		{{- else if eq .ItemType "integer" }}
-		var items []int64
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			{{- if .Required }}
-			if len(items) > 0 {
-				requestBody.{{ .Name | title }} = items
-			}
-			{{- else }}
-			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-				requestBody.{{ .Name | title }} = &items
-			}
-			{{- end }}
-		}
-		{{- else }}
-		var items []{{ if .ItemSchema.RefName }}common.{{ .ItemSchema.RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			{{- if .Required }}
-			if len(items) > 0 {
-				requestBody.{{ .Name | title }} = items
-			}
-			{{- else }}
-			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-				requestBody.{{ .Name | title }} = &items
-			}
-			{{- end }}
-		}
-		{{- end }}
-	}
+	{{- if .Required }}
+	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateSetField{{ else }}PopulateSliceField{{ end }}(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
+	{{- else }}
+	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateOptionalSetField{{ else }}PopulateOptionalSliceField{{ end }}(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
+	{{- end }}
 	{{- else if eq .Type "object" }}
-	{
-		var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
-		diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{})
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			requestBody.{{ .Name | title }} = &obj
-		}
+	{{- if .Required }}
+	{{- /* Required objects are just the struct, not a pointer to it usually? No, our SDK use pointers for objects too often. */ -}}
+	var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
+	diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if !diags.HasError() {
+		requestBody.{{ .Name | title }} = obj
 	}
+	{{- else }}
+	resp.Diagnostics.Append(common.PopulateOptionalObjectField(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
+	{{- end }}
 	{{- end }}
 {{- end -}}
 

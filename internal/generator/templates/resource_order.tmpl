@@ -22,63 +22,22 @@
 	{{- range .CreateFields }}
 	{{- if and (ne .Name "project") (ne .Name "offering") }}
 	{{- if eq .Type "array" }}
-	{
-		{{- if eq .ItemType "string" }}
-		var items []string
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			{{- if .Required }}
-			if len(items) > 0 {
-				attributes.{{ .Name | title }} = items
-			}
-			{{- else }}
-			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-				attributes.{{ .Name | title }} = &items
-			}
-			{{- end }}
-		}
-		{{- else if eq .ItemType "integer" }}
-		var items []int64
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			{{- if .Required }}
-			if len(items) > 0 {
-				attributes.{{ .Name | title }} = items
-			}
-			{{- else }}
-			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-				attributes.{{ .Name | title }} = &items
-			}
-			{{- end }}
-		}
-		{{- else }}
-		var items []{{ if .ItemSchema.RefName }}common.{{ .ItemSchema.RefName }}{{ else }}{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &items, false)
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			{{- if .Required }}
-			if len(items) > 0 {
-				attributes.{{ .Name | title }} = items
-			}
-			{{- else }}
-			if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-				attributes.{{ .Name | title }} = &items
-			}
-			{{- end }}
-		}
-		{{- end }}
-	}
+	{{- if .Required }}
+	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateSetField{{ else }}PopulateSliceField{{ end }}(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})...)
+	{{- else }}
+	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateOptionalSetField{{ else }}PopulateOptionalSliceField{{ end }}(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})...)
+	{{- end }}
 	{{- else if eq .Type "object" }}
-	{
-		var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}
-		diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{})
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() {
-			attributes.{{ .Name | title }} = &obj
-		}
+	{{- if .Required }}
+	var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}
+	diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if !diags.HasError() {
+		attributes.{{ .Name | title }} = obj
 	}
+	{{- else }}
+	resp.Diagnostics.Append(common.PopulateOptionalObjectField(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})...)
+	{{- end }}
 	{{- end }}
 	{{- end }}
 	{{- end }}

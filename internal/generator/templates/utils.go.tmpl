@@ -184,7 +184,7 @@ func WaitForDeletion[T ResourceWithState](ctx context.Context, getResource func(
 		Refresh: func() (interface{}, string, error) {
 			res, err := getResource(ctx)
 			if err != nil {
-				if client.IsNotFoundError(err) {
+				if IsNotFoundError(err) {
 					return nil, "", nil
 				}
 				return nil, "", err
@@ -210,4 +210,12 @@ func WaitForDeletion[T ResourceWithState](ctx context.Context, getResource func(
 
 	_, err := stateConf.WaitForStateContext(ctx)
 	return err
+}
+
+// IsNotFoundError checks if an error represents a 404 Not Found response
+func IsNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "HTTP 404")
 }

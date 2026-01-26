@@ -235,7 +235,7 @@
 
 	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
 	if err != nil {
-		if client.IsNotFoundError(err) {
+		if IsNotFoundError(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -350,7 +350,7 @@
 
 	apiResp, err := r.client.Get{{ .Name | title }}(ctx, uuid)
 	if err != nil {
-		if client.IsNotFoundError(err) {
+		if IsNotFoundError(err) {
 			resp.Diagnostics.AddError(
 				"Resource Not Found",
 				fmt.Sprintf("{{ .Name | humanize }} with UUID '%s' does not exist or is not accessible.", uuid),

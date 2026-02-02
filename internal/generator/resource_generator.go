@@ -241,16 +241,33 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		createFields = append(createFields, FieldInfo{
 			Name:        "offering",
 			Type:        "string",
-			Description: "Offering UUID",
+			Description: "Offering URL",
 			GoType:      "types.String",
 			Required:    true,
 		})
 		createFields = append(createFields, FieldInfo{
 			Name:        "project",
 			Type:        "string",
-			Description: "Project UUID",
+			Description: "Project URL",
 			GoType:      "types.String",
 			Required:    true,
+		})
+
+		// Add Plan and Limits fields manually to ModelFields
+		modelFields = append(modelFields, FieldInfo{
+			Name:        "plan",
+			Type:        "string",
+			Description: "Plan URL",
+			GoType:      "types.String",
+			Required:    false,
+		})
+		modelFields = append(modelFields, FieldInfo{
+			Name:        "limits",
+			Type:        "object",
+			Description: "Resource limits",
+			GoType:      "types.Map",
+			ItemType:    "integer",
+			Required:    false,
 		})
 
 		// 4. Add Termination Attributes

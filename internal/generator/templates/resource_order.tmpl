@@ -46,7 +46,18 @@
 	payload := {{ .Name | title }}CreateRequest{
 		Project:    data.Project.ValueStringPointer(),
 		Offering:   data.Offering.ValueStringPointer(),
+		Plan:       data.Plan.ValueStringPointer(),
 		Attributes: attributes,
+	}
+
+	if !data.Limits.IsNull() {
+		limits := make(map[string]float64)
+		diags := data.Limits.ElementsAs(ctx, &limits, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		payload.Limits = limits
 	}
 
 	// Phase 2: Submit Order

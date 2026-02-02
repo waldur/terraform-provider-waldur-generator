@@ -18,6 +18,8 @@ type {{ .Name | title }}CreateRequest struct {
 	{{- if .IsOrder }}
 	Project  *string `json:"project" tfsdk:"project"`
 	Offering *string `json:"offering" tfsdk:"offering"`
+	Plan     *string `json:"plan,omitempty" tfsdk:"plan"`
+	Limits   map[string]float64 `json:"limits,omitempty" tfsdk:"limits"`
 	Attributes {{ .Name | title }}CreateAttributes `json:"attributes" tfsdk:"attributes"`
 	{{- else }}
 	{{ template "sdkStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) "Package" $.Package }}

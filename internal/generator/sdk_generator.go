@@ -272,6 +272,7 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 			"Retrieve": retrievePath,
 		},
 		IsDatasourceOnly: true,
+		HasDataSource:    true, // Datasource-only entries are by definition datasources
 	}, nil
 }
 

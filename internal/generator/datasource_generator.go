@@ -103,23 +103,10 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 		}
 	}
 
-	// Look up corresponding Resource to determine if it's an Order resource
-	isOrder := false
-	for _, res := range g.config.Resources {
-		if res.Name == dataSource.Name {
-			if res.Plugin == "order" {
-				isOrder = true
-			}
-			break
-		}
-	}
-
-	// Apply field exclusion for non-order resources
+	// For datasources, include ALL response fields (no exclusion)
+	// since the Terraform model needs all fields for state mapping
 	var filteredResponseFields []FieldInfo
 	for _, rf := range responseFields {
-		if !isOrder && ExcludedFields[rf.Name] {
-			continue
-		}
 		filteredResponseFields = append(filteredResponseFields, rf)
 	}
 
@@ -140,16 +127,20 @@ func (g *Generator) generateDataSource(dataSource *config.DataSource) error {
 	// because datasource.go is using shared models
 	if !g.hasResource(dataSource.Name) {
 		resData := &ResourceData{
-			Name:           dataSource.Name,
-			Service:        service,
-			CleanName:      cleanName,
-			ResponseFields: filteredResponseFields,
-			ModelFields:    filteredResponseFields,
-			FilterParams:   filterParams,
-			// Minimal fields required for model generation
+			Name:             dataSource.Name,
+			Service:          service,
+			CleanName:        cleanName,
+			ResponseFields:   filteredResponseFields,
+			ModelFields:      filteredResponseFields,
+			FilterParams:     filterParams,
+			IsDatasourceOnly: true,
 		}
 		if err := g.generateModel(resData); err != nil {
 			return fmt.Errorf("failed to generate model for datasource-only %s: %w", dataSource.Name, err)
+		}
+		// Also generate types.go and client.go for the datasource-only resources
+		if err := g.generateResourceSDK(resData); err != nil {
+			return fmt.Errorf("failed to generate SDK for datasource %s: %w", dataSource.Name, err)
 		}
 	}
 

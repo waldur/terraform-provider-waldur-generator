@@ -20,11 +20,6 @@ resources:
     skip_operations:
       - "partial_update"  # Orders cannot be updated after creation
 
-  - name: "marketplace_offering"
-    base_operation_id: "marketplace_provider_offerings"
-    skip_operations:
-      - "partial_update"  # Provider offerings use specific update actions
-
   - name: "marketplace_resource"
     base_operation_id: "marketplace_resources"
     skip_operations:

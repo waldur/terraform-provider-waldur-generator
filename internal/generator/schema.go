@@ -71,7 +71,8 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 
 	for _, propName := range propNames {
 		// Skip uuid field as it's hard-coded in templates with tfsdk:"id"
-		if propName == "uuid" {
+		// But only skip at root level (depth 0), nested objects need uuid
+		if depth == 0 && propName == "uuid" {
 			continue
 		}
 
@@ -196,12 +197,23 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 			// Update existing field if secondary has more info (e.g. ReadOnly)
 			if f.ReadOnly {
 				existing.ReadOnly = true
-				// Update in slice
-				for i, mf := range merged {
-					if mf.Name == existing.Name {
-						merged[i] = existing
-						break
-					}
+			}
+
+			// Recursively merge nested properties if present in both
+			// Case 1: Nested objects (Properties)
+			if len(existing.Properties) > 0 && len(f.Properties) > 0 {
+				existing.Properties = MergeFields(existing.Properties, f.Properties)
+			}
+			// Case 2: Array of objects (ItemSchema.Properties)
+			if existing.ItemSchema != nil && f.ItemSchema != nil && len(existing.ItemSchema.Properties) > 0 && len(f.ItemSchema.Properties) > 0 {
+				existing.ItemSchema.Properties = MergeFields(existing.ItemSchema.Properties, f.ItemSchema.Properties)
+			}
+
+			// Update in slice
+			for i, mf := range merged {
+				if mf.Name == existing.Name {
+					merged[i] = existing
+					break
 				}
 			}
 		} else {

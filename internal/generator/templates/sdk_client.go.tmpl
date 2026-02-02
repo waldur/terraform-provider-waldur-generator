@@ -134,6 +134,8 @@ func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]
 	return listResult, nil
 }
 
+
+
 {{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Terminate }}
 func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {

@@ -150,7 +150,7 @@ type {{ $prefix }}{{ .Name | title }}Request struct {
 	{{- $prefix := .Prefix }}
 	{{- $pkgName := .Package }}
 	{{- range .Fields }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else }}[]{{ $prefix }}{{ .Name | title }}Response{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Response{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}{{ if ne $pkgName "common" }}*common.FlexibleNumber{{ else }}*FlexibleNumber{{ end }}{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else }}[]{{ $prefix }}{{ .Name | title }}Response{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}*{{ $prefix }}{{ .Name | title }}Response{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .Name }}"`
 	{{- end }}
 {{- end }}
 

@@ -50,14 +50,14 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	diags.Append(diags{{ .Name | title }}...)
 	model.{{ .Name | title }} = val{{ .Name | title }}
 	{{- else }}
-	model.{{ .Name | title }} = types.StringPointerValue(apiResp.{{ .Name | title }})
+	model.{{ .Name | title }} = common.StringPointerValue(apiResp.{{ .Name | title }})
 	{{- end }}
 	{{- else if eq .Type "integer" }}
 	model.{{ .Name | title }} = types.Int64PointerValue(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "boolean" }}
 	model.{{ .Name | title }} = types.BoolPointerValue(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "number" }}
-	model.{{ .Name | title }} = types.Float64PointerValue(apiResp.{{ .Name | title }})
+	model.{{ .Name | title }} = types.Float64PointerValue(apiResp.{{ .Name | title }}.Float64Ptr())
 	{{- else if eq .Type "array" }}
 	{{- if eq .GoType "types.Set" }}
 	{{- if eq .ItemType "string" }}
@@ -248,7 +248,7 @@ schema.SingleNestedAttribute{
     {{- end }}
 {{- else if eq .GoType "types.Map" }}
     schema.MapAttribute{
-        ElementType: types.StringType,
+        ElementType: {{ if eq .ItemType "integer" }}types.Int64Type{{ else if eq .ItemType "boolean" }}types.BoolType{{ else if eq .ItemType "number" }}types.Float64Type{{ else }}types.StringType{{ end }},
         {{- if .ReadOnly }}
         Computed: true,
         {{- else if .Required }}

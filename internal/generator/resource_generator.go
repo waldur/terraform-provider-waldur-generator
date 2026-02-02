@@ -266,7 +266,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			Type:        "object",
 			Description: "Resource limits",
 			GoType:      "types.Map",
-			ItemType:    "integer",
+			ItemType:    "number",
 			Required:    false,
 		})
 

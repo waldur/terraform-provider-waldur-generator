@@ -119,6 +119,7 @@
 {{- define "resource_update_order" }}
 	// Phase 1: Standard PATCH (Simple fields)
 	// We compare the plan (data) with the state (state) to determine which fields changed.
+	anyChanges := false
 	var patchPayload {{ .Name | title }}UpdateRequest
 	{{- range .UpdateFields }}
 	{{- $fieldName := .Name }}
@@ -128,6 +129,7 @@
 	{{- end }}
 	{{- if and (not $isAction) (not .ReadOnly) }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.Equal(state.{{ .Name | title }}) {
+		anyChanges = true
 		{{- if eq .Type "string" }}
 		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
 		{{- else if eq .Type "integer" }}
@@ -141,13 +143,19 @@
 	{{- end }}
 	{{- end }}
 
-	{
+	if anyChanges {
 		// Execute the PATCH request
 		_, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &patchPayload)
 		if err != nil {
 			resp.Diagnostics.AddError("Update Failed", err.Error())
 			return
 		}
+	}
+
+	updateTimeout, diags := data.Timeouts.Update(ctx, common.DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Phase 2: RPC Actions
@@ -184,6 +192,17 @@
 			resp.Diagnostics.AddError("RPC Action Failed: {{ $action.Name }}", err.Error())
 			return
 		}
+
+		// Wait for the resource to return to OK state
+		apiResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ $.Name | title }}Response, error) {
+			return r.client.Get{{ $.Name | title }}(ctx, data.UUID.ValueString())
+		}, updateTimeout)
+		if err != nil {
+			resp.Diagnostics.AddError("Wait for RPC action failed", err.Error())
+			return
+		}
+		resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
+		state = data // Update local state to avoid repeated action calls if multiple fields changed (though actions are usually 1-to-1)
 	}
 	{{- end }}
 

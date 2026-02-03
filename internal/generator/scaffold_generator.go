@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -402,31 +403,60 @@ func (g *Generator) generateFixtures() error {
 
 // generateExamples generates example files from templates
 func (g *Generator) generateExamples() error {
-	// Provider example
-	tmplPath := "templates/examples/provider/provider.tf.tmpl"
-	tmpl, err := template.New("provider.tf.tmpl").Funcs(GetFuncMap()).ParseFS(templates, tmplPath)
-	if err != nil {
-		// If template doesn't exist, skip it or fail.
-		// Since we just added it, it should exist.
-		// However, handle error gracefully if older templates missing
-		return fmt.Errorf("failed to parse provider example template: %w", err)
-	}
+	baseDir := "templates/examples"
+	return fs.WalkDir(templates, baseDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
 
-	outputDir := filepath.Join(g.config.Generator.OutputDir, "examples", "provider")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", outputDir, err)
-	}
+		// Calculate output path
+		relPath, err := filepath.Rel(baseDir, path)
+		if err != nil {
+			return err
+		}
 
-	outputPath := filepath.Join(outputDir, "provider.tf")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+		// Map templates/... to examples/...
+		outputPath := filepath.Join(g.config.Generator.OutputDir, "examples", relPath)
+		if strings.HasSuffix(outputPath, ".tmpl") {
+			outputPath = strings.TrimSuffix(outputPath, ".tmpl")
+		}
 
-	data := map[string]interface{}{
-		"ProviderName": g.config.Generator.ProviderName,
-	}
+		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+			return err
+		}
 
-	return tmpl.Execute(f, data)
+		if strings.HasSuffix(path, ".tmpl") {
+			// Execute template
+			tmpl, err := template.New(filepath.Base(path)).Funcs(GetFuncMap()).ParseFS(templates, path)
+			if err != nil {
+				return fmt.Errorf("failed to parse template %s: %w", path, err)
+			}
+
+			f, err := os.Create(outputPath)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			data := map[string]interface{}{
+				"ProviderName": g.config.Generator.ProviderName,
+			}
+			if err := tmpl.Execute(f, data); err != nil {
+				return fmt.Errorf("failed to execute template %s: %w", path, err)
+			}
+		} else {
+			// Just copy
+			content, err := templates.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(outputPath, content, 0644); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

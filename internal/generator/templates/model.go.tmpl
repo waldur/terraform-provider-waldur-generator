@@ -29,7 +29,7 @@ func (m *{{ .Name | title }}FiltersModel) GetSchema() schema.SingleNestedAttribu
 			{{- range .FilterParams }}
 			"{{ .Name }}": schema.{{ toFilterParamType .GoType }}Attribute{
 				Optional:            true,
-				MarkdownDescription: "{{ or (.Description | sanitize) " " }}{{- if .Enum }} Allowed values: {{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}`{{ $e }}`{{ end }}.{{ end }}",
+				MarkdownDescription: "{{ or .Description " " }}{{- if .Enum }} Allowed values: {{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}`{{ $e }}`{{ end }}.{{ end }}",
 				{{- if and (eq .Type "string") .Enum }}
 				Validators: []validator.String{
 					stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),

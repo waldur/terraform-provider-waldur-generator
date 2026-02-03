@@ -98,7 +98,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 			Format:      prop.Format,
 			Required:    requiredMap[propName],
 			ReadOnly:    prop.ReadOnly,
-			Description: prop.Description,
+			Description: SanitizeString(prop.Description),
 			RefName:     refName,
 			Minimum:     prop.Min,
 			Maximum:     prop.Max,
@@ -386,38 +386,40 @@ func IsSetField(name string) bool {
 }
 
 // GetDefaultDescription returns a generated description based on the field name if the current description is empty or too short.
+// It always returns a sanitized string.
 func GetDefaultDescription(name, resourceName, currentDesc string) string {
+	desc := ""
 	if len(strings.TrimSpace(currentDesc)) >= 2 {
-		return currentDesc
-	}
-
-	if strings.HasSuffix(name, "_uuid") {
+		desc = currentDesc
+	} else if strings.HasSuffix(name, "_uuid") {
 		base := strings.TrimSuffix(name, "_uuid")
-		return fmt.Sprintf("UUID of the %s", strings.ReplaceAll(base, "_", " "))
+		desc = fmt.Sprintf("UUID of the %s", strings.ReplaceAll(base, "_", " "))
 	} else if strings.HasSuffix(name, "_name") {
 		base := strings.TrimSuffix(name, "_name")
-		return fmt.Sprintf("Name of the %s", strings.ReplaceAll(base, "_", " "))
+		desc = fmt.Sprintf("Name of the %s", strings.ReplaceAll(base, "_", " "))
 	} else if strings.HasSuffix(name, "_id") {
 		base := strings.TrimSuffix(name, "_id")
-		return fmt.Sprintf("ID of the %s", strings.ReplaceAll(base, "_", " "))
+		desc = fmt.Sprintf("ID of the %s", strings.ReplaceAll(base, "_", " "))
 	} else if name == "name" {
-		return fmt.Sprintf("Name of the %s", resourceName)
+		desc = fmt.Sprintf("Name of the %s", resourceName)
 	} else if name == "description" {
-		return fmt.Sprintf("Description of the %s", resourceName)
+		desc = fmt.Sprintf("Description of the %s", resourceName)
 	} else if name == "uuid" {
-		return fmt.Sprintf("UUID of the %s", resourceName)
+		desc = fmt.Sprintf("UUID of the %s", resourceName)
 	} else if strings.HasPrefix(name, "is_") {
 		base := strings.TrimPrefix(name, "is_")
-		return fmt.Sprintf("Is %s", strings.ReplaceAll(base, "_", " "))
+		desc = fmt.Sprintf("Is %s", strings.ReplaceAll(base, "_", " "))
+	} else {
+		// Fallback: sentence case from snake_case
+		human := strings.ReplaceAll(name, "_", " ")
+		if len(human) > 0 {
+			desc = strings.ToUpper(human[:1]) + human[1:]
+		} else {
+			desc = " "
+		}
 	}
 
-	// Fallback: sentence case from snake_case
-	human := strings.ReplaceAll(name, "_", " ")
-	if len(human) > 0 {
-		return strings.ToUpper(human[:1]) + human[1:]
-	}
-
-	return " "
+	return SanitizeString(desc)
 }
 
 // FillDescriptions recursively populates missing descriptions for fields.

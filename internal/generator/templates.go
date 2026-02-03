@@ -134,6 +134,21 @@ func formatValidatorValue(v float64, goType string) string {
 	return fmt.Sprintf("%g", v)
 }
 
+// SanitizeString replaces problematic characters in descriptions
+func SanitizeString(s string) string {
+	// Replace problematic characters in descriptions
+	s = strings.ReplaceAll(s, "\\", "\\\\") // Escape backslashes first
+	s = strings.ReplaceAll(s, "\"", "\\\"") // Escape quotes
+	s = strings.ReplaceAll(s, "\n", " ")    // Replace newlines with spaces
+	s = strings.ReplaceAll(s, "\r", "")     // Remove carriage returns
+	s = strings.ReplaceAll(s, "\t", " ")    // Replace tabs with spaces
+	// Normalize multiple spaces
+	for strings.Contains(s, "  ") {
+		s = strings.ReplaceAll(s, "  ", " ")
+	}
+	return strings.TrimSpace(s)
+}
+
 // GetFuncMap returns the common template functions
 func GetFuncMap() template.FuncMap {
 	return template.FuncMap{
@@ -143,19 +158,6 @@ func GetFuncMap() template.FuncMap {
 		"toAttrType":        ToAttrType,
 		"toFilterParamType": GetFilterParamType,
 		"formatValidator":   formatValidatorValue,
-		"sanitize": func(s string) string {
-			// Replace problematic characters in descriptions
-			s = strings.ReplaceAll(s, "\\", "\\\\") // Escape backslashes first
-			s = strings.ReplaceAll(s, "\"", "\\\"") // Escape quotes
-			s = strings.ReplaceAll(s, "\n", " ")    // Replace newlines with spaces
-			s = strings.ReplaceAll(s, "\r", "")     // Remove carriage returns
-			s = strings.ReplaceAll(s, "\t", " ")    // Replace tabs with spaces
-			// Normalize multiple spaces
-			for strings.Contains(s, "  ") {
-				s = strings.ReplaceAll(s, "  ", " ")
-			}
-			return strings.TrimSpace(s)
-		},
 		"replace": func(old, new, s string) string {
 			return strings.ReplaceAll(s, old, new)
 		},

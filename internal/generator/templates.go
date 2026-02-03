@@ -188,5 +188,70 @@ func GetFuncMap() template.FuncMap {
 		"makeSlice": func(items ...interface{}) interface{} {
 			return items
 		},
+		"renderGoType": func(f FieldInfo, pkgName string, prefix string, suffix string) string {
+			typeName := ""
+			isPointer := true
+
+			// Base type logic
+			if f.Type == "string" {
+				typeName = "string"
+			} else if f.Type == "integer" {
+				typeName = "int64"
+			} else if f.Type == "boolean" {
+				typeName = "bool"
+			} else if f.Type == "number" {
+				typeName = "float64"
+				if suffix == "Response" {
+					if pkgName != "common" {
+						typeName = "common.FlexibleNumber"
+					} else {
+						typeName = "FlexibleNumber"
+					}
+				}
+			} else if f.Type == "array" {
+				isPointer = !f.Required
+				if f.ItemType == "string" {
+					typeName = "[]string"
+				} else if f.ItemType == "integer" {
+					typeName = "[]int64"
+				} else {
+					// Complex array item
+					elemType := ""
+					if f.ItemSchema != nil && f.ItemSchema.RefName != "" {
+						if pkgName != "common" {
+							elemType = "common." + f.ItemSchema.RefName
+						} else {
+							elemType = f.ItemSchema.RefName
+						}
+					} else {
+						// Inline struct
+						elemType = prefix + strings.Title(f.Name) + suffix
+					}
+					typeName = "[]" + elemType
+				}
+			} else if f.GoType == "types.Map" {
+				typeName = "map[string]interface{}"
+				isPointer = false // Maps are reference types
+			} else if f.Type == "object" {
+				if f.RefName != "" {
+					if pkgName != "common" {
+						typeName = "common." + f.RefName
+					} else {
+						typeName = f.RefName
+					}
+				} else {
+					typeName = prefix + strings.Title(f.Name) + suffix
+				}
+			}
+
+			if typeName == "" {
+				typeName = "string" // Default fallback
+			}
+
+			if isPointer {
+				return "*" + typeName
+			}
+			return typeName
+		},
 	}
 }

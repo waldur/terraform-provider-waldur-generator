@@ -10,7 +10,7 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
-func (g *Generator) generateActions(resource *config.Resource) error {
+func (g *Generator) generateActionsImplementation(rd *ResourceData, resource *config.Resource) error {
 	tmpl, err := template.New("action.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/action.go.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to parse action template: %w", err)
@@ -28,12 +28,11 @@ func (g *Generator) generateActions(resource *config.Resource) error {
 		}
 
 		// Prepare data for template
-		service, cleanName := splitResourceName(resource.Name)
 		resourceName := strings.ReplaceAll(resource.Name, "_", " ")
 		data := map[string]interface{}{
-			"ResourceName":    resource.Name,
-			"Service":         service,
-			"CleanName":       cleanName,
+			"ResourceName":    rd.Name,
+			"Service":         rd.Service,
+			"CleanName":       rd.CleanName,
 			"ActionName":      actionName,
 			"OperationID":     operationID,
 			"BaseOperationID": resource.BaseOperationID,
@@ -46,7 +45,7 @@ func (g *Generator) generateActions(resource *config.Resource) error {
 		}
 
 		// Generate file
-		outputDir := filepath.Join(g.config.Generator.OutputDir, "services", service, cleanName)
+		outputDir := filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName)
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return err
 		}

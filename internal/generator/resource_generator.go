@@ -12,25 +12,14 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
-// generateResource generates a resource file
-func (g *Generator) generateResource(resource *config.Resource) error {
+// generateResourceImplementation generates a resource file
+func (g *Generator) generateResourceImplementation(rd *ResourceData, resource *config.Resource) error {
 	tmpl, err := template.New("resource.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl", "templates/resource_order.tmpl", "templates/resource_link.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to parse resource template: %w", err)
 	}
 
-	// Prepare data
-	data, err := g.prepareResourceData(resource)
-	if err != nil {
-		return err
-	}
-
-	// Generate model
-	if err := g.generateModel(data); err != nil {
-		return fmt.Errorf("failed to generate model: %w", err)
-	}
-
-	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", data.Service, data.CleanName)
+	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
 	}
@@ -42,7 +31,7 @@ func (g *Generator) generateResource(resource *config.Resource) error {
 	}
 	defer f.Close()
 
-	if err := tmpl.Execute(f, data); err != nil {
+	if err := tmpl.Execute(f, rd); err != nil {
 		return err
 	}
 
@@ -445,9 +434,9 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		}
 	}
 
-	// Merge fields for the model (Create + Response)
-	// Note: For Order resources, modelFields was already set in the Order block above
+	// Merge fields for the model (Create + Response + FilterParams)
 	allFields := MergeFields(createFields, responseFields)
+	allFields = MergeFields(allFields, filterParams)
 
 	// Filter out marketplace and other fields for non-order resources
 	if !isOrder {
@@ -459,9 +448,9 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 		modelFields = make([]FieldInfo, 0)
 		for _, f := range allFields {
-			// Remove if it's in exclude list AND NOT an input field
+			// Mark as SchemaSkip if it's in exclude list AND NOT an input field
 			if ExcludedFields[f.Name] && !inputFields[f.Name] {
-				continue
+				f.SchemaSkip = true
 			}
 			modelFields = append(modelFields, f)
 		}
@@ -604,8 +593,14 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	sort.Slice(createFields, func(i, j int) bool { return createFields[i].Name < createFields[j].Name })
 	sort.Slice(updateFields, func(i, j int) bool { return updateFields[i].Name < updateFields[j].Name })
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
+	// Merge fields for model
+	modelFields = MergeFields(modelFields, responseFields)
+	modelFields = MergeFields(modelFields, createFields)
+	modelFields = MergeFields(modelFields, updateFields)
+
+	// Sort for deterministic output
+	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
-	sort.Slice(updateActions, func(i, j int) bool { return updateActions[i].Name < updateActions[j].Name })
 
 	service, cleanName := splitResourceName(resource.Name)
 

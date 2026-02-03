@@ -69,75 +69,139 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to create directory structure: %w", err)
 	}
 
-	// Generate provider files
+	// 1. Prepare data
+	mergedResources := make(map[string]*ResourceData)
+	var resourceOrder []string
+
+	for i := range g.config.Resources {
+		res := &g.config.Resources[i]
+		rd, err := g.prepareResourceData(res)
+		if err != nil {
+			return err
+		}
+		mergedResources[res.Name] = rd
+		resourceOrder = append(resourceOrder, res.Name)
+	}
+
+	for i := range g.config.DataSources {
+		ds := &g.config.DataSources[i]
+		dd, err := g.prepareDatasourceData(ds)
+		if err != nil {
+			return err
+		}
+
+		if existing, ok := mergedResources[ds.Name]; ok {
+			// Merge datasource fields into existing resource data
+			existing.ResponseFields = MergeFields(existing.ResponseFields, dd.ResponseFields)
+			existing.ModelFields = MergeFields(existing.ModelFields, dd.ModelFields)
+			existing.HasDataSource = true
+			if dd.APIPaths != nil {
+				if existing.APIPaths == nil {
+					existing.APIPaths = make(map[string]string)
+				}
+				for k, v := range dd.APIPaths {
+					if _, exists := existing.APIPaths[k]; !exists {
+						existing.APIPaths[k] = v
+					}
+				}
+			}
+		} else {
+			mergedResources[ds.Name] = dd
+			resourceOrder = append(resourceOrder, ds.Name)
+		}
+	}
+
+	// 2. Generate provider files
 	if err := g.generateProvider(); err != nil {
 		return fmt.Errorf("failed to generate provider: %w", err)
 	}
 
-	// Generate service registration files
+	// 3. Generate service registration files
 	if err := g.generateServiceRegistrations(); err != nil {
 		return fmt.Errorf("failed to generate service registrations: %w", err)
 	}
 
-	// Generate resources
-	for _, resource := range g.config.Resources {
-		// Generate resource implementation
-		if resource.Plugin != "actions" {
-			if err := g.generateResource(&resource); err != nil {
-				return fmt.Errorf("failed to generate resource %s: %w", resource.Name, err)
+	// 4. Generate implementation for all entities
+	for _, name := range resourceOrder {
+		rd := mergedResources[name]
+
+		// Generate model once for the entity
+		if err := g.generateModel(rd); err != nil {
+			return fmt.Errorf("failed to generate model for %s: %w", name, err)
+		}
+
+		// Generate SDK components
+		if err := g.generateResourceSDK(rd); err != nil {
+			return fmt.Errorf("failed to generate SDK for %s: %w", name, err)
+		}
+
+		// If it has a resource configuration, generate it
+		if !rd.IsDatasourceOnly {
+			var configRes *config.Resource
+			for i := range g.config.Resources {
+				if g.config.Resources[i].Name == name {
+					configRes = &g.config.Resources[i]
+					break
+				}
 			}
-			if err := g.generateListResource(&resource); err != nil {
-				// Log warning but don't fail, as some resources might not have list operations
-				fmt.Printf("Warning: failed to generate list resource %s: %s\n", resource.Name, err)
+			if configRes != nil && configRes.Plugin != "actions" {
+				if err := g.generateResourceImplementation(rd, configRes); err != nil {
+					return fmt.Errorf("failed to generate resource implementation %s: %w", name, err)
+				}
+				if err := g.generateListResourceImplementation(rd, configRes); err != nil {
+					fmt.Printf("Warning: failed to generate list resource %s: %s\n", name, err)
+				}
+
+				// Actions
+				if len(configRes.Actions) > 0 {
+					if err := g.generateActionsImplementation(rd, configRes); err != nil {
+						return fmt.Errorf("failed to generate actions for resource %s: %w", name, err)
+					}
+				}
 			}
 		}
 
-		// Generate actions if defined
-		if len(resource.Actions) > 0 {
-			if err := g.generateActions(&resource); err != nil {
-				return fmt.Errorf("failed to generate actions for resource %s: %w", resource.Name, err)
+		// If it has a datasource configuration, generate it
+		for i := range g.config.DataSources {
+			if g.config.DataSources[i].Name == name {
+				if err := g.generateDataSourceImplementation(rd, &g.config.DataSources[i]); err != nil {
+					return fmt.Errorf("failed to generate data source %s: %w", name, err)
+				}
 			}
 		}
 	}
 
-	// Generate data sources
-	for _, dataSource := range g.config.DataSources {
-		if err := g.generateDataSource(&dataSource); err != nil {
-			return fmt.Errorf("failed to generate data source %s: %w", dataSource.Name, err)
-		}
-	}
-
-	// Generate supporting files
+	// 5. Generate supporting files
 	if err := g.generateSupportingFiles(); err != nil {
 		return fmt.Errorf("failed to generate supporting files: %w", err)
 	}
 
-	// Generate shared utils
+	// 6. Generate shared utils
 	if err := g.generateSharedUtils(); err != nil {
 		return fmt.Errorf("failed to generate shared utils: %w", err)
 	}
 
-	// Generate SDK
-	if err := g.GenerateSDK(); err != nil {
-		return fmt.Errorf("failed to generate sdk: %w", err)
+	// 7. Generate shared SDK types
+	if err := g.generateSharedSDKTypes(); err != nil {
+		return fmt.Errorf("failed to generate shared types: %w", err)
 	}
 
-	// Generate E2E tests
+	// 8. Generate E2E tests
 	if err := g.generateE2ETests(); err != nil {
 		return fmt.Errorf("failed to generate E2E tests: %w", err)
 	}
 
-	// Generate VCR helpers
+	// 9. Generate VCR helpers
 	if err := g.generateVCRHelpers(); err != nil {
 		return fmt.Errorf("failed to generate VCR helpers: %w", err)
 	}
 
-	// Generate VCR fixtures
+	// 10. Generate VCR fixtures
 	if err := g.generateFixtures(); err != nil {
 		return fmt.Errorf("failed to generate VCR fixtures: %w", err)
 	}
 
-	// Clean up generated Go files (format and remove unused imports)
+	// 11. Clean up generated Go files (format and remove unused imports)
 	if err := g.cleanupImports(); err != nil {
 		return fmt.Errorf("failed to cleanup imports: %w", err)
 	}

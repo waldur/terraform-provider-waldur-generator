@@ -82,7 +82,9 @@ func (r *{{ .Name | title }}Resource) Schema(ctx context.Context, req resource.S
 			},
 			{{- /* Iterate over ModelFields to generate schema attributes */ -}}
 			{{- range .ModelFields }}
+			{{- if not .SchemaSkip }}
 			"{{ .Name }}": {{ template "schemaAttribute" . }}
+			{{- end }}
 			{{- end }}
 		},
 

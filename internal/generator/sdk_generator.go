@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
@@ -234,8 +236,10 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	listPath := ""
 	retrievePath := ""
 
-	if _, path, _, err := g.parser.GetOperation(ops.List); err == nil {
+	var listOp *openapi3.Operation
+	if op, path, _, err := g.parser.GetOperation(ops.List); err == nil {
 		listPath = path
+		listOp = op
 	}
 
 	if _, retPath, _, err := g.parser.GetOperation(ops.Retrieve); err == nil {
@@ -256,8 +260,43 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 		}
 	}
 
+	// Extract filter parameters
+	var filterParams []FieldInfo
+	if listOp != nil {
+		for _, paramRef := range listOp.Parameters {
+			if paramRef.Value == nil {
+				continue
+			}
+			param := paramRef.Value
+			if param.In == "query" {
+				paramName := param.Name
+				if paramName == "page" || paramName == "page_size" || paramName == "o" || paramName == "field" {
+					continue
+				}
+				if param.Schema != nil {
+					typeStr := getSchemaType(param.Schema.Value)
+					goType := GetGoType(typeStr)
+					if goType != "" && !strings.HasPrefix(goType, "types.List") && !strings.HasPrefix(goType, "types.Object") {
+						filterParams = append(filterParams, FieldInfo{
+							Name:        param.Name,
+							Type:        typeStr,
+							Description: param.Description,
+							GoType:      goType,
+							SchemaSkip:  true,
+						})
+					}
+				}
+			}
+		}
+		sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
+	}
+
+	// Use response fields for model
+	modelFields := responseFields
+
 	// Sort for deterministic output
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
+	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
 	service, cleanName := splitResourceName(dataSource.Name)
 
@@ -266,13 +305,15 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 		Service:        service,
 		CleanName:      cleanName,
 		ResponseFields: responseFields,
-		ModelFields:    responseFields,
+		ModelFields:    modelFields,
+		FilterParams:   filterParams,
 		APIPaths: map[string]string{
 			"Base":     listPath,
 			"Retrieve": retrievePath,
 		},
 		IsDatasourceOnly: true,
 		HasDataSource:    true, // Datasource-only entries are by definition datasources
+		Operations:       ops,
 	}, nil
 }
 

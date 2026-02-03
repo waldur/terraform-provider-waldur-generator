@@ -434,9 +434,8 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		}
 	}
 
-	// Merge fields for the model (Create + Response + FilterParams)
+	// Merge fields for the model (Create + Response)
 	allFields := MergeFields(createFields, responseFields)
-	allFields = MergeFields(allFields, filterParams)
 
 	// Filter out marketplace and other fields for non-order resources
 	if !isOrder {

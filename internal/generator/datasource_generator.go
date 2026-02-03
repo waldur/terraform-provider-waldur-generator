@@ -13,9 +13,13 @@ func setIsDataSourceRecursive(fields []FieldInfo) {
 	for i := range fields {
 		fields[i].IsDataSource = true
 		fields[i].SchemaSkip = false
+		fields[i].Required = false
+		fields[i].ReadOnly = true
 		if fields[i].ItemSchema != nil {
 			fields[i].ItemSchema.IsDataSource = true
 			fields[i].ItemSchema.SchemaSkip = false
+			fields[i].ItemSchema.Required = false
+			fields[i].ItemSchema.ReadOnly = true
 			if len(fields[i].ItemSchema.Properties) > 0 {
 				setIsDataSourceRecursive(fields[i].ItemSchema.Properties)
 			}

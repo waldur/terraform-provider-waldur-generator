@@ -62,30 +62,42 @@ func testAccOpenstackInstanceConfig_basic() string {
 	return getProviderConfig() + `
 
 data "waldur_structure_project" "test" {
-  name = "waldur-test"
+  filters = {
+    name = "waldur-test"
+  }
 }
 
 data "waldur_marketplace_offering" "test" {
-  name = "Virtual machine in waldur-dev"
-  project_uuid = data.waldur_structure_project.test.id
+  filters = {
+    name = "Virtual machine in waldur-dev"
+    project_uuid = data.waldur_structure_project.test.id
+  }
 }
 
 data "waldur_openstack_flavor" "test" {
-  name = "m1.small"
-  tenant_uuid = data.waldur_marketplace_offering.test.scope_uuid
+  filters = {
+    name = "m1.small"
+    tenant_uuid = data.waldur_marketplace_offering.test.scope_uuid
+  }
 }
 
 data "waldur_openstack_image" "test" {
-  name = "cirros"
-  tenant_uuid = data.waldur_marketplace_offering.test.scope_uuid
+  filters = {
+    name = "cirros"
+    tenant_uuid = data.waldur_marketplace_offering.test.scope_uuid
+  }
 }
 
 data "waldur_core_ssh_public_key" "test" {
-  name = "my-ssh-key"
+  filters = {
+    name = "my-ssh-key"
+  }
 }
 
 data "waldur_openstack_port" "test" {
-  backend_id = "31771cfe-dc77-417a-bacb-460bf8fa0791"
+  filters = {
+    backend_id = "31771cfe-dc77-417a-bacb-460bf8fa0791"
+  }
 }
 
 resource "waldur_openstack_instance" "test" {

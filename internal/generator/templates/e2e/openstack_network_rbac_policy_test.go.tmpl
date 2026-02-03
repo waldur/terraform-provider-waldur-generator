@@ -77,21 +77,29 @@ func getProviderConfigRbacPolicy() string {
 func testAccOpenstackNetworkRbacPolicyConfig_basic() string {
 	return getProviderConfigRbacPolicy() + `
 data "waldur_openstack_network" "net" {
-  name = "91809-int-net"
+  filters = {
+    name = "91809-int-net"
+  }
 }
 
 data "waldur_structure_customer" "cust" {
-  name = "UT-DevOpsCourse"
+  filters = {
+    name = "UT-DevOpsCourse"
+  }
 }
 
 data "waldur_structure_project" "proj" {
-  name          = "921091"
-  customer      = data.waldur_structure_customer.cust.id
+  filters = {
+    name     = "921091"
+    customer = data.waldur_structure_customer.cust.id
+  }
 }
 
 data "waldur_openstack_tenant" "tenant" {
-  name         = "921091"
-  project_uuid = data.waldur_structure_project.proj.id
+  filters = {
+    name         = "921091"
+    project_uuid = data.waldur_structure_project.proj.id
+  }
 }
 
 resource "waldur_openstack_network_rbac_policy" "test" {
@@ -105,21 +113,29 @@ resource "waldur_openstack_network_rbac_policy" "test" {
 func testAccOpenstackNetworkRbacPolicyConfig_updated() string {
 	return getProviderConfigRbacPolicy() + `
 data "waldur_openstack_network" "net" {
-  name = "91809-int-net"
+  filters = {
+    name = "91809-int-net"
+  }
 }
 
 data "waldur_structure_customer" "cust" {
-  name = "UT-DevOpsCourse"
+  filters = {
+    name = "UT-DevOpsCourse"
+  }
 }
 
 data "waldur_structure_project" "proj" {
-  name          = "921091"
-  customer      = data.waldur_structure_customer.cust.id
+  filters = {
+    name     = "921091"
+    customer = data.waldur_structure_customer.cust.id
+  }
 }
 
 data "waldur_openstack_tenant" "tenant" {
-  name         = "921091"
-  project_uuid = data.waldur_structure_project.proj.id
+  filters = {
+    name         = "921091"
+    project_uuid = data.waldur_structure_project.proj.id
+  }
 }
 
 resource "waldur_openstack_network_rbac_policy" "test" {

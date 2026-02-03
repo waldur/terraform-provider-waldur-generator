@@ -46,11 +46,14 @@
 	payload := {{ .Name | title }}CreateRequest{
 		Project:    data.Project.ValueStringPointer(),
 		Offering:   data.Offering.ValueStringPointer(),
-		Plan:       data.Plan.ValueStringPointer(),
 		Attributes: attributes,
 	}
 
-	if !data.Limits.IsNull() {
+	if !data.Plan.IsNull() && !data.Plan.IsUnknown() {
+		payload.Plan = data.Plan.ValueStringPointer()
+	}
+
+	if !data.Limits.IsNull() && !data.Limits.IsUnknown() {
 		limits := make(map[string]float64)
 		diags := data.Limits.ElementsAs(ctx, &limits, false)
 		resp.Diagnostics.Append(diags...)
@@ -97,6 +100,14 @@
 		return
 	}
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
+
+	// Ensure computed fields that aren't in the technical resource are known
+	if data.Plan.IsUnknown() {
+		data.Plan = types.StringNull()
+	}
+	if data.Limits.IsUnknown() {
+		data.Limits = types.MapNull(types.Float64Type)
+	}
 {{- end }}
 
 {{- /* 
@@ -187,6 +198,14 @@
 		return
 	}
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
+
+	// Ensure computed fields that aren't in the technical resource are known
+	if data.Plan.IsUnknown() {
+		data.Plan = types.StringNull()
+	}
+	if data.Limits.IsUnknown() {
+		data.Limits = types.MapNull(types.Float64Type)
+	}
 {{- end }}
 
 {{- /* 
@@ -207,7 +226,17 @@
 	{{- end }}
 
 	// Submit termination order
-	orderUUID, err := r.client.Terminate{{ .Name | title }}(ctx, data.UUID.ValueString(), payload)
+	{{- $hasMarketplaceUUID := false }}
+	{{- range .ModelFields }}
+	{{- if eq .Name "marketplace_resource_uuid" }}{{ $hasMarketplaceUUID = true }}{{ end }}
+	{{- end }}
+	resourceID := data.UUID.ValueString()
+	{{- if $hasMarketplaceUUID }}
+	if !data.MarketplaceResourceUuid.IsNull() && !data.MarketplaceResourceUuid.IsUnknown() {
+		resourceID = data.MarketplaceResourceUuid.ValueString()
+	}
+	{{- end }}
+	orderUUID, err := r.client.Terminate{{ .Name | title }}(ctx, resourceID, payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Termination Failed", err.Error())
 		return
@@ -226,5 +255,20 @@
 			resp.Diagnostics.AddError("Termination Order Failed", err.Error())
 			return
 		}
+	}
+{{- end }}
+
+{{- define "resource_read_order" }}
+	{{ template "resource_read_standard" . }}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Ensure computed fields that aren't in the technical resource are known
+	if data.Plan.IsUnknown() {
+		data.Plan = types.StringNull()
+	}
+	if data.Limits.IsUnknown() {
+		data.Limits = types.MapNull(types.Float64Type)
 	}
 {{- end }}

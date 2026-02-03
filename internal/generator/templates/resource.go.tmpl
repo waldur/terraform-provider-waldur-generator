@@ -159,7 +159,9 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 
 	// Call Waldur API to read resource
 	
-	{{- if .IsLink }}
+	{{- if .IsOrder }}
+	{{ template "resource_read_order" . }}
+	{{- else if .IsLink }}
 	{{ template "resource_read_link" . }}
 	{{- else }}
 	{{ template "resource_read_standard" . }}

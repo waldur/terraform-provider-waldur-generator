@@ -16,11 +16,11 @@ type {{ .RefName }} struct {
 {{ range .Resources }}
 type {{ .Name | title }}CreateRequest struct {
 	{{- if .IsOrder }}
-	Project  *string `json:"project" tfsdk:"project"`
-	Offering *string `json:"offering" tfsdk:"offering"`
-	Plan     *string `json:"plan,omitempty" tfsdk:"plan"`
-	Limits   map[string]float64 `json:"limits,omitempty" tfsdk:"limits"`
-	Attributes {{ .Name | title }}CreateAttributes `json:"attributes" tfsdk:"attributes"`
+	Project  *string `json:"project"`
+	Offering *string `json:"offering"`
+	Plan     *string `json:"plan,omitempty"`
+	Limits   map[string]float64 `json:"limits,omitempty"`
+	Attributes {{ .Name | title }}CreateAttributes `json:"attributes"`
 	{{- else }}
 	{{ template "sdkStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) "Package" $.Package }}
 	{{- end }}
@@ -48,7 +48,7 @@ type {{ .Name | title }}UpdateRequest struct {
 type {{ $resName | title }}{{ $action.Name | title }}ActionRequest struct {
 	{{- range $field := $modelFields }}
 	{{- if eq $field.Name $action.Param }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}" tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}"`
 	{{- end }}
 	{{- end }}
 }
@@ -106,7 +106,7 @@ func (r *{{ .Name | title }}Response) GetErrorMessage() string {
 	{{- $pkgName := .Package }}
 	{{- range .Fields }}
 	{{- if not .IsPathParam }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if not .Required }}*{{ end }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if not .Required }}*{{ end }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}"`
 	{{- end }}
 	{{- end }}
 {{- end }}
@@ -140,7 +140,7 @@ type {{ $prefix }}{{ .Name | title }}Request struct {
 	{{- $pkgName := .Package }}
 	{{- range .Fields }}
 	{{- if and (ne .Name "project") (ne .Name "offering") }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if not .Required }}*{{ end }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if not .Required }}*{{ end }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $prefix }}{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}"`
 	{{- end }}
 	{{- end }}
 {{- end }}

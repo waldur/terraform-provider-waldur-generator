@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 )
 
@@ -334,7 +335,7 @@ func (g *Generator) generateE2ETests() error {
 		}
 
 		// Write file
-		outputPath := filepath.Join(outputDir, entry.Name())
+		outputPath := filepath.Join(outputDir, strings.TrimSuffix(entry.Name(), ".tmpl"))
 		if err := os.WriteFile(outputPath, content, 0644); err != nil {
 			return fmt.Errorf("failed to write test file %s: %w", entry.Name(), err)
 		}

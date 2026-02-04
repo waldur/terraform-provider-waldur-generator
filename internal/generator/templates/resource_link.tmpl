@@ -19,7 +19,7 @@
 	{{- end }}
 	{{- end }}
 
-	apiResp, err := r.client.Link{{ .Name | title }}(ctx, &requestBody)
+	apiResp, err := r.client.Link(ctx, &requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError("Link Operation Failed", err.Error())
 		return
@@ -110,7 +110,7 @@
 	}
 	sourceUUID := parts[0]
 	
-	err := r.client.Unlink{{ .Name | title }}(ctx, sourceUUID)
+	err := r.client.Unlink(ctx, sourceUUID)
 	if err != nil && !IsNotFoundError(err) {
 		resp.Diagnostics.AddError("Unlink Failed", err.Error())
 		return
@@ -123,7 +123,7 @@
 	}
 
 	err = common.WaitForDeletion(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
-		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+		return r.client.Get(ctx, data.UUID.ValueString())
 	}, deleteTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to wait for resource deletion", err.Error())

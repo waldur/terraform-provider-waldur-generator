@@ -46,7 +46,7 @@ func New{{ .Name | title }}Resource() resource.Resource {
 
 // {{ .Name | title }}Resource defines the resource implementation.
 type {{ .Name | title }}Resource struct {
-	client *Client
+	client *{{ .Name | title }}Client
 }
 
 // {{ .Name | title }}ResourceModel describes the resource data model.
@@ -104,7 +104,7 @@ func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resourc
 		return
 	}
 
-	r.client = &Client{}
+	r.client = &{{ .Name | title }}Client{}
 	if err := r.client.Configure(ctx, req.ProviderData); err != nil {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",

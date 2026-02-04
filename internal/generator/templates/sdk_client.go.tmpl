@@ -8,16 +8,17 @@ import (
 	"github.com/waldur/terraform-provider-waldur/internal/client"
 	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
 )
+{{- $res := index .Resources 0 }}
 
-type Client struct {
+type {{ $res.Name | title }}Client struct {
 	Client *client.Client
 }
 
-func NewClient(c *client.Client) *Client {
-	return &Client{Client: c}
+func New{{ $res.Name | title }}Client(c *client.Client) *{{ $res.Name | title }}Client {
+	return &{{ $res.Name | title }}Client{Client: c}
 }
 
-func (c *Client) Configure(ctx context.Context, providerData interface{}) error {
+func (c *{{ $res.Name | title }}Client) Configure(ctx context.Context, providerData interface{}) error {
 	if providerData == nil {
 		return nil
 	}
@@ -38,8 +39,8 @@ func IsNotFoundError(err error) bool {
 {{ range .Resources }}
 {{ if not .IsDatasourceOnly -}}
 {{- if .IsOrder }}
-// Create{{ .Name | title }}Order creates a marketplace order for this resource.
-func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*common.OrderDetails, error) {
+// CreateOrder creates a marketplace order for this resource.
+func (c *{{ .Name | title }}Client) CreateOrder(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*common.OrderDetails, error) {
 	var apiResp common.OrderDetails
 	err := c.Client.Post(ctx, "/api/marketplace-orders/", req, &apiResp)
 	if err != nil {
@@ -48,8 +49,8 @@ func (c *Client) Create{{ .Name | title }}Order(ctx context.Context, req *{{ .Na
 	return &apiResp, nil
 }
 
-// Terminate{{ .Name | title }} terminates the resource via marketplace.
-func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {
+// Terminate terminates the resource via marketplace.
+func (c *{{ .Name | title }}Client) Terminate(ctx context.Context, id string, req map[string]interface{}) (string, error) {
 	var res map[string]interface{}
 	err := c.Client.ExecuteAction(ctx, "/api/marketplace-resources/{uuid}/terminate/", id, req, &res)
 	if err != nil {
@@ -62,7 +63,7 @@ func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, re
 }
 {{- else }}
 {{- if .APIPaths.Create }}
-func (c *Client) Create{{ .Name | title }}(ctx context.Context{{ if .CreateOperation }}{{ range $key, $value := .CreateOperation.PathParams }}, {{ $value }} string{{ end }}{{ end }}, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
+func (c *{{ .Name | title }}Client) Create(ctx context.Context{{ if .CreateOperation }}{{ range $key, $value := .CreateOperation.PathParams }}, {{ $value }} string{{ end }}{{ end }}, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
 	
 	{{- $customCreate := false }}
@@ -96,7 +97,7 @@ func (c *Client) Create{{ .Name | title }}(ctx context.Context{{ if .CreateOpera
 {{- end }}
 
 
-func (c *Client) Get{{ .Name | title }}(ctx context.Context, id string) (*{{ .Name | title }}Response, error) {
+func (c *{{ .Name | title }}Client) Get(ctx context.Context, id string) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
 	err := c.Client.Get(ctx, "{{ .APIPaths.Retrieve }}", id, &apiResp)
 	if err != nil {
@@ -107,7 +108,7 @@ func (c *Client) Get{{ .Name | title }}(ctx context.Context, id string) (*{{ .Na
 
 {{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Update }}
-func (c *Client) Update{{ .Name | title }}(ctx context.Context, id string, req *{{ .Name | title }}UpdateRequest) (*{{ .Name | title }}Response, error) {
+func (c *{{ .Name | title }}Client) Update(ctx context.Context, id string, req *{{ .Name | title }}UpdateRequest) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
 	err := c.Client.Update(ctx, "{{ .APIPaths.Update }}", id, req, &apiResp)
 	if err != nil {
@@ -118,14 +119,14 @@ func (c *Client) Update{{ .Name | title }}(ctx context.Context, id string, req *
 {{- end }}
 
 {{- if .APIPaths.Delete }}
-func (c *Client) Delete{{ .Name | title }}(ctx context.Context, id string) error {
+func (c *{{ .Name | title }}Client) Delete(ctx context.Context, id string) error {
 	return c.Client.Delete(ctx, "{{ .APIPaths.Delete }}", id)
 }
 {{- end }}
 {{- end }}
 
 
-func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]string) ([]{{ .Name | title }}Response, error) {
+func (c *{{ .Name | title }}Client) List(ctx context.Context, filter map[string]string) ([]{{ .Name | title }}Response, error) {
 	var listResult []{{ .Name | title }}Response
 	err := c.Client.List(ctx, "{{ .APIPaths.Base }}", filter, &listResult)
 	if err != nil {
@@ -138,7 +139,7 @@ func (c *Client) List{{ .Name | title }}(ctx context.Context, filter map[string]
 
 {{ if not .IsDatasourceOnly -}}
 {{- if .APIPaths.Terminate }}
-func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, req map[string]interface{}) (string, error) {
+func (c *{{ .Name | title }}Client) Terminate(ctx context.Context, id string, req map[string]interface{}) (string, error) {
 	var res map[string]interface{}
 	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Terminate }}", id, req, &res)
 	if err != nil {
@@ -152,7 +153,7 @@ func (c *Client) Terminate{{ .Name | title }}(ctx context.Context, id string, re
 {{- end }}
 
 {{- if .APIPaths.Link }}
-func (c *Client) Link{{ .Name | title }}(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
+func (c *{{ .Name | title }}Client) Link(ctx context.Context, req *{{ .Name | title }}CreateRequest) (*{{ .Name | title }}Response, error) {
 	{{- if .Source.Param }}
 	sourceUUID := *req.{{ .Source.Param | title }}
 	{{- else }}
@@ -169,7 +170,7 @@ func (c *Client) Link{{ .Name | title }}(ctx context.Context, req *{{ .Name | ti
 {{- end }}
 
 {{- if .APIPaths.Unlink }}
-func (c *Client) Unlink{{ .Name | title }}(ctx context.Context, sourceUUID string) error {
+func (c *{{ .Name | title }}Client) Unlink(ctx context.Context, sourceUUID string) error {
 	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Unlink }}", sourceUUID, nil, nil)
 	return err
 }
@@ -178,7 +179,7 @@ func (c *Client) Unlink{{ .Name | title }}(ctx context.Context, sourceUUID strin
 {{- $resName := .Name }}
 {{- $ops := .Operations }}
 {{- range $action := .UpdateActions }}
-func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Context, id string, req *{{ $resName | title }}{{ $action.Name | title }}ActionRequest) error {
+func (c *{{ $resName | title }}Client) {{ $action.Name | title }}(ctx context.Context, id string, req *{{ $resName | title }}{{ $action.Name | title }}ActionRequest) error {
 	{{- if $action.Path }}
 	path := "{{ $action.Path }}"
 	{{- else }}
@@ -190,7 +191,7 @@ func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Co
 {{- end }}
 
 {{- range $action := .StandaloneActions }}
-func (c *Client) {{ $resName | title }}{{ $action.Name | title }}(ctx context.Context, id string) error {
+func (c *{{ $resName | title }}Client) {{ $action.Name | title }}(ctx context.Context, id string) error {
 	err := c.Client.ExecuteAction(ctx, "{{ $action.Path }}", id, nil, nil)
 	return err
 }

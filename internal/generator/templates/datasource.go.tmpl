@@ -26,7 +26,7 @@ func New{{ .Name | title }}DataSource() datasource.DataSource {
 }
 
 type {{ .Name | title }}DataSource struct {
-	client *Client
+	client *{{ .Name | title }}Client
 }
 
 type {{ .Name | title }}DataSourceModel struct {
@@ -68,7 +68,7 @@ func (d *{{ .Name | title }}DataSource) Configure(ctx context.Context, req datas
 		return
 	}
 
-	d.client = &Client{}
+	d.client = &{{ .Name | title }}Client{}
 	if err := d.client.Configure(ctx, req.ProviderData); err != nil {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
@@ -90,7 +90,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 
 	// Check if UUID is provided for direct lookup
 	if !data.UUID.IsNull() && data.UUID.ValueString() != "" {
-		apiResp, err := d.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+		apiResp, err := d.client.Get(ctx, data.UUID.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to Read {{ .Name | humanize }}",
@@ -112,7 +112,7 @@ func (d *{{ .Name | title }}DataSource) Read(ctx context.Context, req datasource
 			return
 		}
 		
-		results, err := d.client.List{{ .Name | title }}(ctx, filters)
+		results, err := d.client.List(ctx, filters)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Unable to List {{ .Name | humanize }}",

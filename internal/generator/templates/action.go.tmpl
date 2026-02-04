@@ -22,7 +22,7 @@ type {{ .ResourceName | title }}{{ .ActionName | title }}Model struct {
 }
 
 type {{ .ResourceName | title }}{{ .ActionName | title }}Action struct {
-	client *Client
+	client *{{ .ResourceName | title }}Client
 }
 
 func New{{ .ResourceName | title }}{{ .ActionName | title }}Action() action.Action {
@@ -54,7 +54,7 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Configure(c
 		return
 	}
 
-	a.client = &Client{}
+	a.client = &{{ .ResourceName | title }}Client{}
 	if err := a.client.Configure(ctx, req.ProviderData); err != nil {
 		resp.Diagnostics.AddError(
 			"Unexpected Action Configure Type",
@@ -73,7 +73,7 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx 
 	}
 
 	uuid := data.{{ .IdentifierParam | title }}.ValueString()
-	err := a.client.{{ .ResourceName | title }}{{ .ActionName | title }}(ctx, uuid)
+	err := a.client.{{ .ActionName | title }}(ctx, uuid)
 
 	if err != nil {
 		{{- if eq .ActionName "unlink" }}
@@ -106,14 +106,14 @@ func (a *{{ .ResourceName | title }}{{ .ActionName | title }}Action) Invoke(ctx 
 
 	{{- if eq .ActionName "unlink" }}
 	err = common.WaitForDeletion(ctx, func(ctx context.Context) (*{{ .ResourceName | title }}Response, error) {
-		return a.client.Get{{ .ResourceName | title }}(ctx, uuid)
+		return a.client.Get(ctx, uuid)
 	}, timeout)
 	if err != nil {
 		resp.Diagnostics.AddWarning("Resource deletion check failed", err.Error())
 	}
 	{{- else }}
 	_, err = common.WaitForResource(ctx, func(ctx context.Context) (*{{ .ResourceName | title }}Response, error) {
-		return a.client.Get{{ .ResourceName | title }}(ctx, uuid)
+		return a.client.Get(ctx, uuid)
 	}, timeout)
 	if err != nil {
 		resp.Diagnostics.AddWarning("Resource state check failed", err.Error())

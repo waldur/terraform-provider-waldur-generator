@@ -65,7 +65,7 @@
 	}
 
 	// Phase 2: Submit Order
-	orderRes, err := r.client.Create{{ .Name | title }}Order(ctx, &payload)
+	orderRes, err := r.client.CreateOrder(ctx, &payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Order Submission Failed", err.Error())
 		return
@@ -95,7 +95,7 @@
 	}
 
 	// Fetch final resource state to ensure Terraform state matches reality
-	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+	apiResp, err := r.client.Get(ctx, data.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to Read Resource", err.Error())
 		return
@@ -133,7 +133,7 @@
 
 	if anyChanges {
 		// Execute the PATCH request
-		_, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &patchPayload)
+		_, err := r.client.Update(ctx, data.UUID.ValueString(), &patchPayload)
 		if err != nil {
 			resp.Diagnostics.AddError("Update Failed", err.Error())
 			return
@@ -172,14 +172,14 @@
 		{{- end }}
 
 		// Execute the Action
-		if err := r.client.{{ $.Name | title }}{{ $action.Name | title }}(ctx, data.UUID.ValueString(), &req); err != nil {
+		if err := r.client.{{ $action.Name | title }}(ctx, data.UUID.ValueString(), &req); err != nil {
 			resp.Diagnostics.AddError("RPC Action Failed: {{ $action.Name }}", err.Error())
 			return
 		}
 
 		// Wait for the resource to return to OK state
 		apiResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ $.Name | title }}Response, error) {
-			return r.client.Get{{ $.Name | title }}(ctx, data.UUID.ValueString())
+			return r.client.Get(ctx, data.UUID.ValueString())
 		}, updateTimeout)
 		if err != nil {
 			resp.Diagnostics.AddError("Wait for RPC action failed", err.Error())
@@ -191,7 +191,7 @@
 	{{- end }}
 
 	// Fetch updated state after all changes
-	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+	apiResp, err := r.client.Get(ctx, data.UUID.ValueString())
 	if err != nil {
 		if IsNotFoundError(err) {
 			resp.State.RemoveResource(ctx)
@@ -234,7 +234,7 @@
 		resourceID = data.MarketplaceResourceUuid.ValueString()
 	}
 	{{- end }}
-	orderUUID, err := r.client.Terminate{{ .Name | title }}(ctx, resourceID, payload)
+	orderUUID, err := r.client.Terminate(ctx, resourceID, payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Termination Failed", err.Error())
 		return

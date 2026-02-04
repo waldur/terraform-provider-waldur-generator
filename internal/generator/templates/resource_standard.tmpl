@@ -79,7 +79,7 @@
 	{{- template "buildComplexRequestBodyFields" dict "Fields" .CreateFields "Operation" nil "Prefix" (printf "%sCreate" (.Name | title)) }}
 	{{- end }}
 
-	apiResp, err := r.client.Create{{ .Name | title }}(ctx, {{ if .CreateOperation }}{{ range $key, $value := .CreateOperation.PathParams }}data.{{ $value | title }}.ValueString(), {{ end }}{{ end }}&requestBody)
+	apiResp, err := r.client.Create(ctx, {{ if .CreateOperation }}{{ range $key, $value := .CreateOperation.PathParams }}data.{{ $value | title }}.ValueString(), {{ end }}{{ end }}&requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create {{ .Name | humanize }}",
@@ -117,7 +117,7 @@
 	}
 
 	newResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
-		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+		return r.client.Get(ctx, data.UUID.ValueString())
 	}, createTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
@@ -153,7 +153,7 @@
 		{{- end }}
 
 		if len(filters) == expectedCount {
-			listResult, err := r.client.List{{ .Name | title }}(ctx, filters)
+			listResult, err := r.client.List(ctx, filters)
 			if err != nil {
 				resp.Diagnostics.AddError("Failed to lookup resource by composite keys", err.Error())
 				return
@@ -172,7 +172,7 @@
 	}
 	{{- end }}
 
-	apiResp, err := r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+	apiResp, err := r.client.Get(ctx, data.UUID.ValueString())
 	if err != nil {
 		if IsNotFoundError(err) {
 			resp.State.RemoveResource(ctx)
@@ -202,7 +202,7 @@
 	{{- end }}
 	{{- template "buildComplexRequestBodyFields" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
 
-	apiResp, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &requestBody)
+	apiResp, err := r.client.Update(ctx, data.UUID.ValueString(), &requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Update {{ .Name | humanize }}",
@@ -219,7 +219,7 @@
 	}
 
 	newResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
-		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+		return r.client.Get(ctx, data.UUID.ValueString())
 	}, updateTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to wait for resource update", err.Error())
@@ -237,7 +237,7 @@
 {{- /* Standard Delete Operation */ -}}
 {{- define "resource_delete_standard" }}
 	{{- if .APIPaths.Delete }}
-	err := r.client.Delete{{ .Name | title }}(ctx, data.UUID.ValueString())
+	err := r.client.Delete(ctx, data.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Delete {{ .Name | humanize }}",
@@ -254,7 +254,7 @@
 	}
 
 	err = common.WaitForDeletion(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
-		return r.client.Get{{ .Name | title }}(ctx, data.UUID.ValueString())
+		return r.client.Get(ctx, data.UUID.ValueString())
 	}, deleteTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to wait for resource deletion", err.Error())
@@ -296,7 +296,7 @@
 		"uuid": uuid,
 	})
 
-	apiResp, err := r.client.Get{{ .Name | title }}(ctx, uuid)
+	apiResp, err := r.client.Get(ctx, uuid)
 	if err != nil {
 		if IsNotFoundError(err) {
 			resp.Diagnostics.AddError(

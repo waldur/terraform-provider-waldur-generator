@@ -39,6 +39,7 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	{{- $prefix := .Name | title }}
 	{{- $fields := .ModelFields }}
 	{{- range $fields }}
+	{{- if not .SchemaSkip }}
 	{{- $fieldName := .Name }}
 	{{- $inResponse := false }}
 	{{- range $.ResponseFields }}
@@ -116,6 +117,7 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	} else {
 		model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
 	}
+	{{- end }}
 	{{- end }}
 	{{- end }}
 	{{- end }}
@@ -412,5 +414,10 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 {{ template "sdkResponseNestedStructs" dict "Fields" .ItemSchema.Properties "Prefix" (printf "%s%s" $prefix (.Name | title)) "Package" $pkgName }}
 {{- end }}
 {{- end }}
+{{- end }}
+
+{{- /* Helper: Assign simple field from Terraform data to a target variable */ -}}
+{{- define "fieldAssignment" }}
+{{ .Target }}.{{ .Field.Name | title }} = data.{{ .Field.Name | title }}.Value{{ if or (eq .Field.Type "string") (eq .Field.GoType "types.String") }}String{{ else if or (eq .Field.Type "integer") (eq .Field.GoType "types.Int64") }}Int64{{ else if or (eq .Field.Type "boolean") (eq .Field.GoType "types.Bool") }}Bool{{ else if or (eq .Field.Type "number") (eq .Field.GoType "types.Float64") }}Float64{{ end }}Pointer()
 {{- end }}
 

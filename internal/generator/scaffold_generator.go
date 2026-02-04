@@ -420,9 +420,7 @@ func (g *Generator) generateExamples() error {
 
 		// Map templates/... to examples/...
 		outputPath := filepath.Join(g.config.Generator.OutputDir, "examples", relPath)
-		if strings.HasSuffix(outputPath, ".tmpl") {
-			outputPath = strings.TrimSuffix(outputPath, ".tmpl")
-		}
+		outputPath = strings.TrimSuffix(outputPath, ".tmpl")
 
 		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 			return err

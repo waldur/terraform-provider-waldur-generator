@@ -47,6 +47,7 @@ type ResourceData struct {
 	NestedStructs         []FieldInfo // Only used for legacy resource generation if needed
 	FilterParams          []FieldInfo
 	HasDataSource         bool // True if a corresponding data source exists
+	SkipPolling           bool // True if resource does not need polling (e.g. Structure Project)
 }
 
 // New creates a new generator instance

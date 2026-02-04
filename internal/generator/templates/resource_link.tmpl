@@ -7,22 +7,17 @@
 	// Link Plugin Create Logic
 	sourceUUID := data.{{ .Source.Param | title }}.ValueString()
 
-	requestBody := {{ .Name | title }}CreateRequest{
-		{{ .Target.Param | title }}: data.{{ .Target.Param | title }}.ValueStringPointer(),
-		{{- range .CreateFields }}
-		{{- if and (ne .Name $.Source.Param) (ne .Name $.Target.Param) }}
-		{{- if eq .Type "string" }}
-		{{ .Name | title }}: data.{{ .Name | title }}.ValueStringPointer(),
-		{{- else if eq .Type "integer" }}
-		{{ .Name | title }}: data.{{ .Name | title }}.ValueInt64Pointer(),
-		{{- else if eq .Type "boolean" }}
-		{{ .Name | title }}: data.{{ .Name | title }}.ValueBoolPointer(),
-		{{- else if eq .Type "number" }}
-		{{ .Name | title }}: data.{{ .Name | title }}.ValueFloat64Pointer(),
-		{{- end }}
-		{{- end }}
-		{{- end }}
+	requestBody := {{ .Name | title }}CreateRequest{}
+	requestBody.{{ .Target.Param | title }} = data.{{ .Target.Param | title }}.ValueStringPointer()
+	{{- range .CreateFields }}
+	{{- if and (ne .Name $.Source.Param) (ne .Name $.Target.Param) }}
+	{{- if or (eq .Type "string") (eq .Type "integer") (eq .Type "boolean") (eq .Type "number") }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		{{- template "fieldAssignment" dict "Field" . "Target" "requestBody" }}
 	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
 
 	apiResp, err := r.client.Link{{ .Name | title }}(ctx, &requestBody)
 	if err != nil {

@@ -1,0 +1,113 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        transfer_encoding: []
+        trailer: {}
+        host: 127.0.0.1:8000
+        remote_addr: ""
+        request_uri: ""
+        body: ""
+        form: {}
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
+            Content-Type:
+                - application/json
+        url: http://127.0.0.1:8000/api/projects/?name_exact=Naked+azanide+as+an+aminating+agent+and+a+superbase
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding: []
+        trailer: {}
+        content_length: 1354
+        uncompressed: false
+        body: '[{"url":"http://127.0.0.1:8000/api/projects/5bb355565bf5407b8b8f9110b6c105f6/","uuid":"5bb355565bf5407b8b8f9110b6c105f6","name":"Naked azanide as an aminating agent and a superbase","slug":"naked-az-1","customer":"http://127.0.0.1:8000/api/customers/8c00f072b2f5454ea17c74ad79dfecea/","customer_uuid":"8c00f072b2f5454ea17c74ad79dfecea","customer_name":"Agnes Kütt (University of Tartu)","customer_slug":"agnes-ku-1","customer_native_name":"","customer_abbreviation":"","description":"","customer_display_billing_info_in_projects":true,"created":"2024-03-14T11:53:41.322581+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":6,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":"11.00000","marketplace_resource_count":{"06e45986252244218bd062149fc3b5b5":19,"1951da2d97014c2c8cc372bb731f72ab":1,"4588ff519260461893ab371b8fe83363":1,"6dfcdbe3c18241dc87526ef411bf6064":3,"e5a5e7651f394d10958328bbc3e967eb":1},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}]'
+        headers:
+            Allow:
+                - GET, POST, HEAD, OPTIONS
+            Content-Language:
+                - en
+            Content-Length:
+                - "1354"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Wed, 04 Feb 2026 08:55:34 GMT
+            Link:
+                - <http://127.0.0.1:8000/api/projects/?name_exact=Naked+azanide+as+an+aminating+agent+and+a+superbase>; rel="first", <http://127.0.0.1:8000/api/projects/?name_exact=Naked+azanide+as+an+aminating+agent+and+a+superbase>; rel="last"
+            Server:
+                - WSGIServer/0.2 CPython/3.11.9
+            Vary:
+                - Accept, Accept-Language, Cookie, origin
+            X-Frame-Options:
+                - DENY
+            X-Result-Count:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 56.838126ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        transfer_encoding: []
+        trailer: {}
+        host: 127.0.0.1:8000
+        remote_addr: ""
+        request_uri: ""
+        body: ""
+        form: {}
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
+            Content-Type:
+                - application/json
+        url: http://127.0.0.1:8000/api/marketplace-public-offerings/?name=Volume+in+tf-test-tenant-v2
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding: []
+        trailer: {}
+        content_length: 5148
+        uncompressed: false
+        body: '[{"url":"http://127.0.0.1:8000/api/marketplace-public-offerings/48c508b0e6fc40a2bdacfe9d50566cd5/","uuid":"48c508b0e6fc40a2bdacfe9d50566cd5","created":"2026-02-02T19:51:23.444496+00:00","name":"Volume in tf-test-tenant-v2","slug":"volume-in-2","description":"","full_description":"","privacy_policy_link":"","access_url":"","endpoints":[],"software_catalogs":[],"partitions":[],"roles":[],"customer":"http://127.0.0.1:8000/api/customers/8c00f072b2f5454ea17c74ad79dfecea/","customer_uuid":"8c00f072b2f5454ea17c74ad79dfecea","customer_name":"Agnes Kütt (University of Tartu)","project":"http://127.0.0.1:8000/api/projects/5bb355565bf5407b8b8f9110b6c105f6/","project_uuid":"5bb355565bf5407b8b8f9110b6c105f6","project_name":"Naked azanide as an aminating agent and a superbase","category":"http://127.0.0.1:8000/api/marketplace-categories/6dfcdbe3c18241dc87526ef411bf6064/","category_uuid":"6dfcdbe3c18241dc87526ef411bf6064","category_title":"Storage","attributes":{},"options":{},"resource_options":{},"components":[{"uuid":"99024cc23e6a40b1b89ad86dbd8fe2e8","billing_type":"limit","type":"cores","name":"Cores","description":"","measured_unit":"cores","unit_factor":1,"limit_period":"month","limit_amount":null,"article_code":"","max_value":null,"min_value":null,"max_available_limit":null,"is_boolean":false,"default_limit":null,"factor":1,"is_builtin":true,"is_prepaid":false,"overage_component":null,"min_prepaid_duration":null,"max_prepaid_duration":null},{"uuid":"8530b892d84b4ec3924dc7ff42f61e66","billing_type":"limit","type":"ram","name":"RAM","description":"","measured_unit":"GB","unit_factor":1,"limit_period":"month","limit_amount":null,"article_code":"","max_value":null,"min_value":null,"max_available_limit":null,"is_boolean":false,"default_limit":null,"factor":1024,"is_builtin":true,"is_prepaid":false,"overage_component":null,"min_prepaid_duration":null,"max_prepaid_duration":null},{"uuid":"fd62931789ec4114a0d6ca7a3b2e81d1","billing_type":"limit","type":"storage","name":"Storage","description":"","measured_unit":"GB","unit_factor":1,"limit_period":"month","limit_amount":null,"article_code":"","max_value":null,"min_value":null,"max_available_limit":null,"is_boolean":false,"default_limit":null,"factor":1024,"is_builtin":true,"is_prepaid":false,"overage_component":null,"min_prepaid_duration":null,"max_prepaid_duration":null}],"plugin_options":{},"state":"Active","vendor_details":"","getting_started":"","integration_guide":"","thumbnail":null,"order_count":5,"plans":[{"url":"http://127.0.0.1:8000/api/marketplace-public-offerings/6b9dc809f3064017ae55f52246620414/plans/f3bcdfd4538941c89f4d8de7daeaf161/","uuid":"f3bcdfd4538941c89f4d8de7daeaf161","name":"Default","description":"","article_code":"","max_amount":null,"archived":false,"is_active":true,"unit_price":"0.0000000000","unit":"month","init_price":0,"switch_price":0,"backend_id":"","organization_groups":[],"components":[{"type":"cores","name":"Cores","measured_unit":"cores","amount":0,"price":"0.0000000000","future_price":null,"discount_threshold":null,"discount_rate":null},{"type":"ram","name":"RAM","measured_unit":"GB","amount":0,"price":"0.0000000000","future_price":null,"discount_threshold":null,"discount_rate":null},{"type":"storage","name":"Storage","measured_unit":"GB","amount":0,"price":"0.0000000000","future_price":null,"discount_threshold":null,"discount_rate":null}],"prices":{"cores":"0E-10","ram":"0E-10","storage":"0E-10"},"future_prices":{"cores":null,"ram":null,"storage":null},"quotas":{"cores":0,"ram":0,"storage":0},"resources_count":3,"plan_type":null,"minimal_price":0}],"screenshots":[],"type":"OpenStack.Volume","shared":false,"billable":false,"scope":"http://127.0.0.1:8000/api/openstack-tenants/25572297f0814e85997e6e304b939332/","scope_uuid":"25572297f0814e85997e6e304b939332","scope_name":"tf-test-tenant-v2","scope_state":"OK","scope_error_message":"","files":[],"quotas":[{"name":"security_group_rule_count","usage":0,"limit":100},{"name":"floating_ip_count","usage":0,"limit":50},{"name":"storage","usage":2048,"limit":2000000000},{"name":"instances","usage":1,"limit":10},{"name":"security_group_count","usage":0,"limit":10},{"name":"vcpu","usage":1,"limit":10},{"name":"volumes","usage":3,"limit":10},{"name":"volumes_size","usage":22528,"limit":-1},{"name":"ram","usage":512,"limit":10240},{"name":"subnet_count","usage":1,"limit":100},{"name":"snapshots","usage":0,"limit":10},{"name":"port_count","usage":0,"limit":500},{"name":"gigabytes___DEFAULT__","usage":1,"limit":-1},{"name":"network_count","usage":1,"limit":100}],"paused_reason":"","datacite_doi":"","citation_count":-1,"latitude":null,"longitude":null,"country":"","backend_id":"","organization_groups":[],"tags":[],"image":null,"total_customers":null,"total_cost":null,"total_cost_estimated":null,"parent_description":"","parent_uuid":"6b9dc809f3064017ae55f52246620414","parent_name":"MockOpenStack4","backend_metadata":{},"has_compliance_requirements":false,"billing_type_classification":"mixed","compliance_checklist":null,"user_has_consent":false,"is_accessible":true,"google_calendar_is_public":null,"google_calendar_link":null,"promotion_campaigns":[]}]'
+        headers:
+            Allow:
+                - GET, HEAD, OPTIONS
+            Content-Language:
+                - en
+            Content-Length:
+                - "5148"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Wed, 04 Feb 2026 08:55:34 GMT
+            Link:
+                - <http://127.0.0.1:8000/api/marketplace-public-offerings/?name=Volume+in+tf-test-tenant-v2>; rel="first", <http://127.0.0.1:8000/api/marketplace-public-offerings/?name=Volume+in+tf-test-tenant-v2>; rel="last"
+            Server:
+                - WSGIServer/0.2 CPython/3.11.9
+            Vary:
+                - Accept, Accept-Language, Cookie, origin
+            X-Frame-Options:
+                - DENY
+            X-Result-Count:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 183.525192ms

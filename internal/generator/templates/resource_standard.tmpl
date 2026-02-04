@@ -1,30 +1,4 @@
-{{- /* Helper template for populating request body with a single field */ -}}
-{{- define "populateRequestBodyField" -}}
-{{- /* Expects: .Field (FieldInfo), .IsCreate (bool for Required field handling) */ -}}
-{{- $field := .Field -}}
-{{- $skipPathParam := .SkipPathParam -}}
-{{- if $skipPathParam }}
-{{- if not (isPathParam $.Operation $field.Name) }}
-{{- template "fieldAssignment" $field }}
-{{- end }}
-{{- else }}
-{{- template "fieldAssignment" $field }}
-{{- end }}
-{{- end -}}
 
-{{- /* Helper template for simple field assignment (Struct Literal) */ -}}
-{{- define "simpleFieldAssignment" -}}
-	{{- /* Assign pointer to value from Terraform data plan/state */ -}}
-	{{- if eq .Type "string" }}
-	{{ .Name | title }}: data.{{ .Name | title }}.ValueStringPointer(),
-	{{- else if eq .Type "integer" }}
-	{{ .Name | title }}: data.{{ .Name | title }}.ValueInt64Pointer(),
-	{{- else if eq .Type "boolean" }}
-	{{ .Name | title }}: data.{{ .Name | title }}.ValueBoolPointer(),
-	{{- else if eq .Type "number" }}
-	{{ .Name | title }}: data.{{ .Name | title }}.ValueFloat64Pointer(),
-	{{- end }}
-{{- end -}}
 
 {{- /* Helper template for complex field assignment (Post-Init) */ -}}
 {{- define "complexFieldAssignment" -}}
@@ -58,20 +32,6 @@
 	{{- end }}
 {{- end -}}
 
-{{- /* Helper template for building SIMPLE request body fields (Struct Literal) */ -}}
-{{- define "buildSimpleRequestBodyFields" -}}
-{{- range .Fields }}
-{{- if not (or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map")) }}
-{{- if $.Operation }}
-{{- if not (isPathParam $.Operation .Name) }}
-{{- template "simpleFieldAssignment" . }}
-{{- end }}
-{{- else }}
-{{- template "simpleFieldAssignment" . }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end -}}
 
 {{- /* Helper template for building COMPLEX request body fields (Post-Init) */ -}}
 {{- define "buildComplexRequestBodyFields" -}}
@@ -93,13 +53,26 @@
 	{{- /* Check if there are any body fields (non-path-param fields) */ -}}
 	{{- $hasCreate := or .APIPaths.Create .CreateOperation }}
 	{{- if $hasCreate }}
-	requestBody := {{ .Name | title }}CreateRequest{
-		{{- if .CreateOperation }}
-		{{- template "buildSimpleRequestBodyFields" dict "Fields" .CreateFields "Operation" .CreateOperation "Prefix" (printf "%sCreate" (.Name | title)) }}
-		{{- else }}
-		{{- template "buildSimpleRequestBodyFields" dict "Fields" .CreateFields "Operation" nil "Prefix" (printf "%sCreate" (.Name | title)) }}
-		{{- end }}
+	requestBody := {{ .Name | title }}CreateRequest{}
+	{{- range .CreateFields }}
+	{{- if not (or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map")) }}
+	{{- $isPath := false }}
+	{{- if $.CreateOperation }}
+		{{- if isPathParam $.CreateOperation .Name }}{{ $isPath = true }}{{ end }}
+	{{- end }}
+	{{- if not $isPath }}
+	{{- /* Required fields are always sent, optional only if not null/unknown */ -}}
+	{{- if .Required }}
+	{{ template "fieldAssignment" dict "Field" . "Target" "requestBody" }}
+	{{- else }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		{{ template "fieldAssignment" dict "Field" . "Target" "requestBody" }}
 	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
 	{{- if .CreateOperation }}
 	{{- template "buildComplexRequestBodyFields" dict "Fields" .CreateFields "Operation" .CreateOperation "Prefix" (printf "%sCreate" (.Name | title)) }}
 	{{- else }}
@@ -136,6 +109,7 @@
 	data.UUID = types.StringPointerValue(apiResp.UUID)
 	{{- end }}
 
+	{{- if not .SkipPolling }}
 	createTimeout, diags := data.Timeouts.Create(ctx, common.DefaultCreateTimeout)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -150,6 +124,7 @@
 		return
 	}
 	apiResp = newResp
+	{{- end }}
 
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 	{{- else }}
@@ -217,9 +192,14 @@
 {{- /* Standard Update Operation */ -}}
 {{- define "resource_update_standard" }}
 	{{- if .APIPaths.Update }}
-	requestBody := {{ .Name | title }}UpdateRequest{
-		{{- template "buildSimpleRequestBodyFields" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
+	requestBody := {{ .Name | title }}UpdateRequest{}
+	{{- range .UpdateFields }}
+	{{- if not (or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map")) }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		{{ template "fieldAssignment" dict "Field" . "Target" "requestBody" }}
 	}
+	{{- end }}
+	{{- end }}
 	{{- template "buildComplexRequestBodyFields" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
 
 	apiResp, err := r.client.Update{{ .Name | title }}(ctx, data.UUID.ValueString(), &requestBody)
@@ -231,6 +211,7 @@
 		return
 	}
 
+	{{- if not .SkipPolling }}
 	updateTimeout, diags := data.Timeouts.Update(ctx, common.DefaultUpdateTimeout)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -245,6 +226,7 @@
 		return
 	}
 	apiResp = newResp
+	{{- end }}
 
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 	{{- else }}
@@ -264,6 +246,7 @@
 		return
 	}
 
+	{{- if not .SkipPolling }}
 	deleteTimeout, diags := data.Timeouts.Delete(ctx, common.DefaultDeleteTimeout)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -277,6 +260,7 @@
 		resp.Diagnostics.AddError("Failed to wait for resource deletion", err.Error())
 		return
 	}
+	{{- end }}
 	{{- else }}
 	resp.Diagnostics.AddError("Deletion Not Supported", "This resource cannot be deleted via the API.")
 	{{- end }}

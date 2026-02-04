@@ -558,18 +558,39 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 	// Calculate ServerComputed: fields that the server can set/modify
 	// A field is ServerComputed if:
-	// - It is ReadOnly, OR
-	// - It is NOT in the create schema (response-only field)
+	// - It is ReadOnly (computed in TF)
+	// - OR it is NOT in the create schema (response-only field)
+	// - OR it is Optional in create schema but present in response (may have server-side default)
 	createFieldNames := make(map[string]bool)
+	requiredCreateFields := make(map[string]bool)
 	for _, f := range createFields {
 		createFieldNames[f.Name] = true
+		if f.Required {
+			requiredCreateFields[f.Name] = true
+		}
 	}
 
 	for i, f := range modelFields {
-		if f.ReadOnly || !createFieldNames[f.Name] {
+		// If it's ReadOnly, it's NOT ServerComputed in our logic (which adds UseStateForUnknown),
+		// because ReadOnly fields that are derived from other fields (like display_name)
+		// must be Unknown in the plan to avoid 'inconsistent result' errors.
+		if f.ReadOnly {
+			modelFields[i].ServerComputed = false
+			continue
+		}
+
+		// If it's not even in the create request, it's ServerComputed (response-only)
+		if !createFieldNames[f.Name] {
+			modelFields[i].ServerComputed = true
+			continue
+		}
+
+		// If it IS in the create request but NOT required, it's Optional.
+		// If it's also in the response, we mark it as ServerComputed
+		// so it becomes Optional+Computed in Terraform.
+		if !requiredCreateFields[f.Name] {
 			modelFields[i].ServerComputed = true
 		}
-		// Fields in create schema that are not ReadOnly remain ServerComputed = false
 	}
 
 	// Update responseFields to use merged field definitions
@@ -602,6 +623,14 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
 	service, cleanName := splitResourceName(resource.Name)
+	skipPolling := true
+	for _, f := range responseFields {
+		// If resource has 'state' or 'status' field, we should poll it
+		if f.Name == "state" || f.Name == "status" {
+			skipPolling = false
+			break
+		}
+	}
 
 	return &ResourceData{
 		Name:                  resource.Name,
@@ -629,6 +658,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		NestedStructs:         collectUniqueStructs(createFields, updateFields, responseFields),
 		FilterParams:          filterParams,
 		HasDataSource:         g.hasDataSource(resource.Name),
+		SkipPolling:           skipPolling,
 	}, nil
 }
 

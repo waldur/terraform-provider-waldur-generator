@@ -24,7 +24,7 @@ func SetupVCR(t *testing.T, cassetteName string) (*recorder.Recorder, func()) {
 
 	// Check if we should record new cassettes
 	if os.Getenv("VCR_RECORD") == "true" {
-		mode = recorder.ModeRecordOnce
+		mode = recorder.ModeRecordOnly
 	}
 
 	// Cassettes are stored in testdata/

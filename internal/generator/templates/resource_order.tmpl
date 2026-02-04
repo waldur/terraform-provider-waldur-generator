@@ -8,16 +8,17 @@
 {{- define "resource_create_order" }}
 	// Phase 1: Payload Construction
 	// We map the Terraform schema fields to the 'attributes' map required by the Marketplace Order API.
-	attributes := {{ .Name | title }}CreateAttributes{
-		{{- range .CreateFields }}
-		{{- /* Skip project and offering as they are top-level order fields, not attributes */ -}}
-		{{- if and (ne .Name "project") (ne .Name "offering") }}
-		{{- if or (eq .Type "string") (eq .Type "integer") (eq .Type "boolean") (eq .Type "number") }}
-		{{ .Name | title }}: data.{{ .Name | title }}.Value{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Pointer(),
-		{{- end }}
-		{{- end }}
-		{{- end }}
+	attributes := {{ .Name | title }}CreateAttributes{}
+	{{- range .CreateFields }}
+	{{- /* Skip project and offering as they are top-level order fields, not attributes */ -}}
+	{{- if and (ne .Name "project") (ne .Name "offering") }}
+	{{- if or (eq .Type "string") (eq .Type "integer") (eq .Type "boolean") (eq .Type "number") }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		{{- template "fieldAssignment" dict "Field" . "Target" "attributes" }}
 	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
 
 	{{- range .CreateFields }}
 	{{- if and (ne .Name "project") (ne .Name "offering") }}
@@ -130,15 +131,7 @@
 	{{- if and (not $isAction) (not .ReadOnly) }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.Equal(state.{{ .Name | title }}) {
 		anyChanges = true
-		{{- if eq .Type "string" }}
-		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
-		{{- else if eq .Type "integer" }}
-		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueInt64Pointer()
-		{{- else if eq .Type "boolean" }}
-		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueBoolPointer()
-		{{- else if eq .Type "number" }}
-		patchPayload.{{ .Name | title }} = data.{{ .Name | title }}.ValueFloat64Pointer()
-		{{- end }}
+		{{- template "fieldAssignment" dict "Field" . "Target" "patchPayload" }}
 	}
 	{{- end }}
 	{{- end }}
@@ -179,12 +172,8 @@
 		var objVal {{ if $field.RefName }}common.{{ $field.RefName }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
 		resp.Diagnostics.Append(data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})...)
 		req.{{ $action.Param | title }} = &objVal
-		{{- else if eq $field.GoType "types.String" }}
-		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueStringPointer()
-		{{- else if eq $field.GoType "types.Int64" }}
-		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueInt64Pointer()
-		{{- else if eq $field.GoType "types.Bool" }}
-		req.{{ $action.Param | title }} = data.{{ $action.Param | title }}.ValueBoolPointer()
+		{{- else }}
+		{{- template "fieldAssignment" dict "Field" $field "Target" "req" }}
 		{{- end }}
 
 		// Execute the Action

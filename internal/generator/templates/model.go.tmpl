@@ -45,10 +45,12 @@ func (m *{{ .Name | title }}FiltersModel) GetSchema() schema.SingleNestedAttribu
 type {{ .Name | title }}Model struct {
 	UUID types.String `tfsdk:"id"`
 	{{- range .ModelFields }}
+	{{- if not .SchemaSkip }}
 	{{- if eq .Format "date-time" }}
 	{{ .Name | title }} timetypes.RFC3339 `tfsdk:"{{ .Name }}"`
 	{{- else }}
 	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
+	{{- end }}
 	{{- end }}
 	{{- end }}
 }

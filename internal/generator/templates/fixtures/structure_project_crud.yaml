@@ -18,10 +18,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/customers/
+        url: http://127.0.0.1:8000/api/customers/
         method: POST
       response:
         proto: HTTP/1.1
@@ -29,22 +29,22 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1347
+        content_length: 1350
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","uuid":"8d964665a1044c75b4cc313a0b9b13cd","created":"2026-01-17T09:04:49.432831+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-01-17T09:04:49.432878+00:00","projects_count":0,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","uuid":"7e380e80caa74651a27aad28747b4d0a","created":"2026-02-04T09:09:57.471051+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-02-04T09:09:57.471097+00:00","projects_count":0,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu-14","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, POST, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1347"
+                - "1350"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:49 GMT
+                - Wed, 04 Feb 2026 09:09:57 GMT
             Location:
-                - http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/
+                - http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -53,7 +53,7 @@ interactions:
                 - DENY
         status: 201 Created
         code: 201
-        duration: 77.168767ms
+        duration: 108.054606ms
     - id: 1
       request:
         proto: HTTP/1.1
@@ -65,16 +65,16 @@ interactions:
         host: 127.0.0.1:8000
         remote_addr: ""
         request_uri: ""
-        body: '{"customer":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","name":"tf-test-project"}'
+        body: '{"customer":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","name":"tf-test-project"}'
         form: {}
         headers:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/projects/
+        url: http://127.0.0.1:8000/api/projects/
         method: POST
       response:
         proto: HTTP/1.1
@@ -82,22 +82,22 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1120
+        content_length: 1125
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/projects/cb98fa38a4e14feea82e07335104c144/","uuid":"cb98fa38a4e14feea82e07335104c144","name":"tf-test-project","slug":"tf-test-pr","customer":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","customer_uuid":"8d964665a1044c75b4cc313a0b9b13cd","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu","customer_native_name":"","customer_abbreviation":"","description":"","customer_display_billing_info_in_projects":true,"created":"2026-01-17T09:04:49.600376+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/","uuid":"c682aa8f00cc41cf96a1b3c3e3b6f067","name":"tf-test-project","slug":"tf-test-pr-2","customer":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","customer_uuid":"7e380e80caa74651a27aad28747b4d0a","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu-14","customer_native_name":"","customer_abbreviation":"","description":"","customer_display_billing_info_in_projects":true,"created":"2026-02-04T09:09:57.726329+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, POST, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1120"
+                - "1125"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:49 GMT
+                - Wed, 04 Feb 2026 09:09:57 GMT
             Location:
-                - http://127.0.0.1:8000/api/projects/cb98fa38a4e14feea82e07335104c144/
+                - http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -106,7 +106,7 @@ interactions:
                 - DENY
         status: 201 Created
         code: 201
-        duration: 128.826823ms
+        duration: 110.69793ms
     - id: 2
       request:
         proto: HTTP/1.1
@@ -124,10 +124,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/customers/8d964665a1044c75b4cc313a0b9b13cd/
+        url: http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/
         method: GET
       response:
         proto: HTTP/1.1
@@ -135,20 +135,20 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1347
+        content_length: 1350
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","uuid":"8d964665a1044c75b4cc313a0b9b13cd","created":"2026-01-17T09:04:49.432831+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-01-17T09:04:49.432878+00:00","projects_count":1,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","uuid":"7e380e80caa74651a27aad28747b4d0a","created":"2026-02-04T09:09:57.471051+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-02-04T09:09:57.471097+00:00","projects_count":1,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu-14","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, PUT, PATCH, DELETE, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1347"
+                - "1350"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:50 GMT
+                - Wed, 04 Feb 2026 09:09:58 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -157,7 +157,7 @@ interactions:
                 - DENY
         status: 200 OK
         code: 200
-        duration: 48.752159ms
+        duration: 48.157743ms
     - id: 3
       request:
         proto: HTTP/1.1
@@ -175,10 +175,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/projects/cb98fa38a4e14feea82e07335104c144/
+        url: http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/
         method: GET
       response:
         proto: HTTP/1.1
@@ -186,20 +186,20 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1120
+        content_length: 1125
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/projects/cb98fa38a4e14feea82e07335104c144/","uuid":"cb98fa38a4e14feea82e07335104c144","name":"tf-test-project","slug":"tf-test-pr","customer":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","customer_uuid":"8d964665a1044c75b4cc313a0b9b13cd","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu","customer_native_name":"","customer_abbreviation":"","description":"","customer_display_billing_info_in_projects":true,"created":"2026-01-17T09:04:49.600376+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/","uuid":"c682aa8f00cc41cf96a1b3c3e3b6f067","name":"tf-test-project","slug":"tf-test-pr-2","customer":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","customer_uuid":"7e380e80caa74651a27aad28747b4d0a","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu-14","customer_native_name":"","customer_abbreviation":"","description":"","customer_display_billing_info_in_projects":true,"created":"2026-02-04T09:09:57.726329+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, PUT, PATCH, DELETE, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1120"
+                - "1125"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:50 GMT
+                - Wed, 04 Feb 2026 09:09:58 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -208,7 +208,7 @@ interactions:
                 - DENY
         status: 200 OK
         code: 200
-        duration: 41.334626ms
+        duration: 40.685147ms
     - id: 4
       request:
         proto: HTTP/1.1
@@ -226,10 +226,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/customers/8d964665a1044c75b4cc313a0b9b13cd/
+        url: http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/
         method: GET
       response:
         proto: HTTP/1.1
@@ -237,20 +237,20 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1347
+        content_length: 1350
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","uuid":"8d964665a1044c75b4cc313a0b9b13cd","created":"2026-01-17T09:04:49.432831+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-01-17T09:04:49.432878+00:00","projects_count":1,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","uuid":"7e380e80caa74651a27aad28747b4d0a","created":"2026-02-04T09:09:57.471051+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-02-04T09:09:57.471097+00:00","projects_count":1,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu-14","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, PUT, PATCH, DELETE, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1347"
+                - "1350"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:50 GMT
+                - Wed, 04 Feb 2026 09:09:58 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -259,7 +259,7 @@ interactions:
                 - DENY
         status: 200 OK
         code: 200
-        duration: 44.455196ms
+        duration: 50.454842ms
     - id: 5
       request:
         proto: HTTP/1.1
@@ -277,10 +277,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/projects/cb98fa38a4e14feea82e07335104c144/
+        url: http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/
         method: GET
       response:
         proto: HTTP/1.1
@@ -288,20 +288,20 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1120
+        content_length: 1125
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/projects/cb98fa38a4e14feea82e07335104c144/","uuid":"cb98fa38a4e14feea82e07335104c144","name":"tf-test-project","slug":"tf-test-pr","customer":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","customer_uuid":"8d964665a1044c75b4cc313a0b9b13cd","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu","customer_native_name":"","customer_abbreviation":"","description":"","customer_display_billing_info_in_projects":true,"created":"2026-01-17T09:04:49.600376+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/","uuid":"c682aa8f00cc41cf96a1b3c3e3b6f067","name":"tf-test-project","slug":"tf-test-pr-2","customer":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","customer_uuid":"7e380e80caa74651a27aad28747b4d0a","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu-14","customer_native_name":"","customer_abbreviation":"","description":"","customer_display_billing_info_in_projects":true,"created":"2026-02-04T09:09:57.726329+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, PUT, PATCH, DELETE, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1120"
+                - "1125"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:50 GMT
+                - Wed, 04 Feb 2026 09:09:58 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -310,28 +310,28 @@ interactions:
                 - DENY
         status: 200 OK
         code: 200
-        duration: 40.732358ms
+        duration: 41.940624ms
     - id: 6
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
-        content_length: 171
+        content_length: 230
         transfer_encoding: []
         trailer: {}
         host: 127.0.0.1:8000
         remote_addr: ""
         request_uri: ""
-        body: '{"customer":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","description":"Updated project for Terraform testing","name":"tf-test-project-updated"}'
+        body: '{"customer":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","description":"Updated project for Terraform testing","is_industry":false,"kind":"default","name":"tf-test-project-updated","slug":"tf-test-pr-2"}'
         form: {}
         headers:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/projects/cb98fa38a4e14feea82e07335104c144/
+        url: http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/
         method: PATCH
       response:
         proto: HTTP/1.1
@@ -339,20 +339,20 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1165
+        content_length: 1170
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/projects/cb98fa38a4e14feea82e07335104c144/","uuid":"cb98fa38a4e14feea82e07335104c144","name":"tf-test-project-updated","slug":"tf-test-pr","customer":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","customer_uuid":"8d964665a1044c75b4cc313a0b9b13cd","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu","customer_native_name":"","customer_abbreviation":"","description":"Updated project for Terraform testing","customer_display_billing_info_in_projects":true,"created":"2026-01-17T09:04:49.600376+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/","uuid":"c682aa8f00cc41cf96a1b3c3e3b6f067","name":"tf-test-project-updated","slug":"tf-test-pr-2","customer":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","customer_uuid":"7e380e80caa74651a27aad28747b4d0a","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu-14","customer_native_name":"","customer_abbreviation":"","description":"Updated project for Terraform testing","customer_display_billing_info_in_projects":true,"created":"2026-02-04T09:09:57.726329+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, PUT, PATCH, DELETE, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1165"
+                - "1170"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:50 GMT
+                - Wed, 04 Feb 2026 09:09:58 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -361,7 +361,7 @@ interactions:
                 - DENY
         status: 200 OK
         code: 200
-        duration: 96.504598ms
+        duration: 96.610456ms
     - id: 7
       request:
         proto: HTTP/1.1
@@ -379,10 +379,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/customers/8d964665a1044c75b4cc313a0b9b13cd/
+        url: http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/
         method: GET
       response:
         proto: HTTP/1.1
@@ -390,20 +390,20 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1347
+        content_length: 1350
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","uuid":"8d964665a1044c75b4cc313a0b9b13cd","created":"2026-01-17T09:04:49.432831+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-01-17T09:04:49.432878+00:00","projects_count":1,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","uuid":"7e380e80caa74651a27aad28747b4d0a","created":"2026-02-04T09:09:57.471051+00:00","organization_groups":[],"display_name":"tf-test-customer-for-project","backend_id":"","image":null,"blocked":false,"archived":false,"display_billing_info_in_projects":true,"default_tax_percent":"0.00","accounting_start_date":"2026-02-04T09:09:57.471097+00:00","projects_count":1,"users_count":0,"sponsor_number":null,"country_name":null,"max_service_accounts":0,"project_metadata_checklist":null,"grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"name":"tf-test-customer-for-project","slug":"tf-test-cu-14","native_name":"","abbreviation":"","description":"","contact_details":"","agreement_number":"","email":"","phone_number":"","access_subnets":"","registration_code":"","homepage":"","domain":"","vat_code":"","postal":"","address":"","bank_name":"","latitude":null,"longitude":null,"bank_account":"","country":"","notification_emails":"","payment_profiles":[],"customer_credit":null,"customer_unallocated_credit":null,"is_service_provider":false,"service_provider":null,"service_provider_uuid":null,"call_managing_organization_uuid":null,"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, PUT, PATCH, DELETE, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1347"
+                - "1350"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:50 GMT
+                - Wed, 04 Feb 2026 09:09:59 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -412,7 +412,7 @@ interactions:
                 - DENY
         status: 200 OK
         code: 200
-        duration: 44.631975ms
+        duration: 51.779667ms
     - id: 8
       request:
         proto: HTTP/1.1
@@ -430,10 +430,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/projects/cb98fa38a4e14feea82e07335104c144/
+        url: http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/
         method: GET
       response:
         proto: HTTP/1.1
@@ -441,20 +441,20 @@ interactions:
         proto_minor: 1
         transfer_encoding: []
         trailer: {}
-        content_length: 1165
+        content_length: 1170
         uncompressed: false
-        body: '{"url":"http://127.0.0.1:8000/api/projects/cb98fa38a4e14feea82e07335104c144/","uuid":"cb98fa38a4e14feea82e07335104c144","name":"tf-test-project-updated","slug":"tf-test-pr","customer":"http://127.0.0.1:8000/api/customers/8d964665a1044c75b4cc313a0b9b13cd/","customer_uuid":"8d964665a1044c75b4cc313a0b9b13cd","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu","customer_native_name":"","customer_abbreviation":"","description":"Updated project for Terraform testing","customer_display_billing_info_in_projects":true,"created":"2026-01-17T09:04:49.600376+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
+        body: '{"url":"http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/","uuid":"c682aa8f00cc41cf96a1b3c3e3b6f067","name":"tf-test-project-updated","slug":"tf-test-pr-2","customer":"http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/","customer_uuid":"7e380e80caa74651a27aad28747b4d0a","customer_name":"tf-test-customer-for-project","customer_slug":"tf-test-cu-14","customer_native_name":"","customer_abbreviation":"","description":"Updated project for Terraform testing","customer_display_billing_info_in_projects":true,"created":"2026-02-04T09:09:57.726329+00:00","type":null,"type_name":null,"type_uuid":null,"backend_id":"","start_date":null,"end_date":null,"end_date_requested_by":null,"oecd_fos_2007_code":null,"oecd_fos_2007_label":null,"is_industry":false,"image":null,"resources_count":0,"max_service_accounts":0,"kind":"default","is_removed":false,"termination_metadata":null,"staff_notes":"","grace_period_days":null,"user_email_patterns":[],"user_affiliations":[],"user_identity_sources":[],"project_credit":null,"marketplace_resource_count":{},"billing_price_estimate":{"total":0.0,"current":"0.00","tax":"0.00","tax_current":"0.00"}}'
         headers:
             Allow:
                 - GET, PUT, PATCH, DELETE, HEAD, OPTIONS
             Content-Language:
                 - en
             Content-Length:
-                - "1165"
+                - "1170"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sat, 17 Jan 2026 09:04:51 GMT
+                - Wed, 04 Feb 2026 09:09:59 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -463,7 +463,7 @@ interactions:
                 - DENY
         status: 200 OK
         code: 200
-        duration: 39.648777ms
+        duration: 45.975399ms
     - id: 9
       request:
         proto: HTTP/1.1
@@ -481,10 +481,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/projects/cb98fa38a4e14feea82e07335104c144/
+        url: http://127.0.0.1:8000/api/projects/c682aa8f00cc41cf96a1b3c3e3b6f067/
         method: DELETE
       response:
         proto: HTTP/1.1
@@ -503,7 +503,7 @@ interactions:
             Content-Length:
                 - "0"
             Date:
-                - Sat, 17 Jan 2026 09:04:52 GMT
+                - Wed, 04 Feb 2026 09:09:59 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -512,7 +512,7 @@ interactions:
                 - DENY
         status: 204 No Content
         code: 204
-        duration: 877.128504ms
+        duration: 237.552931ms
     - id: 10
       request:
         proto: HTTP/1.1
@@ -530,10 +530,10 @@ interactions:
             Accept:
                 - application/json
             Authorization:
-                - Token 99789d5082dd5cfc31b71b6e1ad55ed97d92f63c
+                - Token c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
             Content-Type:
                 - application/json
-        url: http://127.0.0.1:8000//api/customers/8d964665a1044c75b4cc313a0b9b13cd/
+        url: http://127.0.0.1:8000/api/customers/7e380e80caa74651a27aad28747b4d0a/
         method: DELETE
       response:
         proto: HTTP/1.1
@@ -552,7 +552,7 @@ interactions:
             Content-Length:
                 - "0"
             Date:
-                - Sat, 17 Jan 2026 09:04:53 GMT
+                - Wed, 04 Feb 2026 09:10:00 GMT
             Server:
                 - WSGIServer/0.2 CPython/3.11.9
             Vary:
@@ -561,4 +561,4 @@ interactions:
                 - DENY
         status: 204 No Content
         code: 204
-        duration: 641.595207ms
+        duration: 577.799206ms

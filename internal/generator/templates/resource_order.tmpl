@@ -102,13 +102,8 @@
 	}
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 
-	// Ensure computed fields that aren't in the technical resource are known
-	if data.Plan.IsUnknown() {
-		data.Plan = types.StringNull()
-	}
-	if data.Limits.IsUnknown() {
-		data.Limits = types.MapNull(types.Float64Type)
-	}
+	// Resolve unknown attributes to explicit null values
+	r.resolveUnknownAttributes(&data)
 {{- end }}
 
 {{- /* 
@@ -207,13 +202,8 @@
 	}
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 
-	// Ensure computed fields that aren't in the technical resource are known
-	if data.Plan.IsUnknown() {
-		data.Plan = types.StringNull()
-	}
-	if data.Limits.IsUnknown() {
-		data.Limits = types.MapNull(types.Float64Type)
-	}
+	// Resolve unknown attributes to explicit null values
+	r.resolveUnknownAttributes(&data)
 {{- end }}
 
 {{- /* 
@@ -272,11 +262,57 @@
 		return
 	}
 
-	// Ensure computed fields that aren't in the technical resource are known
+	// Resolve unknown attributes to explicit null values
+	r.resolveUnknownAttributes(&data)
+{{- end }}
+
+{{- /* 
+    resolveUnknownAttributesHelper generates a helper function that ensures fields not returned 
+    by the Waldur GET API are set to explicit null values instead of remaining "Unknown".
+    This includes:
+    - Plan and Limits (common to all order-based resources)
+    - Termination attributes (from config)
+    - Creation-only fields like volume sizes (from CreateFields)
+*/ -}}
+{{- define "resolveUnknownAttributesHelper" }}
+// resolveUnknownAttributes ensures that fields not returned by the Waldur GET API
+// are set to explicit null values instead of remaining "Unknown".
+func (r *{{ .Name | title }}Resource) resolveUnknownAttributes(data *{{ .Name | title }}ResourceModel) {
+	// Marketplace order fields (common to all order-based resources)
 	if data.Plan.IsUnknown() {
 		data.Plan = types.StringNull()
 	}
 	if data.Limits.IsUnknown() {
 		data.Limits = types.MapNull(types.Float64Type)
 	}
+	
+	{{- if .TerminationAttributes }}
+	// Termination attributes (specified in config)
+	{{- range .TerminationAttributes }}
+	if data.{{ .Name | title }}.IsUnknown() {
+		{{- if eq .Type "boolean" }}
+		data.{{ .Name | title }} = types.BoolNull()
+		{{- else if eq .Type "string" }}
+		data.{{ .Name | title }} = types.StringNull()
+		{{- else if eq .Type "integer" }}
+		data.{{ .Name | title }} = types.Int64Null()
+		{{- end }}
+	}
+	{{- end }}
+	{{- end }}
+	
+	{{- /* Creation-only fields that are not returned by GET API */ -}}
+	{{- range .CreateFields }}
+	{{- if or (eq .Name "data_volume_size") (eq .Name "system_volume_size") (eq .Name "data_volume_type") (eq .Name "system_volume_type") }}
+	if data.{{ .Name | title }}.IsUnknown() {
+		{{- if eq .GoType "types.String" }}
+		data.{{ .Name | title }} = types.StringNull()
+		{{- else if eq .GoType "types.Int64" }}
+		data.{{ .Name | title }} = types.Int64Null()
+		{{- end }}
+	}
+	{{- end }}
+	{{- end }}
+}
 {{- end }}
+

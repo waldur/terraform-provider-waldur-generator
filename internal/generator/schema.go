@@ -395,10 +395,8 @@ var ExcludedFields = map[string]bool{
 	"service_settings_state":         true,
 	"service_settings_uuid":          true,
 	// Project/Customer (handled separately)
-	"project":               true,
 	"project_name":          true,
 	"project_uuid":          true,
-	"customer":              true,
 	"customer_abbreviation": true,
 	"customer_name":         true,
 	"customer_native_name":  true,

@@ -4,7 +4,7 @@
 	{{- $pkgName := .Package }}
 	{{- range .Fields }}
 	{{- /* Generate field with pointer types for optionality and json/tfsdk tags */ -}}
-	{{ .Name | title }} {{ renderGoType . $pkgName $prefix "" }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}" tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} {{ renderGoType . $pkgName $prefix "" }} `json:"{{ if .JsonTag }}{{ .JsonTag }}{{ else }}{{ .Name }}{{ if not .Required }},omitempty{{ end }}{{ end }}" tfsdk:"{{ .Name }}"`
 	{{ end }}
 {{- end }}
 
@@ -37,15 +37,9 @@ type {{ $prefix }}{{ .Name | title }} struct {
 {{- /* Helper: Map Response Struct to Terraform Model */ -}}
 {{- define "mapResponseToModel" }}
 	{{- $prefix := .Name | title }}
-	{{- $fields := .ModelFields }}
+	{{- $fields := .ResponseFields }}
 	{{- range $fields }}
 	{{- if not .SchemaSkip }}
-	{{- $fieldName := .Name }}
-	{{- $inResponse := false }}
-	{{- range $.ResponseFields }}
-		{{- if eq .Name $fieldName }}{{ $inResponse = true }}{{ end }}
-	{{- end }}
-	{{- if $inResponse }}
 	{{- /* Handle basic types */ -}}
 	{{- if eq .Type "string" }}
 	{{- if eq .Format "date-time" }}
@@ -117,7 +111,6 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	} else {
 		model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
 	}
-	{{- end }}
 	{{- end }}
 	{{- end }}
 	{{- end }}
@@ -349,7 +342,7 @@ schema.SingleNestedAttribute{
 	{{- $pkgName := .Package }}
 	{{- range .Fields }}
 	{{- if not .IsPathParam }}
-	{{ .Name | title }} {{ renderGoType . $pkgName $prefix "Request" }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}"`
+	{{ .Name | title }} {{ renderGoType . $pkgName $prefix "Request" }} `json:"{{ if .JsonTag }}{{ .JsonTag }}{{ else }}{{ .Name }}{{ if not .Required }},omitempty{{ end }}{{ end }}"`
 	{{- end }}
 	{{- end }}
 {{- end }}

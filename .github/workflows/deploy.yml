@@ -38,7 +38,17 @@ jobs:
           go mod tidy
           go build .
           go test -v ./...
-          echo "✅ Build and Test verification passed"
+          echo "✅ Build and internal tests passed"
+
+      - name: Run E2E Tests
+        working-directory: output
+        env:
+          TF_ACC: "true"
+          WALDUR_API_URL: http://127.0.0.1:8000/
+          WALDUR_ACCESS_TOKEN: c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
+        run: |
+          go test -v ./e2e_test/...
+          echo "✅ E2E tests passed (Replay mode)"
           rm -f terraform-provider-waldur
 
       - name: Verify Documentation

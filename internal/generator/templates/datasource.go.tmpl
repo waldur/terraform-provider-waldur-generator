@@ -54,7 +54,9 @@ func (d *{{ .Name | title }}DataSource) Schema(ctx context.Context, req datasour
 			"filters": (&{{ .Name | title }}FiltersModel{}).GetSchema(),
 			{{- end }}
 			{{- range .ModelFields }}
+			{{- if not .SchemaSkip }}
 			"{{ .Name }}": {{ template "schemaAttribute" . }}
+			{{- end }}
 			{{- end }}
 		},
 	}

@@ -195,21 +195,51 @@ func GetFuncMap() template.FuncMap {
 			isPointer := true
 
 			// Base type logic
-			if f.Type == "string" {
-				typeName = "string"
-			} else if f.Type == "integer" {
-				typeName = "int64"
-			} else if f.Type == "boolean" {
-				typeName = "bool"
-			} else if f.Type == "number" {
-				typeName = "float64"
-				if suffix == "Response" {
-					if pkgName != "common" {
-						typeName = "common.FlexibleNumber"
-					} else {
-						typeName = "FlexibleNumber"
+			if f.JsonTag == "-" {
+				// For hidden fields (injected for Terraform compatibility), use framework types to handle Unknown values
+				switch f.GoType {
+				case "types.String":
+					typeName = "types.String"
+					isPointer = false
+				case "types.Int64":
+					typeName = "types.Int64"
+					isPointer = false
+				case "types.Bool":
+					typeName = "types.Bool"
+					isPointer = false
+				case "types.Float64":
+					typeName = "types.Float64"
+					isPointer = false
+				case "types.List":
+					typeName = "types.List"
+					isPointer = false
+				case "types.Set":
+					typeName = "types.Set"
+					isPointer = false
+				}
+			}
+
+			if typeName == "" {
+				if f.Type == "string" {
+					typeName = "string"
+				} else if f.Type == "integer" {
+					typeName = "int64"
+				} else if f.Type == "boolean" {
+					typeName = "bool"
+				} else if f.Type == "number" {
+					typeName = "float64"
+					if suffix == "Response" {
+						if pkgName != "common" {
+							typeName = "common.FlexibleNumber"
+						} else {
+							typeName = "FlexibleNumber"
+						}
 					}
 				}
+			}
+
+			if typeName != "" {
+				// primitive type determined
 			} else if f.Type == "array" {
 				isPointer = !f.Required
 				if f.ItemType == "string" {
@@ -227,7 +257,7 @@ func GetFuncMap() template.FuncMap {
 						}
 					} else {
 						// Inline struct
-						elemType = prefix + strings.Title(f.Name) + suffix
+						elemType = prefix + toTitle(f.Name) + suffix
 					}
 					typeName = "[]" + elemType
 				}
@@ -242,7 +272,7 @@ func GetFuncMap() template.FuncMap {
 						typeName = f.RefName
 					}
 				} else {
-					typeName = prefix + strings.Title(f.Name) + suffix
+					typeName = prefix + toTitle(f.Name) + suffix
 				}
 			}
 

@@ -55,13 +55,13 @@ func (g *Generator) GenerateSharedTypes() error {
 			// Order resource
 			schemaName := strings.ReplaceAll(resource.OfferingType, ".", "") + "CreateOrderAttributes"
 			if schema, err := g.parser.GetSchema(schemaName); err == nil {
-				if f, err := ExtractFields(schema); err == nil {
+				if f, err := ExtractFields(schema, true); err == nil {
 					createFields = f
 				}
 			}
 			if op := ops.PartialUpdate; op != "" {
 				if schema, err := g.parser.GetOperationRequestSchema(op); err == nil {
-					if f, err := ExtractFields(schema); err == nil {
+					if f, err := ExtractFields(schema, true); err == nil {
 						updateFields = f
 					}
 				}
@@ -78,7 +78,7 @@ func (g *Generator) GenerateSharedTypes() error {
 
 			if op != "" {
 				if schema, err := g.parser.GetOperationRequestSchema(op); err == nil {
-					if f, err := ExtractFields(schema); err == nil {
+					if f, err := ExtractFields(schema, true); err == nil {
 						createFields = f
 					}
 				}
@@ -86,7 +86,7 @@ func (g *Generator) GenerateSharedTypes() error {
 
 			if op := ops.PartialUpdate; op != "" {
 				if schema, err := g.parser.GetOperationRequestSchema(op); err == nil {
-					if f, err := ExtractFields(schema); err == nil {
+					if f, err := ExtractFields(schema, true); err == nil {
 						updateFields = f
 					}
 				}

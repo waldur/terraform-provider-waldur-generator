@@ -37,16 +37,18 @@ type FieldInfo struct {
 	ItemRefName  string // Ref name for array item type
 	SchemaSkip   bool   // Whether to skip this field in Terraform schema generation
 	IsDataSource bool   // Whether this field is part of a Data Source schema
+	JsonTag      string // Custom JSON tag (optional)
+	HasDefault   bool   // Whether field has a default value in OpenAPI schema
 }
 
 // ExtractFields extracts field information from an OpenAPI schema reference
 // Supports primitive types, enums, arrays (strings, objects), and nested objects
-func ExtractFields(schemaRef *openapi3.SchemaRef) ([]FieldInfo, error) {
-	return extractFieldsRecursive(schemaRef, 0, 3) // max depth: 3
+func ExtractFields(schemaRef *openapi3.SchemaRef, skipRootUUID bool) ([]FieldInfo, error) {
+	return extractFieldsRecursive(schemaRef, 0, 3, skipRootUUID) // max depth: 3
 }
 
 // extractFieldsRecursive extracts field information with depth limiting
-func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) ([]FieldInfo, error) {
+func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, skipRootUUID bool) ([]FieldInfo, error) {
 	if schemaRef == nil || schemaRef.Value == nil {
 		return nil, nil
 	}
@@ -64,6 +66,28 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 		requiredMap[req] = true
 	}
 
+	// Flatten allOf if present
+	if len(schema.AllOf) > 0 {
+		for _, subSchemaRef := range schema.AllOf {
+			if subSchemaRef.Value == nil {
+				continue
+			}
+			// Merge properties from allOf schema
+			for name, prop := range subSchemaRef.Value.Properties {
+				if schema.Properties == nil {
+					schema.Properties = make(map[string]*openapi3.SchemaRef)
+				}
+				if _, exists := schema.Properties[name]; !exists {
+					schema.Properties[name] = prop
+				}
+			}
+			// Merge required fields
+			for _, req := range subSchemaRef.Value.Required {
+				requiredMap[req] = true
+			}
+		}
+	}
+
 	// Extract fields from properties
 	var propNames []string
 	for name := range schema.Properties {
@@ -72,9 +96,8 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 	sort.Strings(propNames)
 
 	for _, propName := range propNames {
-		// Skip uuid field as it's hard-coded in templates with tfsdk:"id"
-		// But only skip at root level (depth 0), nested objects need uuid
-		if depth == 0 && propName == "uuid" {
+		// Skip uuid field if requested (hard-coded in templates with tfsdk:"id")
+		if depth == 0 && propName == "uuid" && skipRootUUID {
 			continue
 		}
 
@@ -85,6 +108,12 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 
 		prop := propSchema.Value
 		typeStr := getSchemaType(prop)
+
+		// Override incorrect schema types for billing fields
+		if (propName == "total" || propName == "tax" || propName == "tax_current" || propName == "current") && typeStr == "string" {
+			typeStr = "number"
+			prop.Pattern = "" // Clear string-only pattern
+		}
 
 		refName := ""
 		if propSchema.Ref != "" {
@@ -103,6 +132,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 			Minimum:     prop.Min,
 			Maximum:     prop.Max,
 			Pattern:     prop.Pattern,
+			HasDefault:  prop.Default != nil,
 		}
 
 		// Handle different types
@@ -145,7 +175,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 					fields = append(fields, field)
 				} else if itemType == "object" {
 					// Array of objects - extract nested schema
-					if nestedFields, err := extractFieldsRecursive(prop.Items, depth+1, maxDepth); err == nil && len(nestedFields) > 0 {
+					if nestedFields, err := extractFieldsRecursive(prop.Items, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 						// Store first nested field as representative schema
 						if len(nestedFields) > 0 {
 							field.ItemSchema = &FieldInfo{
@@ -169,7 +199,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int) 
 		case "object":
 			// Nested object - extract properties
 			// Pass the RefName to the recursive call? No, ExtractFields works on schema.
-			if nestedFields, err := extractFieldsRecursive(propSchema, depth+1, maxDepth); err == nil && len(nestedFields) > 0 {
+			if nestedFields, err := extractFieldsRecursive(propSchema, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields
 				field.GoType = "types.Object"
 				fields = append(fields, field)
@@ -351,7 +381,6 @@ var ExcludedFields = map[string]bool{
 	"marketplace_offering_uuid":  true,
 	"marketplace_plan_uuid":      true,
 	"marketplace_resource_state": true,
-	"marketplace_resource_uuid":  true,
 	"is_limit_based":             true,
 	"is_usage_based":             true,
 	// Service settings
@@ -436,6 +465,22 @@ func FillDescriptions(fields []FieldInfo, resourceName string) {
 		}
 		if f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
 			FillDescriptions(f.ItemSchema.Properties, resourceName)
+		}
+	}
+}
+
+// ApplySchemaSkipRecursive applies SchemaSkip to fields in ExcludedFields but not in inputFields.
+func ApplySchemaSkipRecursive(fields []FieldInfo, inputFields map[string]bool) {
+	for i := range fields {
+		f := &fields[i]
+		if ExcludedFields[f.Name] && !inputFields[f.Name] {
+			f.SchemaSkip = true
+		}
+		if len(f.Properties) > 0 {
+			ApplySchemaSkipRecursive(f.Properties, inputFields)
+		}
+		if f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
+			ApplySchemaSkipRecursive(f.ItemSchema.Properties, inputFields)
 		}
 	}
 }

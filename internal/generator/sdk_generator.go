@@ -42,7 +42,7 @@ func (g *Generator) generateSharedSDKTypes() error {
 					usedTypes[f.RefName] = true
 					// Find schema and recurse
 					if schemaRef, ok := g.parser.Document().Components.Schemas[f.RefName]; ok {
-						if nestedFields, err := ExtractFields(schemaRef); err == nil {
+						if nestedFields, err := ExtractFields(schemaRef, false); err == nil {
 							collectTypes(nestedFields)
 						}
 					}
@@ -104,7 +104,7 @@ func (g *Generator) generateSharedSDKTypes() error {
 			continue
 		}
 
-		fields, _ := ExtractFields(schemaRef)
+		fields, _ := ExtractFields(schemaRef, false)
 		allFields = append(allFields, FieldInfo{
 			RefName:    name,
 			GoType:     "types.Object",
@@ -247,14 +247,15 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	}
 
 	// Extract Response fields
+	// Extract Response fields
 	var responseFields []FieldInfo
 	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-		if fields, err := ExtractFields(responseSchema); err == nil {
+		if fields, err := ExtractFields(responseSchema, true); err == nil {
 			responseFields = fields
 		}
 	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.List); err == nil {
 		if responseSchema.Value.Type != nil && (*responseSchema.Value.Type)[0] == "array" && responseSchema.Value.Items != nil {
-			if fields, err := ExtractFields(responseSchema.Value.Items); err == nil {
+			if fields, err := ExtractFields(responseSchema.Value.Items, true); err == nil {
 				responseFields = fields
 			}
 		}
@@ -293,6 +294,10 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 
 	// Use response fields for model
 	modelFields := responseFields
+
+	// Filter out marketplace and other fields from schema recursively
+	ApplySchemaSkipRecursive(modelFields, nil)
+	ApplySchemaSkipRecursive(responseFields, nil)
 
 	// Sort for deterministic output
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })

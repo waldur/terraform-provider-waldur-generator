@@ -23,9 +23,6 @@ const (
 {{ else }}
 type {{ .RefName }} struct {
 	{{ template "apiRequestStructFields" dict "Fields" .Properties "Prefix" .RefName "Package" "common" }}
-	{{ if eq .RefName "OrderDetails" }}
-	Uuid *string `json:"uuid" tfsdk:"uuid"`
-	{{ end }}
 }
 {{ template "apiRequestNestedStructs" dict "Fields" .Properties "Prefix" .RefName "Package" "common" }}
 {{ end }}

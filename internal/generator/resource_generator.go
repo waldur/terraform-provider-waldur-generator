@@ -207,7 +207,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			return nil, fmt.Errorf("failed to find offering schema %s: %w", schemaName, err)
 		}
 
-		if fields, err := ExtractFields(offeringSchema); err == nil {
+		if fields, err := ExtractFields(offeringSchema, true); err == nil {
 			createFields = fields
 			// Mark all plugin fields as optional to allow system-populated values
 			// and delegate validation to the API
@@ -218,7 +218,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 		// 2. Get Resource Schema (Output) from Retrieve operation
 		if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-			if fields, err := ExtractFields(responseSchema); err == nil {
+			if fields, err := ExtractFields(responseSchema, true); err == nil {
 				responseFields = fields
 			}
 		}
@@ -243,21 +243,24 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		})
 
 		// Add Plan and Limits fields manually to ModelFields
-		modelFields = append(modelFields, FieldInfo{
+		planField := FieldInfo{
 			Name:        "plan",
 			Type:        "string",
 			Description: "Plan URL",
 			GoType:      "types.String",
 			Required:    false,
-		})
-		modelFields = append(modelFields, FieldInfo{
+		}
+		limitsField := FieldInfo{
 			Name:        "limits",
 			Type:        "object",
 			Description: "Resource limits",
 			GoType:      "types.Map",
 			ItemType:    "number",
 			Required:    false,
-		})
+		}
+
+		// Use MergeFields to avoid duplicates if they were already in responseFields
+		modelFields = MergeFields(modelFields, []FieldInfo{planField, limitsField})
 
 		// 4. Add Termination Attributes
 		for _, term := range resource.TerminationAttributes {
@@ -281,7 +284,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 		// Extract Update fields from Resource PartialUpdate operation
 		if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
-			if fields, err := ExtractFields(updateSchema); err == nil {
+			if fields, err := ExtractFields(updateSchema, true); err == nil {
 				updateFields = fields
 			}
 		}
@@ -292,7 +295,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		if resource.LinkOp != "" {
 			// Link Plugin: Use LinkOp input schema
 			if createSchema, err := g.parser.GetOperationRequestSchema(resource.LinkOp); err == nil {
-				if fields, err := ExtractFields(createSchema); err == nil {
+				if fields, err := ExtractFields(createSchema, true); err == nil {
 					createFields = fields
 				}
 			}
@@ -379,7 +382,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			}
 
 			if createSchema, err := g.parser.GetOperationRequestSchema(createOp); err == nil {
-				if fields, err := ExtractFields(createSchema); err == nil {
+				if fields, err := ExtractFields(createSchema, true); err == nil {
 					createFields = fields
 				}
 			}
@@ -417,42 +420,26 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 	// Extract Update fields
 	if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
-		if fields, err := ExtractFields(updateSchema); err == nil {
+		if fields, err := ExtractFields(updateSchema, true); err == nil {
 			updateFields = fields
 		}
 	}
 
 	// Extract Response fields (prefer Retrieve operation as it's usually most complete)
 	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-		if fields, err := ExtractFields(responseSchema); err == nil {
+		if fields, err := ExtractFields(responseSchema, true); err == nil {
 			responseFields = fields
 		}
 	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Create); err == nil {
 		// Fallback to Create response
-		if fields, err := ExtractFields(responseSchema); err == nil {
+		if fields, err := ExtractFields(responseSchema, true); err == nil {
 			responseFields = fields
 		}
 	}
 
 	// Merge fields for the model (Create + Response)
-	allFields := MergeFields(createFields, responseFields)
-
-	// Filter out marketplace and other fields for non-order resources
 	if !isOrder {
-		// Create a set of input fields to protect them from removal
-		inputFields := make(map[string]bool)
-		for _, f := range createFields {
-			inputFields[f.Name] = true
-		}
-
-		modelFields = make([]FieldInfo, 0)
-		for _, f := range allFields {
-			// Mark as SchemaSkip if it's in exclude list AND NOT an input field
-			if ExcludedFields[f.Name] && !inputFields[f.Name] {
-				f.SchemaSkip = true
-			}
-			modelFields = append(modelFields, f)
-		}
+		modelFields = MergeFields(createFields, responseFields)
 	}
 	// Note: For Order resources (isOrder=true), modelFields is already set correctly
 	// with termination attributes, so we don't overwrite it here
@@ -563,11 +550,21 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	// - OR it is Optional in create schema but present in response (may have server-side default)
 	createFieldNames := make(map[string]bool)
 	requiredCreateFields := make(map[string]bool)
+	createFieldHasDefault := make(map[string]bool)
 	for _, f := range createFields {
 		createFieldNames[f.Name] = true
 		if f.Required {
 			requiredCreateFields[f.Name] = true
 		}
+		if f.HasDefault {
+			createFieldHasDefault[f.Name] = true
+		}
+	}
+
+	// Build map of fields that appear in the response
+	responseFieldNames := make(map[string]bool)
+	for _, f := range responseFields {
+		responseFieldNames[f.Name] = true
 	}
 
 	for i, f := range modelFields {
@@ -586,9 +583,10 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		}
 
 		// If it IS in the create request but NOT required, it's Optional.
-		// If it's also in the response, we mark it as ServerComputed
-		// so it becomes Optional+Computed in Terraform.
-		if !requiredCreateFields[f.Name] {
+		// We mark it as ServerComputed only if it also appears in the response,
+		// meaning the server might provide a value (server-side default or computed).
+		// Fields in create but NOT in response are pure user input (not returned by server).
+		if !requiredCreateFields[f.Name] && responseFieldNames[f.Name] {
 			modelFields[i].ServerComputed = true
 		}
 	}
@@ -631,6 +629,14 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			break
 		}
 	}
+
+	// Filter out marketplace and other fields from schema recursively
+	inputFields := make(map[string]bool)
+	for _, f := range createFields {
+		inputFields[f.Name] = true
+	}
+	ApplySchemaSkipRecursive(modelFields, inputFields)
+	ApplySchemaSkipRecursive(responseFields, inputFields)
 
 	return &ResourceData{
 		Name:                  resource.Name,

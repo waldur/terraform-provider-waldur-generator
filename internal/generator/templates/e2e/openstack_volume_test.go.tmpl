@@ -34,7 +34,7 @@ func TestOpenstackVolume_Create(t *testing.T) {
 			{
 				Config: testAccOpenstackVolumeConfig_basic(),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("waldur_openstack_volume.test", "name", "tf-test-volume"),
+					resource.TestCheckResourceAttr("waldur_openstack_volume.test", "name", "tf-test-volume-v11"),
 					resource.TestCheckResourceAttr("waldur_openstack_volume.test", "size", "1024"),
 					resource.TestCheckResourceAttrSet("waldur_openstack_volume.test", "id"),
 					resource.TestCheckResourceAttrSet("waldur_openstack_volume.test", "project"),
@@ -71,12 +71,12 @@ data "waldur_structure_project" "test" {
 
 data "waldur_marketplace_offering" "test" {
   filters = {
-    name = "Volume in tf-test-tenant-v2"
+    name = "Volume in tf-test-tenant-v5"
   }
 }
 
 resource "waldur_openstack_volume" "test" {
-  name     = "tf-test-volume"
+  name     = "tf-test-volume-v11"
   project  = data.waldur_structure_project.test.url
   offering = data.waldur_marketplace_offering.test.url
   size     = 1024

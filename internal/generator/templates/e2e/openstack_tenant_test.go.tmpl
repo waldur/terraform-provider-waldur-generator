@@ -34,7 +34,7 @@ func TestOpenstackTenant_Create(t *testing.T) {
 			{
 				Config: testAccOpenstackTenantConfig_basic(),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("waldur_openstack_tenant.test", "name", "tf-test-tenant-v2"),
+					resource.TestCheckResourceAttr("waldur_openstack_tenant.test", "name", "tf-test-tenant-v11"),
 					resource.TestCheckResourceAttrSet("waldur_openstack_tenant.test", "id"),
 					resource.TestCheckResourceAttrSet("waldur_openstack_tenant.test", "project"),
 					resource.TestCheckResourceAttrSet("waldur_openstack_tenant.test", "offering"),
@@ -70,20 +70,20 @@ data "waldur_structure_project" "test" {
 
 data "waldur_marketplace_offering" "test" {
   filters = {
-    name = "MockOpenStack4"
+    name = "MockOpenStack5"
     project_uuid = data.waldur_structure_project.test.id
   }
 }
 
 resource "waldur_openstack_tenant" "test" {
-  name     = "tf-test-tenant-v2"
+  name     = "tf-test-tenant-v11"
   project  = data.waldur_structure_project.test.url
   offering = data.waldur_marketplace_offering.test.url
   plan     = data.waldur_marketplace_offering.test.plans[0].url
   limits = {
     cores   = 10
     ram     = 10240
-    storage = 100
+    storage = 1024000
   }
   skip_connection_extnet          = true
   skip_creation_of_default_router = true

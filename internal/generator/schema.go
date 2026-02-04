@@ -101,6 +101,10 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 			continue
 		}
 
+		if ExcludedFields[propName] {
+			continue
+		}
+
 		propSchema := schema.Properties[propName]
 		if propSchema == nil || propSchema.Value == nil {
 			continue
@@ -383,6 +387,7 @@ var ExcludedFields = map[string]bool{
 	"marketplace_resource_state": true,
 	"is_limit_based":             true,
 	"is_usage_based":             true,
+	"access_url":                 true,
 	// Service settings
 	"service_name":                   true,
 	"service_settings":               true,

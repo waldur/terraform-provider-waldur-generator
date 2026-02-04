@@ -31,87 +31,17 @@ func (g *Generator) generateSharedSDKTypes() error {
 		return fmt.Errorf("failed to parse shared types template: %w", err)
 	}
 
-	usedTypes := make(map[string]bool)
-
-	// Helper to collect types recursively
-	var collectTypes func([]FieldInfo)
-	collectTypes = func(fields []FieldInfo) {
-		for _, f := range fields {
-			if f.RefName != "" {
-				if !usedTypes[f.RefName] {
-					usedTypes[f.RefName] = true
-					// Find schema and recurse
-					if schemaRef, ok := g.parser.Document().Components.Schemas[f.RefName]; ok {
-						if nestedFields, err := ExtractFields(schemaRef, false); err == nil {
-							collectTypes(nestedFields)
-						}
-					}
-				}
-			}
-			if f.ItemSchema != nil {
-				collectTypes([]FieldInfo{*f.ItemSchema})
-			}
-			if len(f.Properties) > 0 {
-				collectTypes(f.Properties)
-			}
-		}
+	usedTypes, err := g.collectUsedTypes()
+	if err != nil {
+		return fmt.Errorf("failed to collect used types: %w", err)
 	}
 
-	// 1. Collect types from Resources
-	// Explicitly add types used in utils.go
-	usedTypes["OrderDetails"] = true
-
-	for _, res := range g.config.Resources {
-		rd, err := g.prepareResourceData(&res)
-		if err != nil {
-			return err
-		}
-		collectTypes(rd.CreateFields)
-		collectTypes(rd.UpdateFields)
-		collectTypes(rd.ResponseFields)
-	}
-
-	// 2. Collect types from DataSources
-	for _, ds := range g.config.DataSources {
-		dd, err := g.prepareDatasourceData(&ds)
-		if err != nil {
-			return err
-		}
-		collectTypes(dd.ResponseFields)
-	}
-
-	var allFields []FieldInfo
-
-	// Collect only used schemas
-	for name, schemaRef := range g.parser.Document().Components.Schemas {
-		if !usedTypes[name] {
-			continue
-		}
-
-		// Detect if it's an enum (string type with enum values)
-		if schemaRef.Value.Type != nil && (*schemaRef.Value.Type)[0] == "string" && len(schemaRef.Value.Enum) > 0 {
-			var enumValues []string
-			for _, e := range schemaRef.Value.Enum {
-				if s, ok := e.(string); ok {
-					enumValues = append(enumValues, s)
-				}
-			}
-			allFields = append(allFields, FieldInfo{
-				RefName: name,
-				GoType:  "types.String",
-				Enum:    enumValues,
-			})
-			continue
-		}
-
-		fields, _ := ExtractFields(schemaRef, false)
-		allFields = append(allFields, FieldInfo{
-			RefName:    name,
-			GoType:     "types.Object",
-			Properties: fields,
-		})
-	}
+	allFields := g.collectSchemaFields(usedTypes)
 	uniqueStructs := collectUniqueStructs(allFields)
+
+	extraFields := g.calculateIgnoredFields()
+	g.applyIgnoredFields(uniqueStructs, extraFields)
+
 	data := map[string]interface{}{
 		"Structs": uniqueStructs,
 		"Package": "common",
@@ -343,4 +273,192 @@ func mergeFields(fields1, fields2 []FieldInfo) []FieldInfo {
 
 	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result
+}
+
+func (g *Generator) collectUsedTypes() (map[string]bool, error) {
+	usedTypes := make(map[string]bool)
+
+	// Helper to collect types recursively
+	var collectTypes func([]FieldInfo)
+	collectTypes = func(fields []FieldInfo) {
+		for _, f := range fields {
+			if f.RefName != "" {
+				if !usedTypes[f.RefName] {
+					usedTypes[f.RefName] = true
+					// Find schema and recurse
+					if schemaRef, ok := g.parser.Document().Components.Schemas[f.RefName]; ok {
+						if nestedFields, err := ExtractFields(schemaRef, false); err == nil {
+							collectTypes(nestedFields)
+						}
+					}
+				}
+			}
+			if f.ItemSchema != nil {
+				collectTypes([]FieldInfo{*f.ItemSchema})
+			}
+			if len(f.Properties) > 0 {
+				collectTypes(f.Properties)
+			}
+		}
+	}
+
+	// 1. Collect types from Resources
+	// Explicitly add types used in utils.go
+	usedTypes["OrderDetails"] = true
+
+	for _, res := range g.config.Resources {
+		rd, err := g.prepareResourceData(&res)
+		if err != nil {
+			return nil, err
+		}
+		collectTypes(rd.CreateFields)
+		collectTypes(rd.UpdateFields)
+		collectTypes(rd.ResponseFields)
+	}
+
+	// 2. Collect types from DataSources
+	for _, ds := range g.config.DataSources {
+		dd, err := g.prepareDatasourceData(&ds)
+		if err != nil {
+			return nil, err
+		}
+		collectTypes(dd.ResponseFields)
+	}
+
+	return usedTypes, nil
+}
+
+func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
+	var allFields []FieldInfo
+
+	// Collect only used schemas
+	for name, schemaRef := range g.parser.Document().Components.Schemas {
+		if !usedTypes[name] {
+			continue
+		}
+
+		// Detect if it's an enum (string type with enum values)
+		if schemaRef.Value.Type != nil && (*schemaRef.Value.Type)[0] == "string" && len(schemaRef.Value.Enum) > 0 {
+			var enumValues []string
+			for _, e := range schemaRef.Value.Enum {
+				if s, ok := e.(string); ok {
+					enumValues = append(enumValues, s)
+				}
+			}
+			allFields = append(allFields, FieldInfo{
+				RefName: name,
+				GoType:  "types.String",
+				Enum:    enumValues,
+			})
+			continue
+		}
+
+		fields, _ := ExtractFields(schemaRef, false)
+		allFields = append(allFields, FieldInfo{
+			RefName:    name,
+			GoType:     "types.Object",
+			Properties: fields,
+		})
+	}
+	return allFields
+}
+
+func (g *Generator) calculateIgnoredFields() map[string]map[string]FieldInfo {
+	// Dynamically calculate ignored fields based on merged resource schemas
+	extraFields := make(map[string]map[string]FieldInfo)
+
+	var scanForExtraFields func([]FieldInfo)
+	scanForExtraFields = func(fields []FieldInfo) {
+		for _, f := range fields {
+			// recursion first
+			if len(f.Properties) > 0 {
+				scanForExtraFields(f.Properties)
+			}
+			if f.ItemSchema != nil {
+				scanForExtraFields([]FieldInfo{*f.ItemSchema})
+			}
+
+			// Check if this field refers to a shared struct via RefName
+			targetName := f.RefName
+			if targetName == "" && f.ItemSchema != nil {
+				targetName = f.ItemSchema.RefName
+			}
+
+			if targetName != "" {
+				cleanName := targetName
+				if extraFields[cleanName] == nil {
+					extraFields[cleanName] = make(map[string]FieldInfo)
+				}
+
+				if len(f.Properties) > 0 {
+					for _, prop := range f.Properties {
+						extraFields[cleanName][prop.Name] = prop
+					}
+				}
+				if f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
+					for _, prop := range f.ItemSchema.Properties {
+						extraFields[cleanName][prop.Name] = prop
+					}
+				}
+			}
+		}
+	}
+
+	for _, res := range g.config.Resources {
+		rd, err := g.prepareResourceData(&res)
+		if err != nil {
+			continue // Should log warning but sticking to signature
+		}
+		scanForExtraFields(rd.ModelFields)
+	}
+
+	return extraFields
+}
+
+func (g *Generator) applyIgnoredFields(uniqueStructs []FieldInfo, extraFields map[string]map[string]FieldInfo) {
+	for i, s := range uniqueStructs {
+		if expected, ok := extraFields[s.RefName]; ok {
+			// Find missing fields
+			existing := make(map[string]bool)
+			for _, p := range s.Properties {
+				existing[p.Name] = true
+			}
+
+			var missing []FieldInfo
+			for name, prop := range expected {
+				if !existing[name] {
+					// Create ignored field
+					p := prop
+					// Map to framework types to support Unknown values
+					// Only set if not already set (Arrays/Sets already have GoType from ExtractFields)
+					if p.GoType == "" || !strings.HasPrefix(p.GoType, "types.") {
+						switch p.Type {
+						case "string":
+							p.GoType = "types.String"
+						case "integer":
+							p.GoType = "types.Int64"
+						case "boolean":
+							p.GoType = "types.Bool"
+						case "number":
+							p.GoType = "types.Float64"
+						case "array":
+							p.GoType = "types.List" // Default to List if not set
+						default:
+							p.GoType = "interface{}"
+						}
+					}
+					p.JsonTag = "-"
+					missing = append(missing, p)
+				}
+			}
+
+			if len(missing) > 0 {
+				uniqueStructs[i].Properties = append(uniqueStructs[i].Properties, missing...)
+				// Re-sort properties to ensure consistent order
+				sort.Slice(uniqueStructs[i].Properties, func(a, b int) bool {
+					return uniqueStructs[i].Properties[a].Name < uniqueStructs[i].Properties[b].Name
+				})
+			}
+		}
+	}
 }

@@ -63,13 +63,13 @@ func testAccOpenstackInstanceConfig_basic() string {
 
 data "waldur_structure_project" "test" {
   filters = {
-    name = "waldur-test"
+    name_exact = "Naked azanide as an aminating agent and a superbase"
   }
 }
 
 data "waldur_marketplace_offering" "test" {
   filters = {
-    name = "Virtual machine in waldur-dev"
+    name = "Virtual machine in tf-test-tenant-v11"
     project_uuid = data.waldur_structure_project.test.id
   }
 }
@@ -94,14 +94,14 @@ data "waldur_core_ssh_public_key" "test" {
   }
 }
 
-data "waldur_openstack_port" "test" {
+data "waldur_openstack_subnet" "test" {
   filters = {
-    backend_id = "31771cfe-dc77-417a-bacb-460bf8fa0791"
+    backend_id = "9a65926e-a64c-46e3-9f02-830878f120c6"
   }
 }
 
 resource "waldur_openstack_instance" "test" {
-  name    = "test-instance"
+  name    = "test-instance-v6"
   flavor  = data.waldur_openstack_flavor.test.url
   image   = data.waldur_openstack_image.test.url
   project = data.waldur_structure_project.test.url
@@ -111,7 +111,7 @@ resource "waldur_openstack_instance" "test" {
   data_volume_size = 1024
   ports = [
     {
-       port = data.waldur_openstack_port.test.url
+       subnet = data.waldur_openstack_subnet.test.url
     }
   ]
 }

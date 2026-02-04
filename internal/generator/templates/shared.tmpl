@@ -62,10 +62,12 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	model.{{ .Name | title }} = setVal{{ .Name | title }}
 	diags.Append(setDiags{{ .Name | title }}...)
 	{{- else if eq .ItemType "object" }}
-	{
+	if apiResp.{{ .Name | title }} != nil && len(*apiResp.{{ .Name | title }}) > 0 {
 		setVal{{ .Name | title }}, setDiags{{ .Name | title }} := types.SetValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
 		diags.Append(setDiags{{ .Name | title }}...)
 		model.{{ .Name | title }} = setVal{{ .Name | title }}
+	} else {
+		model.{{ .Name | title }} = types.SetNull({{ toAttrType .ItemSchema }})
 	}
 	{{- end }}
 	{{- else }}
@@ -89,10 +91,12 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	model.{{ .Name | title }} = setVal{{ .Name | title }}
 	diags.Append(setDiags{{ .Name | title }}...)
 	{{- else if eq .ItemType "object" }}
-	{
+	if apiResp.{{ .Name | title }} != nil && len(*apiResp.{{ .Name | title }}) > 0 {
 		setVal{{ .Name | title }}, setDiags{{ .Name | title }} := types.SetValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
 		diags.Append(setDiags{{ .Name | title }}...)
 		model.{{ .Name | title }} = setVal{{ .Name | title }}
+	} else {
+		model.{{ .Name | title }} = types.SetNull({{ toAttrType .ItemSchema }})
 	}
 	{{- end }}
 	{{- else if eq .GoType "types.Map" }}

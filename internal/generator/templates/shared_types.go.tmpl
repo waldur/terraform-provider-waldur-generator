@@ -1,6 +1,10 @@
 package {{ .Package }}
 
-import "time"
+import (
+	"time"
+
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
 
 const (
 	DefaultCreateTimeout = 15 * time.Minute

@@ -14,6 +14,13 @@ import (
 	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
 )
 
+{{- range .NestedStructs }}
+func {{ .AttrTypeRef }}Type() types.ObjectType {
+	return {{ toAttrTypeDefinition . }}
+}
+{{- end }}
+
+
 {{- if .FilterParams }}
 type {{ .Name | title }}FiltersModel struct {
 	{{- range .FilterParams }}
@@ -45,7 +52,6 @@ func (m *{{ .Name | title }}FiltersModel) GetSchema() schema.SingleNestedAttribu
 type {{ .Name | title }}Model struct {
 	UUID types.String `tfsdk:"id"`
 	{{- range .ResponseFields }}
-	// Field: {{ .Name }}, SchemaSkip: {{ .SchemaSkip }}
 	{{- if not .SchemaSkip }}
 	{{- if eq .Format "date-time" }}
 	{{ .Name | title }} timetypes.RFC3339 `tfsdk:"{{ .Name }}"`

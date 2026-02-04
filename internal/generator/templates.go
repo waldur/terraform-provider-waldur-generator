@@ -43,8 +43,32 @@ func displayName(s string) string {
 	return toTitle(name)
 }
 
-// ToAttrType converts FieldInfo to proper attr.Type expression used in Terraform schema
+// ToAttrType returns the type definition or a function call to a shared type helper
 func ToAttrType(f FieldInfo) string {
+	// If it's an object with a AttrTypeRef, return the helper function call
+	if f.GoType == "types.Object" && f.AttrTypeRef != "" {
+		return f.AttrTypeRef + "Type()"
+	}
+	// If it's a list/set of objects with a AttrTypeRef, return collection with helper function
+	if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemType == "object" && f.ItemSchema != nil && f.ItemSchema.AttrTypeRef != "" {
+		var collectionType string
+		if f.GoType == "types.List" {
+			collectionType = "types.ListType"
+		} else {
+			collectionType = "types.SetType"
+		}
+		return collectionType + "{ElemType: " + f.ItemSchema.AttrTypeRef + "Type()}"
+	} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemType == "string" && f.ItemRefName != "" {
+		// e.g. List of Enums (which are strings but might have a helper if we decide to generate helpers for enums too)
+		// For now, enums are just strings, so we fall through to definition
+	}
+
+	return ToAttrTypeDefinition(f)
+}
+
+// ToAttrTypeDefinition converts FieldInfo to proper attr.Type expression used in Terraform schema
+// This generates the full inline definition.
+func ToAttrTypeDefinition(f FieldInfo) string {
 	switch f.GoType {
 	case "types.String":
 		return "types.StringType"
@@ -115,6 +139,7 @@ func ToAttrType(f FieldInfo) string {
 		if len(attrTypes) > 0 {
 			content += ","
 		}
+		// Notice we use ToAttrType recursively above, which will capture nested REFs too.
 		return "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
 	default:
 		return "types.StringType"
@@ -152,12 +177,13 @@ func SanitizeString(s string) string {
 // GetFuncMap returns the common template functions
 func GetFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"title":             toTitle,
-		"humanize":          humanize,
-		"displayName":       displayName,
-		"toAttrType":        ToAttrType,
-		"toFilterParamType": GetFilterParamType,
-		"formatValidator":   formatValidatorValue,
+		"title":                toTitle,
+		"humanize":             humanize,
+		"displayName":          displayName,
+		"toAttrType":           ToAttrType,
+		"toAttrTypeDefinition": ToAttrTypeDefinition,
+		"toFilterParamType":    GetFilterParamType,
+		"formatValidator":      formatValidatorValue,
 		"replace": func(old, new, s string) string {
 			return strings.ReplaceAll(s, old, new)
 		},

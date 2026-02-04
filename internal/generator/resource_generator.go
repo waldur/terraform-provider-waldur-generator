@@ -638,7 +638,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	ApplySchemaSkipRecursive(modelFields, inputFields)
 	ApplySchemaSkipRecursive(responseFields, inputFields)
 
-	return &ResourceData{
+	rd := &ResourceData{
 		Name:                  resource.Name,
 		Service:               service,
 		CleanName:             cleanName,
@@ -661,14 +661,22 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		TerminationAttributes: resource.TerminationAttributes,
 		CreateOperation:       resource.CreateOperation, // Custom create operation config
 		CompositeKeys:         resource.CompositeKeys,   // Fields forming composite key
-		NestedStructs:         collectUniqueStructs(createFields, updateFields, responseFields),
-		FilterParams:          filterParams,
-		HasDataSource:         g.hasDataSource(resource.Name),
-		SkipPolling:           skipPolling,
-	}, nil
+	}
+
+	// Assign missing AttrTypeRefs to model fields (which covers merged fields)
+	// We primarily care about modelFields for the helper generation in model.go
+	assignMissingAttrTypeRefs(modelFields, "")
+	assignMissingAttrTypeRefs(responseFields, "") // ensure response fields also get them for CopyFrom to use
+
+	rd.NestedStructs = collectUniqueStructs(modelFields)
+	rd.FilterParams = filterParams
+	rd.HasDataSource = g.hasDataSource(resource.Name)
+	rd.SkipPolling = skipPolling
+
+	return rd, nil
 }
 
-// collectUniqueStructs gathers all Nested structs that have a RefName (Component) defined
+// collectUniqueStructs gathers all Nested structs that have a AttrTypeRef defined
 func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 	seen := make(map[string]bool)
 	var result []FieldInfo
@@ -676,11 +684,19 @@ func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 
 	traverse = func(fields []FieldInfo) {
 		for _, f := range fields {
-			// Check object type with Ref
+			// Check object type with AttrTypeRef or RefName
 			if f.GoType == "types.Object" {
-				if f.RefName != "" {
-					if !seen[f.RefName] {
-						seen[f.RefName] = true
+				key := f.AttrTypeRef
+				if key == "" {
+					key = f.RefName
+				}
+				if key != "" {
+					if !seen[key] {
+						seen[key] = true
+						// Ensure AttrTypeRef is set for consistency in result
+						if f.AttrTypeRef == "" {
+							f.AttrTypeRef = key
+						}
 						result = append(result, f)
 						traverse(f.Properties)
 					}
@@ -688,23 +704,24 @@ func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 					traverse(f.Properties)
 				}
 			}
-			// Check list of objects with Ref
-			if f.GoType == "types.List" && f.ItemSchema != nil {
-				if f.ItemSchema.RefName != "" {
-					if !seen[f.ItemSchema.RefName] {
-						seen[f.ItemSchema.RefName] = true
+			// Check list/set of objects with AttrTypeRef or RefName
+			if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+				key := f.ItemSchema.AttrTypeRef
+				if key == "" {
+					key = f.ItemSchema.RefName
+				}
+				if key != "" {
+					if !seen[key] {
+						seen[key] = true
+						// Ensure AttrTypeRef is set
+						if f.ItemSchema.AttrTypeRef == "" {
+							f.ItemSchema.AttrTypeRef = key
+						}
 						result = append(result, *f.ItemSchema)
 						traverse(f.ItemSchema.Properties)
 					}
 				} else {
 					traverse(f.ItemSchema.Properties)
-				}
-			}
-			// Check string type with Ref (Enums)
-			if f.GoType == "types.String" && f.RefName != "" {
-				if !seen[f.RefName] {
-					seen[f.RefName] = true
-					result = append(result, f)
 				}
 			}
 		}
@@ -714,8 +731,39 @@ func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 		traverse(p)
 	}
 
-	sort.Slice(result, func(i, j int) bool { return result[i].RefName < result[j].RefName })
+	sort.Slice(result, func(i, j int) bool { return result[i].AttrTypeRef < result[j].AttrTypeRef })
 	return result
+}
+
+// assignMissingAttrTypeRefs populates AttrTypeRef for complex types that lack it
+func assignMissingAttrTypeRefs(fields []FieldInfo, prefix string) {
+	for i := range fields {
+		f := &fields[i]
+
+		// If AttrTypeRef is already set (e.g. from RefName), keep it.
+		// If not, and it's complex, assign a synthetic one.
+		if f.AttrTypeRef == "" {
+			if f.RefName != "" {
+				f.AttrTypeRef = f.RefName
+			} else if f.GoType == "types.Object" {
+				f.AttrTypeRef = prefix + toTitle(f.Name)
+			} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemType == "object" && f.ItemSchema != nil {
+				// For list of objects, the ItemSchema needs a name
+				if f.ItemSchema.RefName != "" {
+					f.ItemSchema.AttrTypeRef = f.ItemSchema.RefName
+				} else {
+					f.ItemSchema.AttrTypeRef = prefix + toTitle(f.Name)
+				}
+			}
+		}
+
+		// Recurse
+		if f.GoType == "types.Object" {
+			assignMissingAttrTypeRefs(f.Properties, f.AttrTypeRef)
+		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+			assignMissingAttrTypeRefs(f.ItemSchema.Properties, f.ItemSchema.AttrTypeRef)
+		}
+	}
 }
 
 // generateModel creates the shared model file for a resource

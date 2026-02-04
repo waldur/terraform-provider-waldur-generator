@@ -37,6 +37,7 @@ type FieldInfo struct {
 	ItemRefName  string // Ref name for array item type
 	SchemaSkip   bool   // Whether to skip this field in Terraform schema generation
 	IsDataSource bool   // Whether this field is part of a Data Source schema
+	AttrTypeRef  string // Reference name for attribute type (helper function name)
 	JsonTag      string // Custom JSON tag (optional)
 	HasDefault   bool   // Whether field has a default value in OpenAPI schema
 }

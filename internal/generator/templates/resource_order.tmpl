@@ -212,6 +212,27 @@
 */ -}}
 {{- define "resource_delete_order" }}
 	// Order-based Delete
+	{{- if eq .Name "openstack_instance" }}
+	// OpenStack instances must be stopped before they can be terminated.
+	// We check the runtime_state and stop it if it's not already SHUTOFF.
+	currData, err := r.client.Get(ctx, data.UUID.ValueString())
+	if err == nil && currData.RuntimeState != nil && *currData.RuntimeState == "ACTIVE" {
+		tflog.Info(ctx, "Stopping Openstack instance before deletion", map[string]interface{}{
+			"uuid": data.UUID.ValueString(),
+		})
+		// We ignore the initial stop error; if it fails, Terminate might still fail with 409
+		// which is better than failing early if Stop is temporarily unavailable.
+		_ = r.client.Stop(ctx, data.UUID.ValueString())
+		
+		// Wait for the instance to reach a stable OK state after stop.
+		// Waldur will move it to OK with RuntimeState=SHUTOFF.
+		timeout, _ := data.Timeouts.Delete(ctx, common.DefaultDeleteTimeout)
+		_, _ = common.WaitForResource(ctx, func(ctx context.Context) (*OpenstackInstanceResponse, error) {
+			return r.client.Get(ctx, data.UUID.ValueString())
+		}, timeout)
+	}
+	{{- end }}
+
 	payload := map[string]interface{}{}
 	{{- range .TerminationAttributes }}
 	if !data.{{ .Name | title }}.IsNull() {

@@ -9,6 +9,14 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
+func cloneFields(fields []FieldInfo) []FieldInfo {
+	cloned := make([]FieldInfo, len(fields))
+	for i, f := range fields {
+		cloned[i] = f.Clone()
+	}
+	return cloned
+}
+
 func setIsDataSourceRecursive(fields []FieldInfo) {
 	for i := range fields {
 		fields[i].IsDataSource = true
@@ -36,13 +44,15 @@ func (g *Generator) generateDataSourceImplementation(rd *ResourceData, dataSourc
 	}
 
 	// For datasources, all fields must be IsDataSource = true
-	// We use a clone or just set it on the shared rd fields (if they are already shared, it's fine
-	// because we generate the model AFTER this or it doesn't matter for the model anyway).
-	// Actually, we should probably cloned if we want to be safe, but ResourceData fields
-	// are already specific to this entity.
-	setIsDataSourceRecursive(rd.ResponseFields)
-	setIsDataSourceRecursive(rd.FilterParams)
-	setIsDataSourceRecursive(rd.ModelFields)
+	// We clone fields to avoid modifying the originals which are shared with Resources.
+	responseFields := cloneFields(rd.ResponseFields)
+	setIsDataSourceRecursive(responseFields)
+
+	filterParams := cloneFields(rd.FilterParams)
+	setIsDataSourceRecursive(filterParams)
+
+	modelFields := cloneFields(rd.ModelFields)
+	setIsDataSourceRecursive(modelFields)
 
 	data := map[string]interface{}{
 		"Name":           rd.Name,
@@ -51,9 +61,9 @@ func (g *Generator) generateDataSourceImplementation(rd *ResourceData, dataSourc
 		"Operations":     rd.Operations,
 		"ListPath":       rd.APIPaths["Base"],
 		"RetrievePath":   rd.APIPaths["Retrieve"],
-		"FilterParams":   rd.FilterParams,
-		"ResponseFields": rd.ResponseFields,
-		"ModelFields":    rd.ModelFields,
+		"FilterParams":   filterParams,
+		"ResponseFields": responseFields,
+		"ModelFields":    modelFields,
 	}
 
 	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName)

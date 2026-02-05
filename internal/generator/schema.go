@@ -42,6 +42,26 @@ type FieldInfo struct {
 	HasDefault   bool   // Whether field has a default value in OpenAPI schema
 }
 
+// Clone creates a deep copy of FieldInfo
+func (f FieldInfo) Clone() FieldInfo {
+	clone := f
+	if f.Enum != nil {
+		clone.Enum = make([]string, len(f.Enum))
+		copy(clone.Enum, f.Enum)
+	}
+	if f.ItemSchema != nil {
+		clonedItem := f.ItemSchema.Clone()
+		clone.ItemSchema = &clonedItem
+	}
+	if f.Properties != nil {
+		clone.Properties = make([]FieldInfo, len(f.Properties))
+		for i, prop := range f.Properties {
+			clone.Properties[i] = prop.Clone()
+		}
+	}
+	return clone
+}
+
 // ExtractFields extracts field information from an OpenAPI schema reference
 // Supports primitive types, enums, arrays (strings, objects), and nested objects
 func ExtractFields(schemaRef *openapi3.SchemaRef, skipRootUUID bool) ([]FieldInfo, error) {
@@ -235,6 +255,9 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 			if f.ReadOnly {
 				existing.ReadOnly = true
 			}
+			if f.ServerComputed {
+				existing.ServerComputed = true
+			}
 
 			// Recursively merge nested properties if present in both
 			// Case 1: Nested objects (Properties)
@@ -334,6 +357,10 @@ func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
 			idx := fieldIdx[f.Name]
 			existing := merged[idx]
 			updated := false
+
+			// If it appears in both input and output, it's server-computed
+			existing.ServerComputed = true
+			updated = true
 
 			// Merge nested lists of objects
 			if existing.ItemType == "object" && f.ItemType == "object" && existing.ItemSchema != nil && f.ItemSchema != nil {

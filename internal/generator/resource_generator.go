@@ -665,8 +665,11 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 	// Assign missing AttrTypeRefs to model fields (which covers merged fields)
 	// We primarily care about modelFields for the helper generation in model.go
-	assignMissingAttrTypeRefs(modelFields, "")
-	assignMissingAttrTypeRefs(responseFields, "") // ensure response fields also get them for CopyFrom to use
+	seenHashes := make(map[string]string)
+	seenNames := make(map[string]string)
+
+	assignMissingAttrTypeRefs(modelFields, "", seenHashes, seenNames)
+	assignMissingAttrTypeRefs(responseFields, "", seenHashes, seenNames) // ensure response fields also get them for CopyFrom to use
 
 	rd.NestedStructs = collectUniqueStructs(modelFields)
 	rd.FilterParams = filterParams
@@ -735,35 +738,83 @@ func collectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 	return result
 }
 
-// assignMissingAttrTypeRefs populates AttrTypeRef for complex types that lack it
-func assignMissingAttrTypeRefs(fields []FieldInfo, prefix string) {
+// assignMissingAttrTypeRefs recursively assigns a AttrTypeRef to objects/lists of objects that lack one.
+// It uses content-based hashing to ensure that identical structures share the same helper function name,
+// while different structures get unique names even if they share the same RefName.
+func assignMissingAttrTypeRefs(fields []FieldInfo, prefix string, seenHashes map[string]string, seenNames map[string]string) {
 	for i := range fields {
 		f := &fields[i]
 
-		// If AttrTypeRef is already set (e.g. from RefName), keep it.
-		// If not, and it's complex, assign a synthetic one.
-		if f.AttrTypeRef == "" {
-			if f.RefName != "" {
-				f.AttrTypeRef = f.RefName
-			} else if f.GoType == "types.Object" {
-				f.AttrTypeRef = prefix + toTitle(f.Name)
-			} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemType == "object" && f.ItemSchema != nil {
-				// For list of objects, the ItemSchema needs a name
-				if f.ItemSchema.RefName != "" {
-					f.ItemSchema.AttrTypeRef = f.ItemSchema.RefName
+		// Recursively process children first (Bottom-Up) to ensure their AttrTypeRefs are set
+		if f.GoType == "types.Object" {
+			assignMissingAttrTypeRefs(f.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+			if f.ItemSchema.GoType == "types.Object" {
+				assignMissingAttrTypeRefs(f.ItemSchema.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+
+				// Also assign ref to ItemSchema itself if it's an object
+				hash := computeStructHash(*f.ItemSchema)
+				if name, ok := seenHashes[hash]; ok {
+					f.ItemSchema.AttrTypeRef = name
 				} else {
-					f.ItemSchema.AttrTypeRef = prefix + toTitle(f.Name)
+					candidate := f.ItemSchema.RefName
+					if candidate == "" {
+						candidate = prefix + toTitle(f.Name)
+					}
+					finalName := resolveUniqueName(candidate, hash, seenNames)
+					seenHashes[hash] = finalName
+					seenNames[finalName] = hash
+					f.ItemSchema.AttrTypeRef = finalName
 				}
 			}
 		}
 
-		// Recurse
+		// Now process f itself if it is Object
 		if f.GoType == "types.Object" {
-			assignMissingAttrTypeRefs(f.Properties, f.AttrTypeRef)
-		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
-			assignMissingAttrTypeRefs(f.ItemSchema.Properties, f.ItemSchema.AttrTypeRef)
+			hash := computeStructHash(*f)
+			if name, ok := seenHashes[hash]; ok {
+				f.AttrTypeRef = name
+			} else {
+				candidate := f.RefName
+				if candidate == "" {
+					candidate = prefix + toTitle(f.Name)
+				}
+				finalName := resolveUniqueName(candidate, hash, seenNames)
+				seenHashes[hash] = finalName
+				seenNames[finalName] = hash
+				f.AttrTypeRef = finalName
+			}
 		}
 	}
+}
+
+func resolveUniqueName(candidate string, hash string, seenNames map[string]string) string {
+	finalName := candidate
+	counter := 2
+	for {
+		if oldHash, exists := seenNames[finalName]; exists {
+			if oldHash == hash {
+				return finalName // Same content, same name
+			}
+			// Collision: same name but different content
+			finalName = fmt.Sprintf("%s%d", candidate, counter)
+			counter++
+		} else {
+			return finalName
+		}
+	}
+}
+
+func computeStructHash(f FieldInfo) string {
+	var parts []string
+	for _, p := range f.Properties {
+		// key: Name + Type + AttrTypeRef (for deep equality)
+		// We use AttrTypeRef because child structs already have it assigned
+		key := fmt.Sprintf("%s:%s:%s", p.Name, p.GoType, p.AttrTypeRef)
+		parts = append(parts, key)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, "|")
 }
 
 // generateModel creates the shared model file for a resource

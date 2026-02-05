@@ -430,24 +430,10 @@ func (g *Generator) applyIgnoredFields(uniqueStructs []FieldInfo, extraFields ma
 					// Create ignored field
 					p := prop
 					// Map to framework types to support Unknown values
-					// Only set if not already set (Arrays/Sets already have GoType from ExtractFields)
-					if p.GoType == "" || !strings.HasPrefix(p.GoType, "types.") {
-						switch p.Type {
-						case "string":
-							p.GoType = "types.String"
-						case "integer":
-							p.GoType = "types.Int64"
-						case "boolean":
-							p.GoType = "types.Bool"
-						case "number":
-							p.GoType = "types.Float64"
-						case "array":
-							p.GoType = "types.List" // Default to List if not set
-						default:
-							p.GoType = "interface{}"
-						}
-					}
-					p.JsonTag = "-"
+					// Do not force "hidden" tags for missing fields.
+					// These fields are likely present in Response but not Request schemas,
+					// so they should be treated as normal fields (serialized with omitempty)
+					// to allow JSON unmarshalling.
 					missing = append(missing, p)
 				}
 			}

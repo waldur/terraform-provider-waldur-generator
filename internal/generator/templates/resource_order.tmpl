@@ -278,40 +278,39 @@
 // resolveUnknownAttributes ensures that fields not returned by the Waldur GET API
 // are set to explicit null values instead of remaining "Unknown".
 func (r *{{ .Name | title }}Resource) resolveUnknownAttributes(data *{{ .Name | title }}ResourceModel) {
-	// Marketplace order fields (common to all order-based resources)
-	if data.Plan.IsUnknown() {
-		data.Plan = types.StringNull()
-	}
-	if data.Limits.IsUnknown() {
-		data.Limits = types.MapNull(types.Float64Type)
-	}
-	
-	{{- if .TerminationAttributes }}
-	// Termination attributes (specified in config)
-	{{- range .TerminationAttributes }}
-	if data.{{ .Name | title }}.IsUnknown() {
-		{{- if eq .Type "boolean" }}
-		data.{{ .Name | title }} = types.BoolNull()
-		{{- else if eq .Type "string" }}
-		data.{{ .Name | title }} = types.StringNull()
-		{{- else if eq .Type "integer" }}
-		data.{{ .Name | title }} = types.Int64Null()
-		{{- end }}
-	}
-	{{- end }}
-	{{- end }}
-	
-	{{- /* Creation-only fields that are not returned by GET API */ -}}
-	{{- range .CreateFields }}
-	{{- if or (eq .Name "data_volume_size") (eq .Name "system_volume_size") (eq .Name "data_volume_type") (eq .Name "system_volume_type") }}
+	// Iterate over all model fields to handle Unknown values
+	{{- range .ModelFields }}
 	if data.{{ .Name | title }}.IsUnknown() {
 		{{- if eq .GoType "types.String" }}
+		{{- if eq .Format "date-time" }}
+		data.{{ .Name | title }} = timetypes.NewRFC3339Null()
+		{{- else }}
 		data.{{ .Name | title }} = types.StringNull()
+		{{- end }}
 		{{- else if eq .GoType "types.Int64" }}
 		data.{{ .Name | title }} = types.Int64Null()
+		{{- else if eq .GoType "types.Bool" }}
+		data.{{ .Name | title }} = types.BoolNull()
+		{{- else if eq .GoType "types.Float64" }}
+		data.{{ .Name | title }} = types.Float64Null()
+		{{- else if eq .GoType "types.Map" }}
+		data.{{ .Name | title }} = types.MapNull(types.{{ if eq .ItemType "integer" }}Int64Type{{ else if eq .ItemType "boolean" }}BoolType{{ else if eq .ItemType "number" }}Float64Type{{ else }}StringType{{ end }})
+		{{- else if eq .GoType "types.List" }}
+		{{- if eq .ItemType "object" }}
+		data.{{ .Name | title }} = types.ListNull({{ toAttrType .ItemSchema }})
+		{{- else }}
+		data.{{ .Name | title }} = types.ListNull(types.{{ if eq .ItemType "integer" }}Int64Type{{ else if eq .ItemType "boolean" }}BoolType{{ else if eq .ItemType "number" }}Float64Type{{ else }}StringType{{ end }})
+		{{- end }}
+		{{- else if eq .GoType "types.Set" }}
+		{{- if eq .ItemType "object" }}
+		data.{{ .Name | title }} = types.SetNull({{ toAttrType .ItemSchema }})
+		{{- else }}
+		data.{{ .Name | title }} = types.SetNull(types.{{ if eq .ItemType "integer" }}Int64Type{{ else if eq .ItemType "boolean" }}BoolType{{ else if eq .ItemType "number" }}Float64Type{{ else }}StringType{{ end }})
+		{{- end }}
+		{{- else if eq .GoType "types.Object" }}
+		data.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
 		{{- end }}
 	}
-	{{- end }}
 	{{- end }}
 }
 {{- end }}

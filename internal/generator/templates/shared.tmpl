@@ -78,11 +78,23 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	diags.Append(listDiags{{ .Name | title }}...)
 	{{- else if eq .ItemType "object" }}
 	{{/* For list of objects, convert each item to Terraform object */}}
-	{
+	{{- if .Required }}
+	if len(apiResp.{{ .Name | title }}) > 0 {
 		listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
 		diags.Append(listDiags{{ .Name | title }}...)
 		model.{{ .Name | title }} = listVal{{ .Name | title }}
+	} else {
+		model.{{ .Name | title }} = types.ListNull({{ toAttrType .ItemSchema }})
 	}
+	{{- else }}
+	if apiResp.{{ .Name | title }} != nil && len(*apiResp.{{ .Name | title }}) > 0 {
+		listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
+		diags.Append(listDiags{{ .Name | title }}...)
+		model.{{ .Name | title }} = listVal{{ .Name | title }}
+	} else {
+		model.{{ .Name | title }} = types.ListNull({{ toAttrType .ItemSchema }})
+	}
+	{{- end }}
 	{{- end }}
 	{{- end }}
 	{{- else if eq .GoType "types.Set" }}
@@ -139,7 +151,7 @@ schema.ListNestedAttribute{
     Required: true,
     {{- else }}
     Optional: true,
-    {{- if .ServerComputed }}
+    {{- if or .ServerComputed (eq .Name "fixed_ips") (eq .Name "allowed_address_pairs") }}
     Computed: true,
     {{- end }}
     {{- end }}
@@ -171,7 +183,7 @@ schema.SetNestedAttribute{
     Required: true,
     {{- else }}
     Optional: true,
-    {{- if .ServerComputed }}
+    {{- if or .ServerComputed (eq .Name "fixed_ips") (eq .Name "allowed_address_pairs") }}
     Computed: true,
     {{- end }}
     {{- end }}
@@ -203,7 +215,7 @@ schema.SingleNestedAttribute{
     Required: true,
     {{- else }}
     Optional: true,
-    {{- if .ServerComputed }}
+    {{- if or .ServerComputed (eq .Name "fixed_ips") (eq .Name "allowed_address_pairs") }}
     Computed: true,
     {{- end }}
     {{- end }}
@@ -346,7 +358,7 @@ schema.SingleNestedAttribute{
 	{{- $pkgName := .Package }}
 	{{- range .Fields }}
 	{{- if not .IsPathParam }}
-	{{ .Name | title }} {{ renderGoType . $pkgName $prefix "Request" }} `json:"{{ if .JsonTag }}{{ .JsonTag }}{{ else }}{{ .Name }}{{ if not .Required }},omitempty{{ end }}{{ end }}"`
+	{{ .Name | title }} {{ renderGoType . $pkgName $prefix "Request" }} `json:"{{ if .JsonTag }}{{ .JsonTag }}{{ else }}{{ .Name }}{{ if not .Required }},omitempty{{ end }}{{ end }}" tfsdk:"{{ .Name }}"`
 	{{- end }}
 	{{- end }}
 {{- end }}

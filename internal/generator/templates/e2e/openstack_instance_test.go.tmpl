@@ -34,7 +34,7 @@ func TestOpenstackInstance_CRUD(t *testing.T) {
 			{
 				Config: testAccOpenstackInstanceConfig_basic(),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("waldur_openstack_instance.test", "name", "test-instance"),
+					resource.TestCheckResourceAttr("waldur_openstack_instance.test", "name", "test-instance-v6"),
 					resource.TestCheckResourceAttrSet("waldur_openstack_instance.test", "id"),
 				),
 			},
@@ -69,7 +69,7 @@ data "waldur_structure_project" "test" {
 
 data "waldur_marketplace_offering" "test" {
   filters = {
-    name = "Virtual machine in tf-test-tenant-v11"
+    name = "Virtual machine in test-vpc-1"
     project_uuid = data.waldur_structure_project.test.id
   }
 }
@@ -96,7 +96,8 @@ data "waldur_core_ssh_public_key" "test" {
 
 data "waldur_openstack_subnet" "test" {
   filters = {
-    backend_id = "9a65926e-a64c-46e3-9f02-830878f120c6"
+    tenant_uuid = data.waldur_marketplace_offering.test.scope_uuid
+	name = "test"
   }
 }
 

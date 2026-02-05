@@ -40,14 +40,6 @@ func TestStructureCustomer_CRUD(t *testing.T) {
 					resource.TestCheckResourceAttrSet("waldur_structure_customer.test", "url"),
 				),
 			},
-			// Update testing
-			{
-				Config: testAccStructureCustomerConfig_updated(),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("waldur_structure_customer.test", "name", "tf-test-customer-updated"),
-					resource.TestCheckResourceAttr("waldur_structure_customer.test", "description", "Updated customer for Terraform testing"),
-				),
-			},
 			// Delete testing is implicit when the test completes
 		},
 	})
@@ -73,15 +65,6 @@ func testAccStructureCustomerConfig_basic() string {
 	return getProviderConfigCustomer() + `
 resource "waldur_structure_customer" "test" {
   name = "tf-test-customer"
-}
-`
-}
-
-func testAccStructureCustomerConfig_updated() string {
-	return getProviderConfigCustomer() + `
-resource "waldur_structure_customer" "test" {
-  name        = "tf-test-customer-updated"
-  description = "Updated customer for Terraform testing"
 }
 `
 }

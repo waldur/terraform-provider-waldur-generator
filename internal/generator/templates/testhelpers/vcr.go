@@ -20,6 +20,10 @@ import (
 func SetupVCR(t *testing.T, cassetteName string) (*recorder.Recorder, func()) {
 	t.Helper()
 
+	// Speed up tests by reducing polling delays
+	os.Setenv("WALDUR_POLL_DELAY", "10ms")
+	os.Setenv("WALDUR_POLL_MIN_TIMEOUT", "10ms")
+
 	mode := recorder.ModeReplayOnly
 
 	// Check if we should record new cassettes

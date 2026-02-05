@@ -46,6 +46,8 @@ jobs:
           TF_ACC: "true"
           WALDUR_API_URL: http://127.0.0.1:8000/
           WALDUR_ACCESS_TOKEN: c44bb36d6ac6fdd0cb62fa81bf09a8522ddacd19
+          WALDUR_POLL_DELAY: 1ms
+          WALDUR_POLL_MIN_TIMEOUT: 1ms
         run: |
           go test -v ./e2e_test/...
           echo "✅ E2E tests passed (Replay mode)"

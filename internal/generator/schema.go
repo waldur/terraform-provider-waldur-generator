@@ -10,16 +10,17 @@ import (
 
 // FieldInfo represents information about a field extracted from OpenAPI schema
 type FieldInfo struct {
-	Name           string // JSON field name, e.g., "name"
-	Type           string // OpenAPI type: "string", "integer", "boolean", "number", "array", "object"
-	Required       bool   // Whether field is in schema.Required array
-	ReadOnly       bool   // Whether field is marked readOnly in schema
-	Description    string // Field description from schema
-	Format         string // OpenAPI format: "date-time", "uuid", etc.
-	GoType         string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
-	ForceNew       bool   // Whether field requires replacement on change (immutable)
-	ServerComputed bool   // Whether value can be set by server (readOnly or response-only)
-	IsPathParam    bool   // Whether field is a path parameter (should not be in JSON body)
+	Name               string // JSON field name, e.g., "name"
+	Type               string // OpenAPI type: "string", "integer", "boolean", "number", "array", "object"
+	Required           bool   // Whether field is in schema.Required array
+	ReadOnly           bool   // Whether field is marked readOnly in schema
+	Description        string // Field description from schema
+	Format             string // OpenAPI format: "date-time", "uuid", etc.
+	GoType             string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
+	ForceNew           bool   // Whether field requires replacement on change (immutable)
+	ServerComputed     bool   // Whether value can be set by server (readOnly or response-only)
+	UseStateForUnknown bool   // Whether to use UseStateForUnknown plan modifier
+	IsPathParam        bool   // Whether field is a path parameter (should not be in JSON body)
 
 	// Complex type support
 	Enum       []string    // For enums: allowed values (only for string type)
@@ -431,6 +432,8 @@ var ExcludedFields = map[string]bool{
 	"customer_name":         true,
 	"customer_native_name":  true,
 	"customer_uuid":         true,
+	"created":               true,
+	"modified":              true,
 }
 
 // SetFields defines fields that should be treated as Sets instead of Lists

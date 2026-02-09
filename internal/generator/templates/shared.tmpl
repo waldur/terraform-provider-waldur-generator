@@ -161,7 +161,7 @@ schema.ListNestedAttribute{
         {{- if .ForceNew }}
         listplanmodifier.RequiresReplace(),
         {{- end }}
-        {{- if or .ServerComputed .ReadOnly }}
+        {{- if .UseStateForUnknown }}
         listplanmodifier.UseStateForUnknown(),
         {{- end }}
     },
@@ -196,7 +196,7 @@ schema.SetNestedAttribute{
         // Actually setplanmodifier exists
         setplanmodifier.RequiresReplace(),
         {{- end }}
-        {{- if or .ServerComputed .ReadOnly }}
+        {{- if .UseStateForUnknown }}
         setplanmodifier.UseStateForUnknown(),
         {{- end }}
     },
@@ -227,7 +227,7 @@ schema.SingleNestedAttribute{
         {{- if .ForceNew }}
         objectplanmodifier.RequiresReplace(),
         {{- end }}
-        {{- if or .ServerComputed .ReadOnly }}
+        {{- if .UseStateForUnknown }}
         objectplanmodifier.UseStateForUnknown(),
         {{- end }}
     },
@@ -262,7 +262,7 @@ schema.SingleNestedAttribute{
                 {{- if .ForceNew }}
                 {{ if eq .GoType "types.List" }}listplanmodifier{{ else }}setplanmodifier{{ end }}.RequiresReplace(),
                 {{- end }}
-                {{- if or .ServerComputed .ReadOnly }}
+                {{- if .UseStateForUnknown }}
                 {{ if eq .GoType "types.List" }}listplanmodifier{{ else }}setplanmodifier{{ end }}.UseStateForUnknown(),
                 {{- end }}
             },
@@ -290,7 +290,7 @@ schema.SingleNestedAttribute{
             {{- if .ForceNew }}
             mapplanmodifier.RequiresReplace(),
             {{- end }}
-            {{- if or .ServerComputed .ReadOnly }}
+            {{- if .UseStateForUnknown }}
             mapplanmodifier.UseStateForUnknown(),
             {{- end }}
         },
@@ -320,7 +320,7 @@ schema.SingleNestedAttribute{
             {{- if .ForceNew }}
             {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.RequiresReplace(),
             {{- end }}
-            {{- if or .ServerComputed .ReadOnly }}
+            {{- if .UseStateForUnknown }}
             {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.UseStateForUnknown(),
             {{- end }}
         },

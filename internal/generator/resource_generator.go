@@ -591,6 +591,15 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		}
 	}
 
+	// Calculate UseStateForUnknown
+	for i, f := range modelFields {
+		// UseStateForUnknown is needed if the field is computed (ServerComputed or ReadOnly)
+		// AND it is NOT the 'modified' field (which changes on every update)
+		if f.ServerComputed || f.ReadOnly {
+			modelFields[i].UseStateForUnknown = true
+		}
+	}
+
 	// Update responseFields to use merged field definitions
 	// This ensures shared.tmpl uses the complete schema for nested objects
 	modelMap := make(map[string]FieldInfo)

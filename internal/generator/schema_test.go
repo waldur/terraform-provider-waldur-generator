@@ -191,8 +191,8 @@ func TestExtractFields_ListOfStrings(t *testing.T) {
 	if f.ItemType != "string" {
 		t.Errorf("Expected ItemType 'string', got %s", f.ItemType)
 	}
-	if f.GoType != "types.List" {
-		t.Errorf("Expected GoType 'types.List', got %s", f.GoType)
+	if f.GoType != "types.Set" {
+		t.Errorf("Expected GoType 'types.Set', got %s", f.GoType)
 	}
 }
 

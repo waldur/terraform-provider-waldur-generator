@@ -8,7 +8,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
@@ -42,64 +41,34 @@ func (g *Generator) generateResourceImplementation(rd *ResourceData, resource *c
 func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceData, error) {
 	ops := resource.OperationIDs()
 
-	// Extract API paths from OpenAPI operations
-	apiPaths := make(map[string]string)
-
-	// Get path from list operation (used as base path)
-	var listOp *openapi3.Operation
-	if op, listPath, _, err := g.parser.GetOperation(ops.List); err == nil {
-		listOp = op
-		// Remove trailing slash and {uuid} if present for base path
-		basePath := listPath
-		apiPaths["Base"] = basePath
+	// 1. Choose builder
+	var builder ResourceBuilder
+	base := BaseBuilder{g: g, resource: resource, ops: ops}
+	if resource.Plugin == "order" {
+		builder = &OrderBuilder{BaseBuilder: base}
+	} else if resource.Plugin == "link" || resource.LinkOp != "" {
+		builder = &LinkBuilder{BaseBuilder: base}
+	} else {
+		builder = &StandardBuilder{BaseBuilder: base}
 	}
 
-	// Get path from create operation (check for custom create operation first)
-	if resource.CreateOperation != nil && resource.CreateOperation.OperationID != "" {
-		if _, createPath, _, err := g.parser.GetOperation(resource.CreateOperation.OperationID); err == nil {
-			apiPaths["Create"] = createPath
-			apiPaths["CreateOperationID"] = resource.CreateOperation.OperationID
-			// Store path params for template
-			for k, v := range resource.CreateOperation.PathParams {
-				apiPaths["CreatePathParam_"+k] = v
-			}
-		}
-	} else if _, createPath, _, err := g.parser.GetOperation(ops.Create); err == nil {
-		apiPaths["Create"] = createPath
+	// 2. Build Paths and Fields
+	apiPaths := builder.GetAPIPaths()
+
+	createFields, err := builder.BuildCreateFields()
+	if err != nil {
+		return nil, err
+	}
+	updateFields, err := builder.BuildUpdateFields()
+	if err != nil {
+		return nil, err
+	}
+	responseFields, err := builder.BuildResponseFields()
+	if err != nil {
+		return nil, err
 	}
 
-	// Get path from retrieve operation (includes UUID parameter)
-	if _, retrievePath, _, err := g.parser.GetOperation(ops.Retrieve); err == nil {
-		apiPaths["Retrieve"] = retrievePath
-	}
-
-	// Get path from update operation
-	if _, updatePath, _, err := g.parser.GetOperation(ops.PartialUpdate); err == nil {
-		apiPaths["Update"] = updatePath
-	}
-
-	// Get path from delete operation
-	if _, deletePath, _, err := g.parser.GetOperation(ops.Destroy); err == nil {
-		apiPaths["Delete"] = deletePath
-	}
-
-	// Link plugin paths
-	if resource.LinkOp != "" {
-		if _, linkPath, _, err := g.parser.GetOperation(resource.LinkOp); err == nil {
-			apiPaths["Link"] = linkPath
-		}
-	}
-	if resource.UnlinkOp != "" {
-		if _, unlinkPath, _, err := g.parser.GetOperation(resource.UnlinkOp); err == nil {
-			apiPaths["Unlink"] = unlinkPath
-		}
-	}
-	if resource.Source != nil && resource.Source.RetrieveOp != "" {
-		if _, sourcePath, _, err := g.parser.GetOperation(resource.Source.RetrieveOp); err == nil {
-			apiPaths["SourceRetrieve"] = sourcePath
-		}
-	}
-
+	// 3. Common Enriched Logic (Actions, Filters, etc.)
 	// Resolve update action paths from OpenAPI schema
 	var updateActions []UpdateAction
 	for actionName, actionConfig := range resource.UpdateActions {
@@ -109,18 +78,16 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			Param:      actionConfig.Param,
 			CompareKey: actionConfig.CompareKey,
 		}
-		// Default CompareKey to Param if not specified
 		if action.CompareKey == "" {
 			action.CompareKey = action.Param
 		}
-		// Resolve path from OpenAPI operation
-		if _, actionPath, _, err := g.parser.GetOperation(actionConfig.Operation); err == nil {
+		if _, actionPath, _, err := base.g.parser.GetOperation(actionConfig.Operation); err == nil {
 			action.Path = actionPath
 		}
 		updateActions = append(updateActions, action)
 	}
 
-	// Resolve standalone actions (for "actions" plugin)
+	// Resolve standalone actions
 	var standaloneActions []UpdateAction
 	for _, actionName := range resource.Actions {
 		operationID := fmt.Sprintf("%s_%s", resource.BaseOperationID, actionName)
@@ -128,7 +95,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			Name:      actionName,
 			Operation: operationID,
 		}
-		if _, actionPath, _, err := g.parser.GetOperation(operationID); err == nil {
+		if _, actionPath, _, err := base.g.parser.GetOperation(operationID); err == nil {
 			action.Path = actionPath
 		}
 		standaloneActions = append(standaloneActions, action)
@@ -136,30 +103,23 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 	// Extract filter parameters
 	var filterParams []FieldInfo
-	if listOp != nil {
-		for _, paramRef := range listOp.Parameters {
+	if op, _, _, err := base.g.parser.GetOperation(ops.List); err == nil {
+		for _, paramRef := range op.Parameters {
 			if paramRef.Value == nil {
 				continue
 			}
 			param := paramRef.Value
 			if param.In == "query" {
 				paramName := param.Name
-
-				// Skip pagination, ordering, and API optimization parameters
 				if paramName == "page" || paramName == "page_size" || paramName == "o" || paramName == "field" {
 					continue
 				}
-
 				if param.Schema != nil && param.Schema.Value != nil {
 					typeStr := getSchemaType(param.Schema.Value)
 					goType := GetGoType(typeStr)
-
-					// Filter out complex types if any
 					if goType == "" || strings.HasPrefix(goType, "types.List") || strings.HasPrefix(goType, "types.Object") {
 						continue
 					}
-
-					// Extract enum values
 					var enumValues []string
 					if len(param.Schema.Value.Enum) > 0 {
 						for _, e := range param.Schema.Value.Enum {
@@ -168,7 +128,6 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 							}
 						}
 					}
-
 					filterParams = append(filterParams, FieldInfo{
 						Name:        param.Name,
 						Type:        typeStr,
@@ -181,88 +140,21 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			}
 		}
 		sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
-
 		for i := range filterParams {
-			fp := &filterParams[i]
-			fp.Description = GetDefaultDescription(fp.Name, humanize(resource.Name), fp.Description)
+			filterParams[i].Description = GetDefaultDescription(filterParams[i].Name, humanize(resource.Name), filterParams[i].Description)
 		}
 	}
 
-	// Extract fields
-	var createFields []FieldInfo
-	var updateFields []FieldInfo
-	var responseFields []FieldInfo
+	// 4. Merge Fields for Model
 	var modelFields []FieldInfo
-
-	isOrder := resource.Plugin == "order"
-
-	if isOrder {
-		// Order resource logic
-		// 1. Get Offering Schema (Input)
-		// Remove dots from offering type for schema name (e.g. OpenStack.Instance -> OpenStackInstanceCreateOrderAttributes)
-		schemaName := strings.ReplaceAll(resource.OfferingType, ".", "") + "CreateOrderAttributes"
-
-		offeringSchema, err := g.parser.GetSchema(schemaName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find offering schema %s: %w", schemaName, err)
-		}
-
-		if fields, err := ExtractFields(offeringSchema, true); err == nil {
-			createFields = fields
-			// Mark all plugin fields as optional to allow system-populated values
-			// and delegate validation to the API
-			for i := range createFields {
-				createFields[i].Required = false
-			}
-		}
-
-		// 2. Get Resource Schema (Output) from Retrieve operation
-		if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-			if fields, err := ExtractFields(responseSchema, true); err == nil {
-				responseFields = fields
-			}
-		}
-
-		// 3. Merge fields (MergeOrderFields adds project and offering fields to modelFields)
+	if resource.Plugin == "order" {
 		modelFields = MergeOrderFields(createFields, responseFields)
-
-		// Also add offering and project to createFields so they're available in template
-		createFields = append(createFields, FieldInfo{
-			Name:        "offering",
-			Type:        "string",
-			Description: "Offering URL",
-			GoType:      "types.String",
-			Required:    true,
+		// Add Plan and Limits fields manually to ModelFields for Order resources
+		modelFields = MergeFields(modelFields, []FieldInfo{
+			{Name: "plan", Type: "string", Description: "Plan URL", GoType: "types.String", Required: false},
+			{Name: "limits", Type: "object", Description: "Resource limits", GoType: "types.Map", ItemType: "number", Required: false},
 		})
-		createFields = append(createFields, FieldInfo{
-			Name:        "project",
-			Type:        "string",
-			Description: "Project URL",
-			GoType:      "types.String",
-			Required:    true,
-		})
-
-		// Add Plan and Limits fields manually to ModelFields
-		planField := FieldInfo{
-			Name:        "plan",
-			Type:        "string",
-			Description: "Plan URL",
-			GoType:      "types.String",
-			Required:    false,
-		}
-		limitsField := FieldInfo{
-			Name:        "limits",
-			Type:        "object",
-			Description: "Resource limits",
-			GoType:      "types.Map",
-			ItemType:    "number",
-			Required:    false,
-		}
-
-		// Use MergeFields to avoid duplicates if they were already in responseFields
-		modelFields = MergeFields(modelFields, []FieldInfo{planField, limitsField})
-
-		// 4. Add Termination Attributes
+		// Add Termination Attributes
 		for _, term := range resource.TerminationAttributes {
 			goType := "types.String"
 			switch term.Type {
@@ -273,250 +165,64 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			case "number":
 				goType = "types.Float64"
 			}
-
 			modelFields = append(modelFields, FieldInfo{
-				Name:        term.Name,
-				Type:        term.Type,
-				Description: "Termination attribute",
-				GoType:      goType,
+				Name: term.Name, Type: term.Type, Description: "Termination attribute", GoType: goType,
 			})
 		}
-
-		// Extract Update fields from Resource PartialUpdate operation
-		if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
-			if fields, err := ExtractFields(updateSchema, true); err == nil {
-				updateFields = fields
-			}
-		}
-
 	} else {
-		// Standard resource logic
-		// Extract Create fields
-		if resource.LinkOp != "" {
-			// Link Plugin: Use LinkOp input schema
-			if createSchema, err := g.parser.GetOperationRequestSchema(resource.LinkOp); err == nil {
-				if fields, err := ExtractFields(createSchema, true); err == nil {
-					createFields = fields
-				}
-			}
-			// Add Source and Target fields manually if not present
-			// This ensures UUID/String handling is correct even if not in schema directly
+		modelFields = MergeFields(createFields, responseFields)
+	}
 
-			// Source Param (usually in URL, but needs to be an input)
-			if resource.Source != nil && resource.Source.Param != "" {
-				// Check if already exists
-				found := false
-				for _, f := range createFields {
-					if f.Name == resource.Source.Param {
-						found = true
-						break
-					}
-				}
-				if !found {
-					createFields = append(createFields, FieldInfo{
-						Name:        resource.Source.Param,
-						Type:        "string",
-						Description: "Source resource UUID",
-						GoType:      "types.String",
-						Required:    true,
-					})
-				}
+	// 5. Special Overrides (Marketplace Attributes, Path Params)
+	if resource.Name == "marketplace_order" {
+		for i := range modelFields {
+			if modelFields[i].Name == "attributes" {
+				modelFields[i].GoType = "types.Map"
+				modelFields[i].ItemType = "string"
+				modelFields[i].Type = "object"
+				modelFields[i].Properties = nil
 			}
-
-			// Target Param
-			if resource.Target != nil && resource.Target.Param != "" {
-				// Check if already exists
-				found := false
-				for _, f := range createFields {
-					if f.Name == resource.Target.Param {
-						found = true
-						break
-					}
-				}
-				if !found {
-					createFields = append(createFields, FieldInfo{
-						Name:        resource.Target.Param,
-						Type:        "string",
-						Description: "Target resource UUID",
-						GoType:      "types.String",
-						Required:    true,
-					})
-				}
-			}
-
-			// Additional Link Params (e.g. device)
-			for _, param := range resource.LinkParams {
-				// Check if already exists
-				found := false
-				for _, f := range createFields {
-					if f.Name == param.Name {
-						found = true
-						break
-					}
-				}
-				if !found {
-					goType := "types.String"
-					switch param.Type {
-					case "boolean":
-						goType = "types.Bool"
-					case "integer":
-						goType = "types.Int64"
-					case "number":
-						goType = "types.Float64"
-					}
-					createFields = append(createFields, FieldInfo{
-						Name:        param.Name,
-						Type:        param.Type,
-						Description: "Link parameter",
-						GoType:      goType,
-						Required:    false, // Usually optional
-					})
-				}
-			}
-
-		} else {
-			// Extract Create fields
-			createOp := ops.Create
-			if resource.CreateOperation != nil && resource.CreateOperation.OperationID != "" {
-				createOp = resource.CreateOperation.OperationID
-			}
-
-			if createSchema, err := g.parser.GetOperationRequestSchema(createOp); err == nil {
-				if fields, err := ExtractFields(createSchema, true); err == nil {
-					createFields = fields
-				}
+		}
+		for i := range createFields {
+			if createFields[i].Name == "attributes" {
+				createFields[i].GoType = "types.Map"
+				createFields[i].ItemType = "string"
+				createFields[i].Type = "object"
+				createFields[i].Properties = nil
 			}
 		}
 	}
 
-	if isOrder {
-		// API Paths handled in template
-	}
-
-	// Inject Path Params for Custom Create Operation as strict Input Fields
 	if resource.CreateOperation != nil && len(resource.CreateOperation.PathParams) > 0 {
-		for _, paramName := range resource.CreateOperation.PathParams {
-			// Check if already exists in createFields
+		pathParamSet := make(map[string]bool)
+		for _, v := range resource.CreateOperation.PathParams {
+			pathParamSet[v] = true
+		}
+		for i := range modelFields {
+			if pathParamSet[modelFields[i].Name] {
+				modelFields[i].Required = true
+				modelFields[i].ReadOnly = false
+				modelFields[i].IsPathParam = true
+			}
+		}
+		// Ensure path params are in createFields as well
+		for _, name := range resource.CreateOperation.PathParams {
 			found := false
 			for _, f := range createFields {
-				if f.Name == paramName {
+				if f.Name == name {
 					found = true
 					break
 				}
 			}
 			if !found {
 				createFields = append(createFields, FieldInfo{
-					Name:        paramName,
-					Type:        "string",
-					Description: "Required path parameter for resource creation",
-					GoType:      "types.String",
-					Required:    true,
-					ReadOnly:    false,
-					IsPathParam: true,
+					Name: name, Type: "string", Description: "Required path parameter", GoType: "types.String", Required: true, IsPathParam: true,
 				})
 			}
 		}
 	}
 
-	// Extract Update fields
-	if updateSchema, err := g.parser.GetOperationRequestSchema(ops.PartialUpdate); err == nil {
-		if fields, err := ExtractFields(updateSchema, true); err == nil {
-			updateFields = fields
-		}
-	}
-
-	// Extract Response fields (prefer Retrieve operation as it's usually most complete)
-	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-		if fields, err := ExtractFields(responseSchema, true); err == nil {
-			responseFields = fields
-		}
-	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Create); err == nil {
-		// Fallback to Create response
-		if fields, err := ExtractFields(responseSchema, true); err == nil {
-			responseFields = fields
-		}
-	}
-
-	// Merge fields for the model (Create + Response)
-	if !isOrder {
-		modelFields = MergeFields(createFields, responseFields)
-	}
-	// Note: For Order resources (isOrder=true), modelFields is already set correctly
-	// with termination attributes, so we don't overwrite it here
-
-	// Override attributes field to use Map for flexibility
-	if resource.Name == "marketplace_order" {
-		found := false
-		for i, f := range modelFields {
-			if f.Name == "attributes" {
-				modelFields[i].GoType = "types.Map"
-				modelFields[i].ItemType = "string"
-				modelFields[i].Type = "object"
-				modelFields[i].Properties = nil // Clear nested properties
-				found = true
-				break
-			}
-		}
-		if !found {
-			modelFields = append(modelFields, FieldInfo{
-				Name:        "attributes",
-				Type:        "object",
-				Description: "Order attributes",
-				GoType:      "types.Map",
-				Required:    true,
-				ItemType:    "string",
-			})
-		}
-
-		// Also update createFields
-		foundCreate := false
-		for j, cf := range createFields {
-			if cf.Name == "attributes" {
-				createFields[j].GoType = "types.Map"
-				createFields[j].ItemType = "string"
-				createFields[j].Type = "object"
-				createFields[j].Properties = nil
-				foundCreate = true
-				break
-			}
-		}
-		if !foundCreate {
-			createFields = append(createFields, FieldInfo{
-				Name:        "attributes",
-				Type:        "object",
-				Description: "Order attributes",
-				GoType:      "types.Map",
-				Required:    true,
-				ItemType:    "string",
-			})
-		}
-	}
-
-	// Enforce Required/Not-ReadOnly for Path Params in ModelFields (for Nested Creation)
-	if resource.CreateOperation != nil && len(resource.CreateOperation.PathParams) > 0 {
-		pathParams := make(map[string]bool)
-		for _, v := range resource.CreateOperation.PathParams {
-			pathParams[v] = true
-		}
-
-		for i, f := range modelFields {
-			if pathParams[f.Name] {
-				modelFields[i].Required = true
-				modelFields[i].ReadOnly = false
-				// Also update createFields to match, so validation passes
-				for j, cf := range createFields {
-					if cf.Name == f.Name {
-						createFields[j].Required = true
-						createFields[j].ReadOnly = false
-					}
-				}
-			}
-		}
-	}
-
-	// Calculate ForceNew for immutable fields
-	// A field is immutable (ForceNew) if it is settable (not ReadOnly) but cannot be updated.
-	// Updatable fields are those present in the Update schema or used as params in Update Actions.
+	// 6. Final Polish (ForceNew, Descriptions, Status)
 	validUpdateFields := make(map[string]bool)
 	for _, f := range updateFields {
 		validUpdateFields[f.Name] = true
@@ -525,67 +231,40 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		validUpdateFields[action.Param] = true
 	}
 
-	// Fill descriptions for map keys and other fields
 	FillDescriptions(modelFields, humanize(resource.Name))
-
-	for i, f := range modelFields {
-		// If field is an input field (not ReadOnly) AND not in invalid update fields list
-		if !f.ReadOnly && !validUpdateFields[f.Name] {
+	for i := range modelFields {
+		if !modelFields[i].ReadOnly && !validUpdateFields[modelFields[i].Name] {
 			modelFields[i].ForceNew = true
-
-			// Reflect this change in createFields as well for consistency (though less critical there)
-			// Iterating createFields is inefficient but safe
-			for j, cf := range createFields {
-				if cf.Name == f.Name {
-					createFields[j].ForceNew = true
-				}
-			}
 		}
 	}
 
-	// Calculate ServerComputed, UseStateForUnknown, and adjust Required status recursively
 	calculateSchemaStatusRecursive(modelFields, createFields, responseFields)
 
 	// Update responseFields to use merged field definitions
-	// This ensures shared.tmpl uses the complete schema for nested objects
 	modelMap := make(map[string]FieldInfo)
 	for _, f := range modelFields {
 		modelMap[f.Name] = f
 	}
-	var newResponseFields []FieldInfo
-	for _, f := range responseFields {
-		if mergedF, ok := modelMap[f.Name]; ok {
-			newResponseFields = append(newResponseFields, mergedF)
-		} else {
-			newResponseFields = append(newResponseFields, f)
+	for i := range responseFields {
+		if mergedF, ok := modelMap[responseFields[i].Name]; ok {
+			responseFields[i] = mergedF
 		}
 	}
-	responseFields = newResponseFields
 
-	// Sort all fields for deterministic output
 	sort.Slice(createFields, func(i, j int) bool { return createFields[i].Name < createFields[j].Name })
 	sort.Slice(updateFields, func(i, j int) bool { return updateFields[i].Name < updateFields[j].Name })
-	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
-	// Merge fields for model
-	modelFields = MergeFields(modelFields, responseFields)
-	modelFields = MergeFields(modelFields, createFields)
-	modelFields = MergeFields(modelFields, updateFields)
-
-	// Sort for deterministic output
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
 	service, cleanName := splitResourceName(resource.Name)
 	skipPolling := true
 	for _, f := range responseFields {
-		// If resource has 'state' or 'status' field, we should poll it
 		if f.Name == "state" || f.Name == "status" {
 			skipPolling = false
 			break
 		}
 	}
 
-	// Filter out marketplace and other fields from schema recursively
 	inputFields := make(map[string]bool)
 	for _, f := range createFields {
 		inputFields[f.Name] = true
@@ -594,42 +273,22 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	ApplySchemaSkipRecursive(responseFields, inputFields)
 
 	rd := &ResourceData{
-		Name:                  resource.Name,
-		Service:               service,
-		CleanName:             cleanName,
-		Plugin:                resource.Plugin,
-		Operations:            ops,
-		APIPaths:              apiPaths,
-		CreateFields:          createFields,
-		UpdateFields:          updateFields,
-		ResponseFields:        responseFields,
-		ModelFields:           modelFields,
-		IsOrder:               isOrder,
-		IsLink:                resource.LinkOp != "", // Check if it's a link plugin
-		Source:                resource.Source,
-		Target:                resource.Target,
-		LinkCheckKey:          resource.LinkCheckKey,
-		OfferingType:          resource.OfferingType,
-		UpdateActions:         updateActions, // Use enriched UpdateAction slice with resolved paths
-		StandaloneActions:     standaloneActions,
-		Actions:               resource.Actions,
-		TerminationAttributes: resource.TerminationAttributes,
-		CreateOperation:       resource.CreateOperation, // Custom create operation config
-		CompositeKeys:         resource.CompositeKeys,   // Fields forming composite key
+		Name: resource.Name, Service: service, CleanName: cleanName, Plugin: resource.Plugin,
+		Operations: ops, APIPaths: apiPaths, CreateFields: createFields, UpdateFields: updateFields,
+		ResponseFields: responseFields, ModelFields: modelFields, IsOrder: resource.Plugin == "order",
+		IsLink: resource.LinkOp != "", Source: resource.Source, Target: resource.Target,
+		LinkCheckKey: resource.LinkCheckKey, OfferingType: resource.OfferingType,
+		UpdateActions: updateActions, StandaloneActions: standaloneActions, Actions: resource.Actions,
+		TerminationAttributes: resource.TerminationAttributes, CreateOperation: resource.CreateOperation,
+		CompositeKeys: resource.CompositeKeys, FilterParams: filterParams, SkipPolling: skipPolling,
+		HasDataSource: g.hasDataSource(resource.Name),
 	}
 
-	// Assign missing AttrTypeRefs to model fields (which covers merged fields)
-	// We primarily care about modelFields for the helper generation in model.go
 	seenHashes := make(map[string]string)
 	seenNames := make(map[string]string)
-
-	assignMissingAttrTypeRefs(modelFields, "", seenHashes, seenNames)
-	assignMissingAttrTypeRefs(responseFields, "", seenHashes, seenNames) // ensure response fields also get them for CopyFrom to use
-
-	rd.NestedStructs = collectUniqueStructs(modelFields)
-	rd.FilterParams = filterParams
-	rd.HasDataSource = g.hasDataSource(resource.Name)
-	rd.SkipPolling = skipPolling
+	assignMissingAttrTypeRefs(rd.ModelFields, "", seenHashes, seenNames)
+	assignMissingAttrTypeRefs(rd.ResponseFields, "", seenHashes, seenNames)
+	rd.NestedStructs = collectUniqueStructs(rd.ModelFields)
 
 	return rd, nil
 }
@@ -853,4 +512,245 @@ func calculateSchemaStatusRecursive(fields []FieldInfo, createFields, responseFi
 			calculateSchemaStatusRecursive(f.ItemSchema.Properties, subCreate, subResponse)
 		}
 	}
+}
+
+// ResourceBuilder defines the interface for building resource-specific data
+type ResourceBuilder interface {
+	BuildCreateFields() ([]FieldInfo, error)
+	BuildUpdateFields() ([]FieldInfo, error)
+	BuildResponseFields() ([]FieldInfo, error)
+	GetAPIPaths() map[string]string
+}
+
+// BaseBuilder provides common functionality for all builders
+type BaseBuilder struct {
+	g        *Generator
+	resource *config.Resource
+	ops      config.OperationSet
+}
+
+func (b *BaseBuilder) GetAPIPaths() map[string]string {
+	paths := make(map[string]string)
+	// Get path from list operation (used as base path)
+	if _, listPath, _, err := b.g.parser.GetOperation(b.ops.List); err == nil {
+		paths["Base"] = listPath
+	}
+
+	// Get path from create operation
+	createOp := b.ops.Create
+	if b.resource.CreateOperation != nil && b.resource.CreateOperation.OperationID != "" {
+		createOp = b.resource.CreateOperation.OperationID
+		if _, createPath, _, err := b.g.parser.GetOperation(createOp); err == nil {
+			paths["Create"] = createPath
+			paths["CreateOperationID"] = createOp
+			for k, v := range b.resource.CreateOperation.PathParams {
+				paths["CreatePathParam_"+k] = v
+			}
+		}
+	} else if _, createPath, _, err := b.g.parser.GetOperation(createOp); err == nil {
+		paths["Create"] = createPath
+	}
+
+	// Get path from retrieve operation
+	if _, retrievePath, _, err := b.g.parser.GetOperation(b.ops.Retrieve); err == nil {
+		paths["Retrieve"] = retrievePath
+	}
+
+	// Get path from update operation
+	if _, updatePath, _, err := b.g.parser.GetOperation(b.ops.PartialUpdate); err == nil {
+		paths["Update"] = updatePath
+	}
+
+	// Get path from delete operation
+	if _, deletePath, _, err := b.g.parser.GetOperation(b.ops.Destroy); err == nil {
+		paths["Delete"] = deletePath
+	}
+
+	return paths
+}
+
+// StandardBuilder implements ResourceBuilder for standard resources
+type StandardBuilder struct {
+	BaseBuilder
+}
+
+func (b *StandardBuilder) BuildCreateFields() ([]FieldInfo, error) {
+	createOp := b.ops.Create
+	if b.resource.CreateOperation != nil && b.resource.CreateOperation.OperationID != "" {
+		createOp = b.resource.CreateOperation.OperationID
+	}
+	schema, err := b.g.parser.GetOperationRequestSchema(createOp)
+	if err != nil {
+		return nil, nil // Some resources might not have a create schema
+	}
+	return ExtractFields(schema, true)
+}
+
+func (b *StandardBuilder) BuildUpdateFields() ([]FieldInfo, error) {
+	schema, err := b.g.parser.GetOperationRequestSchema(b.ops.PartialUpdate)
+	if err != nil {
+		return nil, nil
+	}
+	return ExtractFields(schema, true)
+}
+
+func (b *StandardBuilder) BuildResponseFields() ([]FieldInfo, error) {
+	if schema, err := b.g.parser.GetOperationResponseSchema(b.ops.Retrieve); err == nil {
+		return ExtractFields(schema, true)
+	}
+	if schema, err := b.g.parser.GetOperationResponseSchema(b.ops.Create); err == nil {
+		return ExtractFields(schema, true)
+	}
+	return nil, nil
+}
+
+// OrderBuilder implements ResourceBuilder for marketplace order resources
+type OrderBuilder struct {
+	BaseBuilder
+}
+
+func (b *OrderBuilder) BuildCreateFields() ([]FieldInfo, error) {
+	schemaName := strings.ReplaceAll(b.resource.OfferingType, ".", "") + "CreateOrderAttributes"
+	offeringSchema, err := b.g.parser.GetSchema(schemaName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find offering schema %s: %w", schemaName, err)
+	}
+	fields, err := ExtractFields(offeringSchema, true)
+	if err != nil {
+		return nil, err
+	}
+	for i := range fields {
+		fields[i].Required = false
+	}
+	// Add required offering and project fields
+	fields = append(fields, FieldInfo{
+		Name: "offering", Type: "string", Description: "Offering URL", GoType: "types.String", Required: true,
+	}, FieldInfo{
+		Name: "project", Type: "string", Description: "Project URL", GoType: "types.String", Required: true,
+	})
+	return fields, nil
+}
+
+func (b *OrderBuilder) BuildUpdateFields() ([]FieldInfo, error) {
+	schema, err := b.g.parser.GetOperationRequestSchema(b.ops.PartialUpdate)
+	if err != nil {
+		return nil, nil
+	}
+	return ExtractFields(schema, true)
+}
+
+func (b *OrderBuilder) BuildResponseFields() ([]FieldInfo, error) {
+	schema, err := b.g.parser.GetOperationResponseSchema(b.ops.Retrieve)
+	if err != nil {
+		return nil, err
+	}
+	return ExtractFields(schema, true)
+}
+
+func (b *OrderBuilder) GetAPIPaths() map[string]string {
+	paths := b.BaseBuilder.GetAPIPaths()
+	return paths
+}
+
+// LinkBuilder implements ResourceBuilder for link resources
+type LinkBuilder struct {
+	BaseBuilder
+}
+
+func (b *LinkBuilder) BuildCreateFields() ([]FieldInfo, error) {
+	schema, err := b.g.parser.GetOperationRequestSchema(b.resource.LinkOp)
+	if err != nil {
+		return nil, nil
+	}
+	fields, err := ExtractFields(schema, true)
+	if err != nil {
+		return nil, err
+	}
+	// Source and Target handling
+	if b.resource.Source != nil && b.resource.Source.Param != "" {
+		found := false
+		for _, f := range fields {
+			if f.Name == b.resource.Source.Param {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fields = append(fields, FieldInfo{
+				Name: b.resource.Source.Param, Type: "string", Description: "Source resource UUID", GoType: "types.String", Required: true,
+			})
+		}
+	}
+	if b.resource.Target != nil && b.resource.Target.Param != "" {
+		found := false
+		for _, f := range fields {
+			if f.Name == b.resource.Target.Param {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fields = append(fields, FieldInfo{
+				Name: b.resource.Target.Param, Type: "string", Description: "Target resource UUID", GoType: "types.String", Required: true,
+			})
+		}
+	}
+	// LinkParams
+	for _, param := range b.resource.LinkParams {
+		found := false
+		for _, f := range fields {
+			if f.Name == param.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			goType := "types.String"
+			switch param.Type {
+			case "boolean":
+				goType = "types.Bool"
+			case "integer":
+				goType = "types.Int64"
+			case "number":
+				goType = "types.Float64"
+			}
+			fields = append(fields, FieldInfo{
+				Name: param.Name, Type: param.Type, Description: "Link parameter", GoType: goType, Required: false,
+			})
+		}
+	}
+	return fields, nil
+}
+
+func (b *LinkBuilder) BuildUpdateFields() ([]FieldInfo, error) {
+	return nil, nil
+}
+
+func (b *LinkBuilder) BuildResponseFields() ([]FieldInfo, error) {
+	if schema, err := b.g.parser.GetOperationResponseSchema(b.ops.Retrieve); err == nil {
+		return ExtractFields(schema, true)
+	}
+	return nil, nil
+}
+
+func (b *LinkBuilder) GetAPIPaths() map[string]string {
+	paths := make(map[string]string)
+	if _, listPath, _, err := b.g.parser.GetOperation(b.ops.List); err == nil {
+		paths["Base"] = listPath
+	}
+	if _, retrievePath, _, err := b.g.parser.GetOperation(b.ops.Retrieve); err == nil {
+		paths["Retrieve"] = retrievePath
+	}
+	if _, linkPath, _, err := b.g.parser.GetOperation(b.resource.LinkOp); err == nil {
+		paths["Link"] = linkPath
+	}
+	if _, unlinkPath, _, err := b.g.parser.GetOperation(b.resource.UnlinkOp); err == nil {
+		paths["Unlink"] = unlinkPath
+	}
+	if b.resource.Source != nil && b.resource.Source.RetrieveOp != "" {
+		if _, sourcePath, _, err := b.g.parser.GetOperation(b.resource.Source.RetrieveOp); err == nil {
+			paths["SourceRetrieve"] = sourcePath
+		}
+	}
+	return paths
 }

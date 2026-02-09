@@ -543,62 +543,8 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		}
 	}
 
-	// Calculate ServerComputed: fields that the server can set/modify
-	// A field is ServerComputed if:
-	// - It is ReadOnly (computed in TF)
-	// - OR it is NOT in the create schema (response-only field)
-	// - OR it is Optional in create schema but present in response (may have server-side default)
-	createFieldNames := make(map[string]bool)
-	requiredCreateFields := make(map[string]bool)
-	createFieldHasDefault := make(map[string]bool)
-	for _, f := range createFields {
-		createFieldNames[f.Name] = true
-		if f.Required {
-			requiredCreateFields[f.Name] = true
-		}
-		if f.HasDefault {
-			createFieldHasDefault[f.Name] = true
-		}
-	}
-
-	// Build map of fields that appear in the response
-	responseFieldNames := make(map[string]bool)
-	for _, f := range responseFields {
-		responseFieldNames[f.Name] = true
-	}
-
-	for i, f := range modelFields {
-		// If it's ReadOnly, it's NOT ServerComputed in our logic (which adds UseStateForUnknown),
-		// because ReadOnly fields that are derived from other fields (like display_name)
-		// must be Unknown in the plan to avoid 'inconsistent result' errors.
-		if f.ReadOnly {
-			modelFields[i].ServerComputed = false
-			continue
-		}
-
-		// If it's not even in the create request, it's ServerComputed (response-only)
-		if !createFieldNames[f.Name] {
-			modelFields[i].ServerComputed = true
-			continue
-		}
-
-		// If it IS in the create request but NOT required, it's Optional.
-		// We mark it as ServerComputed only if it also appears in the response,
-		// meaning the server might provide a value (server-side default or computed).
-		// Fields in create but NOT in response are pure user input (not returned by server).
-		if !requiredCreateFields[f.Name] && responseFieldNames[f.Name] {
-			modelFields[i].ServerComputed = true
-		}
-	}
-
-	// Calculate UseStateForUnknown
-	for i, f := range modelFields {
-		// UseStateForUnknown is needed if the field is computed (ServerComputed or ReadOnly)
-		// AND it is NOT the 'modified' field (which changes on every update)
-		if f.ServerComputed || f.ReadOnly {
-			modelFields[i].UseStateForUnknown = true
-		}
-	}
+	// Calculate ServerComputed, UseStateForUnknown, and adjust Required status recursively
+	calculateSchemaStatusRecursive(modelFields, createFields, responseFields)
 
 	// Update responseFields to use merged field definitions
 	// This ensures shared.tmpl uses the complete schema for nested objects
@@ -845,4 +791,66 @@ func (g *Generator) generateModel(res *ResourceData) error {
 	defer f.Close()
 
 	return tmpl.Execute(f, res)
+}
+
+// calculateSchemaStatusRecursive recursively determines ServerComputed, UseStateForUnknown,
+// and adjusts Required status for nested fields.
+func calculateSchemaStatusRecursive(fields []FieldInfo, createFields, responseFields []FieldInfo) {
+	createMap := make(map[string]FieldInfo)
+	for _, f := range createFields {
+		createMap[f.Name] = f
+	}
+
+	responseMap := make(map[string]FieldInfo)
+	for _, f := range responseFields {
+		responseMap[f.Name] = f
+	}
+
+	for i := range fields {
+		f := &fields[i]
+
+		// ServerComputed logic
+		cf, inCreate := createMap[f.Name]
+		_, inResponse := responseMap[f.Name]
+
+		if f.ReadOnly {
+			f.ServerComputed = false
+		} else if !inCreate {
+			f.ServerComputed = true
+		} else if !cf.Required && inResponse {
+			f.ServerComputed = true
+		}
+
+		// UseStateForUnknown logic
+		if f.ServerComputed || f.ReadOnly {
+			f.UseStateForUnknown = true
+		}
+
+		// If it's ServerComputed, it shouldn't be Required in Terraform
+		// as it might be populated by the server instead of the user.
+		if f.ServerComputed && f.Required {
+			f.Required = false
+		}
+
+		// Recursively process nested types
+		if f.GoType == "types.Object" {
+			var subCreate, subResponse []FieldInfo
+			if inCreate {
+				subCreate = cf.Properties
+			}
+			if inResponse {
+				subResponse = responseMap[f.Name].Properties
+			}
+			calculateSchemaStatusRecursive(f.Properties, subCreate, subResponse)
+		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+			var subCreate, subResponse []FieldInfo
+			if inCreate && cf.ItemSchema != nil {
+				subCreate = cf.ItemSchema.Properties
+			}
+			if inResponse && responseMap[f.Name].ItemSchema != nil {
+				subResponse = responseMap[f.Name].ItemSchema.Properties
+			}
+			calculateSchemaStatusRecursive(f.ItemSchema.Properties, subCreate, subResponse)
+		}
+	}
 }

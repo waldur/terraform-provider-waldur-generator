@@ -72,7 +72,8 @@ func (c *{{ .Name | title }}Client) Create(ctx context.Context{{ if .CreateOpera
 	{{- if .CreateOperation.PathParams.uuid }}
 	{{- $customCreate = true }}
 	{{- $fieldName := index .CreateOperation.PathParams "uuid" }}
-	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Create }}", {{ $fieldName }}, req, &apiResp)
+	{{ $fieldName }}UUID := common.ExtractUUIDFromURL({{ $fieldName }})
+	err := c.Client.ExecuteAction(ctx, "{{ .APIPaths.Create }}", {{ $fieldName }}UUID, req, &apiResp)
 	{{- end }}
 	{{- end }}
 	{{- end }}

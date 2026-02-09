@@ -251,8 +251,10 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 	// Add secondary fields if not present
 	for _, f := range secondary {
 		if existing, ok := fieldMap[f.Name]; ok {
-			// Update existing field if secondary has more info (e.g. ReadOnly)
-			if f.ReadOnly {
+			// Preserve IsPathParam from primary - path params should keep their Required state
+			if existing.IsPathParam {
+				existing.ReadOnly = false // Path params are always writable
+			} else if f.ReadOnly {
 				existing.ReadOnly = true
 			}
 			if f.ServerComputed {

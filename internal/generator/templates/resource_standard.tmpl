@@ -96,11 +96,7 @@
 	compositeID += "/"
 	{{- end }}
 	if apiResp.{{ $key | title }} != nil {
-		val := *apiResp.{{ $key | title }}
-		if strings.Contains(val, "/") {
-			parts := strings.Split(strings.TrimRight(val, "/"), "/")
-			val = parts[len(parts)-1]
-		}
+		val := common.ExtractUUIDFromURL(*apiResp.{{ $key | title }})
 		compositeID += val
 	}
 	{{- end }}

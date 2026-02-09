@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
 )
 
@@ -19,36 +20,16 @@ type Generator struct {
 }
 
 // ResourceData holds all data required to generate resource/sdk code
-type ResourceData struct {
-	Name                  string
-	Service               string // e.g., "openstack", "marketplace"
-	CleanName             string // e.g., "instance", "order"
-	Plugin                string
-	CheckingLink          bool
-	Operations            config.OperationSet
-	APIPaths              map[string]string
-	CreateFields          []FieldInfo
-	UpdateFields          []FieldInfo
-	ResponseFields        []FieldInfo
-	ModelFields           []FieldInfo
-	IsOrder               bool
-	IsLink                bool
-	IsDatasourceOnly      bool // True if this is a datasource-only definition (no resource)
-	Source                *config.LinkResourceConfig
-	Target                *config.LinkResourceConfig
-	LinkCheckKey          string
-	OfferingType          string
-	UpdateActions         []UpdateAction
-	StandaloneActions     []UpdateAction
-	Actions               []string
-	TerminationAttributes []config.ParameterConfig
-	CreateOperation       *config.CreateOperationConfig
-	CompositeKeys         []string
-	NestedStructs         []FieldInfo // Only used for legacy resource generation if needed
-	FilterParams          []FieldInfo
-	HasDataSource         bool // True if a corresponding data source exists
-	SkipPolling           bool // True if resource does not need polling (e.g. Structure Project)
-}
+type ResourceData = common.ResourceData
+
+// FieldInfo represents information about a field extracted from OpenAPI schema
+type FieldInfo = common.FieldInfo
+
+// UpdateAction represents an enriched update action with resolved API path
+type UpdateAction = common.UpdateAction
+
+// FilterParam describes a query parameter for filtering
+type FilterParam = common.FilterParam
 
 // New creates a new generator instance
 func New(cfg *config.Config, parser *openapi.Parser) *Generator {
@@ -93,8 +74,8 @@ func (g *Generator) Generate() error {
 
 		if existing, ok := mergedResources[ds.Name]; ok {
 			// Merge datasource fields into existing resource data
-			existing.ResponseFields = MergeFields(existing.ResponseFields, dd.ResponseFields)
-			existing.ModelFields = MergeFields(existing.ModelFields, dd.ModelFields)
+			existing.ResponseFields = common.MergeFields(existing.ResponseFields, dd.ResponseFields)
+			existing.ModelFields = common.MergeFields(existing.ModelFields, dd.ModelFields)
 			existing.HasDataSource = true
 			if dd.APIPaths != nil {
 				if existing.APIPaths == nil {

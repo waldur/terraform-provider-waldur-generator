@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 )
 
 // generateSharedUtils generates the utils.go file in internal/sdk/common
@@ -31,91 +30,6 @@ func (g *Generator) generateSharedUtils() error {
 	contentStr := strings.Replace(string(content), "package resources", "package common", 1)
 
 	if _, err := f.WriteString(contentStr); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GenerateSharedTypes generates shared struct definitions from OpenAPI components
-func (g *Generator) GenerateSharedTypes() error {
-	tmpl, err := template.New("shared_types.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/shared_types.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse shared types template: %w", err)
-	}
-
-	var allFields []FieldInfo
-
-	for _, resource := range g.config.Resources {
-		ops := resource.OperationIDs()
-		var createFields []FieldInfo
-		var updateFields []FieldInfo
-
-		if resource.Plugin == "order" {
-			// Order resource
-			schemaName := strings.ReplaceAll(resource.OfferingType, ".", "") + "CreateOrderAttributes"
-			if schema, err := g.parser.GetSchema(schemaName); err == nil {
-				if f, err := ExtractFields(schema, true); err == nil {
-					createFields = f
-				}
-			}
-			if op := ops.PartialUpdate; op != "" {
-				if schema, err := g.parser.GetOperationRequestSchema(op); err == nil {
-					if f, err := ExtractFields(schema, true); err == nil {
-						updateFields = f
-					}
-				}
-			}
-		} else {
-			// Standard resource
-			op := ops.Create
-			if resource.LinkOp != "" {
-				op = resource.LinkOp
-			}
-			if resource.CreateOperation != nil && resource.CreateOperation.OperationID != "" {
-				op = resource.CreateOperation.OperationID
-			}
-
-			if op != "" {
-				if schema, err := g.parser.GetOperationRequestSchema(op); err == nil {
-					if f, err := ExtractFields(schema, true); err == nil {
-						createFields = f
-					}
-				}
-			}
-
-			if op := ops.PartialUpdate; op != "" {
-				if schema, err := g.parser.GetOperationRequestSchema(op); err == nil {
-					if f, err := ExtractFields(schema, true); err == nil {
-						updateFields = f
-					}
-				}
-			}
-		}
-
-		allFields = append(allFields, createFields...)
-		allFields = append(allFields, updateFields...)
-	}
-
-	uniqueStructs := collectUniqueStructs(allFields)
-
-	data := map[string]interface{}{
-		"Structs": uniqueStructs,
-		"Package": "common",
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common", "types.go")
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		return err
-	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err := tmpl.Execute(f, data); err != nil {
 		return err
 	}
 

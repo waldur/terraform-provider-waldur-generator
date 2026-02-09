@@ -24,7 +24,7 @@ func {{ .AttrTypeRef }}Type() types.ObjectType {
 {{- if .FilterParams }}
 type {{ .Name | title }}FiltersModel struct {
 	{{- range .FilterParams }}
-	{{ .Name | title }} {{ .GoType }} `tfsdk:"{{ .Name }}"`
+	{{ .Name | title }} types.{{ .Type }} `tfsdk:"{{ .Name }}"`
 	{{- end }}
 }
 
@@ -34,10 +34,10 @@ func (m *{{ .Name | title }}FiltersModel) GetSchema() schema.SingleNestedAttribu
 		MarkdownDescription: "Filter parameters for querying {{ .Name | humanize }}",
 		Attributes: map[string]schema.Attribute{
 			{{- range .FilterParams }}
-			"{{ .Name }}": schema.{{ toFilterParamType .GoType }}Attribute{
+			"{{ .Name }}": schema.{{ .Type }}Attribute{
 				Optional:            true,
 				MarkdownDescription: "{{ or .Description " " }}{{- if .Enum }} Allowed values: {{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}`{{ $e }}`{{ end }}.{{ end }}",
-				{{- if and (eq .Type "string") .Enum }}
+				{{- if and (eq .Type "String") .Enum }}
 				Validators: []validator.String{
 					stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
 				},

@@ -1,4 +1,4 @@
-package generator
+package common
 
 import (
 	"fmt"
@@ -8,59 +8,47 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// FieldInfo represents information about a field extracted from OpenAPI schema
-type FieldInfo struct {
-	Name               string // JSON field name, e.g., "name"
-	Type               string // OpenAPI type: "string", "integer", "boolean", "number", "array", "object"
-	Required           bool   // Whether field is in schema.Required array
-	ReadOnly           bool   // Whether field is marked readOnly in schema
-	Description        string // Field description from schema
-	Format             string // OpenAPI format: "date-time", "uuid", etc.
-	GoType             string // Terraform Framework type: "types.String", "types.List", "types.Object", etc.
-	ForceNew           bool   // Whether field requires replacement on change (immutable)
-	ServerComputed     bool   // Whether value can be set by server (readOnly or response-only)
-	UseStateForUnknown bool   // Whether to use UseStateForUnknown plan modifier
-	IsPathParam        bool   // Whether field is a path parameter (should not be in JSON body)
-
-	// Complex type support
-	Enum       []string    // For enums: allowed values (only for string type)
-	ItemType   string      // For arrays: type of items ("string", "integer", "object", etc.)
-	ItemSchema *FieldInfo  // For arrays of objects: nested schema
-	Properties []FieldInfo // For nested objects: object properties
-
-	// Validation support
-	Minimum *float64 // Minimum value for numeric fields
-	Maximum *float64 // Maximum value for numeric fields
-	Pattern string   // Regex pattern for string fields
-
-	// Ref support
-	RefName      string // Ref name for object type
-	ItemRefName  string // Ref name for array item type
-	SchemaSkip   bool   // Whether to skip this field in Terraform schema generation
-	IsDataSource bool   // Whether this field is part of a Data Source schema
-	AttrTypeRef  string // Reference name for attribute type (helper function name)
-	JsonTag      string // Custom JSON tag (optional)
-	HasDefault   bool   // Whether field has a default value in OpenAPI schema
+// ExcludedFields defines fields that should be excluded from standard resources
+var ExcludedFields = map[string]bool{
+	// Marketplace fields
+	"marketplace_category_name":  true,
+	"marketplace_category_uuid":  true,
+	"marketplace_offering_name":  true,
+	"marketplace_offering_uuid":  true,
+	"marketplace_plan_uuid":      true,
+	"marketplace_resource_state": true,
+	"is_limit_based":             true,
+	"is_usage_based":             true,
+	"access_url":                 true,
+	// Service settings
+	"service_name":                   true,
+	"service_settings":               true,
+	"service_settings_error_message": true,
+	"service_settings_state":         true,
+	"service_settings_uuid":          true,
+	// Project/Customer (handled separately)
+	"project_name":          true,
+	"project_uuid":          true,
+	"customer_abbreviation": true,
+	"customer_name":         true,
+	"customer_native_name":  true,
+	"customer_uuid":         true,
+	"created":               true,
+	"modified":              true,
 }
 
-// Clone creates a deep copy of FieldInfo
-func (f FieldInfo) Clone() FieldInfo {
-	clone := f
-	if f.Enum != nil {
-		clone.Enum = make([]string, len(f.Enum))
-		copy(clone.Enum, f.Enum)
-	}
-	if f.ItemSchema != nil {
-		clonedItem := f.ItemSchema.Clone()
-		clone.ItemSchema = &clonedItem
-	}
-	if f.Properties != nil {
-		clone.Properties = make([]FieldInfo, len(f.Properties))
-		for i, prop := range f.Properties {
-			clone.Properties[i] = prop.Clone()
-		}
-	}
-	return clone
+// SetFields defines fields that should be treated as Sets instead of Lists
+// This is used for unordered collections to avoid permadiffs in Terraform
+var SetFields = map[string]bool{
+	"security_groups": true,
+	"floating_ips":    true,
+	"tags":            true,
+	"ssh_keys":        true,
+}
+
+// IsSetField checks if a field should be treated as a Set
+func IsSetField(name string) bool {
+	return SetFields[name]
 }
 
 // ExtractFields extracts field information from an OpenAPI schema reference
@@ -133,7 +121,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 		}
 
 		prop := propSchema.Value
-		typeStr := getSchemaType(prop)
+		typeStr := GetSchemaType(prop)
 
 		// Override incorrect schema types for billing fields
 		if (propName == "total" || propName == "tax" || propName == "tax_current" || propName == "current") && typeStr == "string" {
@@ -183,7 +171,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 		case "array":
 			// Extract array item type
 			if prop.Items != nil && prop.Items.Value != nil {
-				itemType := getSchemaType(prop.Items.Value)
+				itemType := GetSchemaType(prop.Items.Value)
 				field.ItemType = itemType
 
 				// Extract item ref name
@@ -224,7 +212,6 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 
 		case "object":
 			// Nested object - extract properties
-			// Pass the RefName to the recursive call? No, ExtractFields works on schema.
 			if nestedFields, err := extractFieldsRecursive(propSchema, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields
 				field.GoType = "types.Object"
@@ -263,11 +250,9 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 			}
 
 			// Recursively merge nested properties if present in both
-			// Case 1: Nested objects (Properties)
 			if len(existing.Properties) > 0 && len(f.Properties) > 0 {
 				existing.Properties = MergeFields(existing.Properties, f.Properties)
 			}
-			// Case 2: Array of objects (ItemSchema.Properties)
 			if existing.ItemSchema != nil && f.ItemSchema != nil && len(existing.ItemSchema.Properties) > 0 && len(f.ItemSchema.Properties) > 0 {
 				existing.ItemSchema.Properties = MergeFields(existing.ItemSchema.Properties, f.ItemSchema.Properties)
 			}
@@ -384,8 +369,8 @@ func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
 	return merged
 }
 
-// getSchemaType extracts the type string from openapi3.Schema
-func getSchemaType(schema *openapi3.Schema) string {
+// GetSchemaType extracts the type string from openapi3.Schema
+func GetSchemaType(schema *openapi3.Schema) string {
 	if schema.Type != nil {
 		// Types can be a slice, take the first one
 		if len(*schema.Type) > 0 {
@@ -395,59 +380,16 @@ func getSchemaType(schema *openapi3.Schema) string {
 
 	// Fallback for OneOf/AnyOf/AllOf
 	if len(schema.OneOf) > 0 {
-		return getSchemaType(schema.OneOf[0].Value)
+		return GetSchemaType(schema.OneOf[0].Value)
 	}
 	if len(schema.AnyOf) > 0 {
-		return getSchemaType(schema.AnyOf[0].Value)
+		return GetSchemaType(schema.AnyOf[0].Value)
 	}
 	if len(schema.AllOf) > 0 {
-		return getSchemaType(schema.AllOf[0].Value)
+		return GetSchemaType(schema.AllOf[0].Value)
 	}
 
 	return ""
-}
-
-// ExcludedFields defines fields that should be excluded from standard resources
-var ExcludedFields = map[string]bool{
-	// Marketplace fields
-	"marketplace_category_name":  true,
-	"marketplace_category_uuid":  true,
-	"marketplace_offering_name":  true,
-	"marketplace_offering_uuid":  true,
-	"marketplace_plan_uuid":      true,
-	"marketplace_resource_state": true,
-	"is_limit_based":             true,
-	"is_usage_based":             true,
-	"access_url":                 true,
-	// Service settings
-	"service_name":                   true,
-	"service_settings":               true,
-	"service_settings_error_message": true,
-	"service_settings_state":         true,
-	"service_settings_uuid":          true,
-	// Project/Customer (handled separately)
-	"project_name":          true,
-	"project_uuid":          true,
-	"customer_abbreviation": true,
-	"customer_name":         true,
-	"customer_native_name":  true,
-	"customer_uuid":         true,
-	"created":               true,
-	"modified":              true,
-}
-
-// SetFields defines fields that should be treated as Sets instead of Lists
-// This is used for unordered collections to avoid permadiffs in Terraform
-var SetFields = map[string]bool{
-	"security_groups": true,
-	"floating_ips":    true,
-	"tags":            true,
-	"ssh_keys":        true,
-}
-
-// IsSetField checks if a field should be treated as a Set
-func IsSetField(name string) bool {
-	return SetFields[name]
 }
 
 // GetDefaultDescription returns a generated description based on the field name if the current description is empty or too short.
@@ -488,8 +430,6 @@ func GetDefaultDescription(name, resourceName, currentDesc string) string {
 }
 
 // FillDescriptions recursively populates missing descriptions for fields.
-// It uses a combination of direct mappings (e.g. uuid -> "UUID of the resource")
-// and heuristics (trailing suffixes, is_ prefix, snake_case to Sentence case).
 func FillDescriptions(fields []FieldInfo, resourceName string) {
 	for i := range fields {
 		f := &fields[i]
@@ -519,4 +459,208 @@ func ApplySchemaSkipRecursive(fields []FieldInfo, inputFields map[string]bool) {
 			ApplySchemaSkipRecursive(f.ItemSchema.Properties, inputFields)
 		}
 	}
+}
+
+// CalculateSchemaStatusRecursive recursively determines ServerComputed, UseStateForUnknown,
+// and adjusts Required status for nested fields.
+func CalculateSchemaStatusRecursive(fields []FieldInfo, createFields, responseFields []FieldInfo) {
+	createMap := make(map[string]FieldInfo)
+	for _, f := range createFields {
+		createMap[f.Name] = f
+	}
+
+	responseMap := make(map[string]FieldInfo)
+	for _, f := range responseFields {
+		responseMap[f.Name] = f
+	}
+
+	for i := range fields {
+		f := &fields[i]
+
+		// ServerComputed logic
+		cf, inCreate := createMap[f.Name]
+		_, inResponse := responseMap[f.Name]
+
+		if f.ReadOnly {
+			f.ServerComputed = false
+		} else if !inCreate {
+			f.ServerComputed = true
+		} else if !cf.Required && inResponse {
+			f.ServerComputed = true
+		}
+
+		// UseStateForUnknown logic
+		if f.ServerComputed || f.ReadOnly {
+			f.UseStateForUnknown = true
+		}
+
+		// If it's ServerComputed, it shouldn't be Required in Terraform
+		if f.ServerComputed && f.Required {
+			f.Required = false
+		}
+
+		// Recursively process nested types
+		if f.GoType == "types.Object" {
+			var subCreate, subResponse []FieldInfo
+			if inCreate {
+				subCreate = cf.Properties
+			}
+			if inResponse {
+				subResponse = responseMap[f.Name].Properties
+			}
+			CalculateSchemaStatusRecursive(f.Properties, subCreate, subResponse)
+		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+			var subCreate, subResponse []FieldInfo
+			if inCreate && cf.ItemSchema != nil {
+				subCreate = cf.ItemSchema.Properties
+			}
+			if inResponse && responseMap[f.Name].ItemSchema != nil {
+				subResponse = responseMap[f.Name].ItemSchema.Properties
+			}
+			CalculateSchemaStatusRecursive(f.ItemSchema.Properties, subCreate, subResponse)
+		}
+	}
+}
+
+// CollectUniqueStructs gathers all Nested structs that have a AttrTypeRef defined
+func CollectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
+	seen := make(map[string]bool)
+	var result []FieldInfo
+	var traverse func([]FieldInfo)
+
+	traverse = func(fields []FieldInfo) {
+		for _, f := range fields {
+			// Check object type with AttrTypeRef or RefName
+			if f.GoType == "types.Object" {
+				key := f.AttrTypeRef
+				if key == "" {
+					key = f.RefName
+				}
+				if key != "" {
+					if !seen[key] {
+						seen[key] = true
+						// Ensure AttrTypeRef is set for consistency in result
+						if f.AttrTypeRef == "" {
+							f.AttrTypeRef = key
+						}
+						result = append(result, f)
+						traverse(f.Properties)
+					}
+				} else {
+					traverse(f.Properties)
+				}
+			}
+			// Check list/set of objects with AttrTypeRef or RefName
+			if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+				key := f.ItemSchema.AttrTypeRef
+				if key == "" {
+					key = f.ItemSchema.RefName
+				}
+				if key != "" {
+					if !seen[key] {
+						seen[key] = true
+						// Ensure AttrTypeRef is set
+						if f.ItemSchema.AttrTypeRef == "" {
+							f.ItemSchema.AttrTypeRef = key
+						}
+						result = append(result, *f.ItemSchema)
+						traverse(f.ItemSchema.Properties)
+					}
+				} else {
+					traverse(f.ItemSchema.Properties)
+				}
+			}
+		}
+	}
+
+	for _, p := range params {
+		traverse(p)
+	}
+
+	sort.Slice(result, func(i, j int) bool { return result[i].AttrTypeRef < result[j].AttrTypeRef })
+	return result
+}
+
+// AssignMissingAttrTypeRefs recursively assigns a AttrTypeRef to objects/lists of objects that lack one.
+func AssignMissingAttrTypeRefs(fields []FieldInfo, prefix string, seenHashes map[string]string, seenNames map[string]string) {
+	for i := range fields {
+		f := &fields[i]
+
+		// Recursively process children first (Bottom-Up)
+		if f.GoType == "types.Object" {
+			AssignMissingAttrTypeRefs(f.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+			if f.ItemSchema.GoType == "types.Object" {
+				AssignMissingAttrTypeRefs(f.ItemSchema.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+
+				// Also assign ref to ItemSchema itself
+				hash := computeStructHash(*f.ItemSchema)
+				if name, ok := seenHashes[hash]; ok {
+					f.ItemSchema.AttrTypeRef = name
+				} else {
+					candidate := f.ItemSchema.RefName
+					if candidate == "" {
+						candidate = prefix + toTitle(f.Name)
+					}
+					finalName := resolveUniqueName(candidate, hash, seenNames)
+					seenHashes[hash] = finalName
+					seenNames[finalName] = hash
+					f.ItemSchema.AttrTypeRef = finalName
+				}
+			}
+		}
+
+		// Now process f itself if it is Object
+		if f.GoType == "types.Object" {
+			hash := computeStructHash(*f)
+			if name, ok := seenHashes[hash]; ok {
+				f.AttrTypeRef = name
+			} else {
+				candidate := f.RefName
+				if candidate == "" {
+					candidate = prefix + toTitle(f.Name)
+				}
+				finalName := resolveUniqueName(candidate, hash, seenNames)
+				seenHashes[hash] = finalName
+				seenNames[finalName] = hash
+				f.AttrTypeRef = finalName
+			}
+		}
+	}
+}
+
+func resolveUniqueName(candidate string, hash string, seenNames map[string]string) string {
+	finalName := candidate
+	counter := 2
+	for {
+		if oldHash, exists := seenNames[finalName]; exists {
+			if oldHash == hash {
+				return finalName
+			}
+			finalName = fmt.Sprintf("%s%d", candidate, counter)
+			counter++
+		} else {
+			return finalName
+		}
+	}
+}
+
+func computeStructHash(f FieldInfo) string {
+	var parts []string
+	for _, p := range f.Properties {
+		key := fmt.Sprintf("%s:%s:%s", p.Name, p.GoType, p.AttrTypeRef)
+		parts = append(parts, key)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, "|")
+}
+
+func toTitle(s string) string {
+	parts := strings.Split(s, "_")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, "")
 }

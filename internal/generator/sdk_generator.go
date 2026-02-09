@@ -10,6 +10,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
 // GenerateSDK generates the decentralized SDK components
@@ -37,7 +38,7 @@ func (g *Generator) generateSharedSDKTypes() error {
 	}
 
 	allFields := g.collectSchemaFields(usedTypes)
-	uniqueStructs := collectUniqueStructs(allFields)
+	uniqueStructs := common.CollectUniqueStructs(allFields)
 
 	extraFields := g.calculateIgnoredFields()
 	g.applyIgnoredFields(uniqueStructs, extraFields)
@@ -81,8 +82,8 @@ func (g *Generator) generateResourceSDKs() error {
 		}
 
 		if existing, ok := mergedResources[ds.Name]; ok {
-			existing.ResponseFields = mergeFields(existing.ResponseFields, dd.ResponseFields)
-			existing.ModelFields = mergeFields(existing.ModelFields, dd.ModelFields)
+			existing.ResponseFields = common.MergeFields(existing.ResponseFields, dd.ResponseFields)
+			existing.ModelFields = common.MergeFields(existing.ModelFields, dd.ModelFields)
 		} else {
 			mergedResources[ds.Name] = dd
 			resourceOrder = append(resourceOrder, ds.Name)
@@ -180,19 +181,19 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	// Extract Response fields
 	var responseFields []FieldInfo
 	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-		if fields, err := ExtractFields(responseSchema, true); err == nil {
+		if fields, err := common.ExtractFields(responseSchema, true); err == nil {
 			responseFields = fields
 		}
 	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.List); err == nil {
 		if responseSchema.Value.Type != nil && (*responseSchema.Value.Type)[0] == "array" && responseSchema.Value.Items != nil {
-			if fields, err := ExtractFields(responseSchema.Value.Items, true); err == nil {
+			if fields, err := common.ExtractFields(responseSchema.Value.Items, true); err == nil {
 				responseFields = fields
 			}
 		}
 	}
 
 	// Extract filter parameters
-	var filterParams []FieldInfo
+	var filterParams []common.FilterParam
 	if listOp != nil {
 		for _, paramRef := range listOp.Parameters {
 			if paramRef.Value == nil {
@@ -205,15 +206,13 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 					continue
 				}
 				if param.Schema != nil {
-					typeStr := getSchemaType(param.Schema.Value)
-					goType := GetGoType(typeStr)
+					typeStr := common.GetSchemaType(param.Schema.Value)
+					goType := common.GetGoType(typeStr)
 					if goType != "" && !strings.HasPrefix(goType, "types.List") && !strings.HasPrefix(goType, "types.Object") {
-						filterParams = append(filterParams, FieldInfo{
+						filterParams = append(filterParams, common.FilterParam{
 							Name:        param.Name,
-							Type:        typeStr,
+							Type:        common.GetFilterParamType(goType),
 							Description: param.Description,
-							GoType:      goType,
-							SchemaSkip:  true,
 						})
 					}
 				}
@@ -226,8 +225,8 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	modelFields := responseFields
 
 	// Filter out marketplace and other fields from schema recursively
-	ApplySchemaSkipRecursive(modelFields, nil)
-	ApplySchemaSkipRecursive(responseFields, nil)
+	common.ApplySchemaSkipRecursive(modelFields, nil)
+	common.ApplySchemaSkipRecursive(responseFields, nil)
 
 	// Sort for deterministic output
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
@@ -252,28 +251,7 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	}, nil
 }
 
-// mergeFields combines two slices of FieldInfo while avoiding duplicates by name
-func mergeFields(fields1, fields2 []FieldInfo) []FieldInfo {
-	seen := make(map[string]bool)
-	var result []FieldInfo
-
-	for _, f := range fields1 {
-		if !seen[f.Name] {
-			seen[f.Name] = true
-			result = append(result, f)
-		}
-	}
-
-	for _, f := range fields2 {
-		if !seen[f.Name] {
-			seen[f.Name] = true
-			result = append(result, f)
-		}
-	}
-
-	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
-	return result
-}
+// mergeFields is no longer needed here as it's in common
 
 func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	usedTypes := make(map[string]bool)
@@ -287,7 +265,7 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 					usedTypes[f.RefName] = true
 					// Find schema and recurse
 					if schemaRef, ok := g.parser.Document().Components.Schemas[f.RefName]; ok {
-						if nestedFields, err := ExtractFields(schemaRef, false); err == nil {
+						if nestedFields, err := common.ExtractFields(schemaRef, false); err == nil {
 							collectTypes(nestedFields)
 						}
 					}
@@ -353,7 +331,7 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
 			continue
 		}
 
-		fields, _ := ExtractFields(schemaRef, false)
+		fields, _ := common.ExtractFields(schemaRef, false)
 		allFields = append(allFields, FieldInfo{
 			RefName:    name,
 			GoType:     "types.Object",

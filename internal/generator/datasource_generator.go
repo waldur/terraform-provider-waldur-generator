@@ -17,6 +17,14 @@ func cloneFields(fields []FieldInfo) []FieldInfo {
 	return cloned
 }
 
+func cloneFilterParams(params []FilterParam) []FilterParam {
+	cloned := make([]FilterParam, len(params))
+	for i, p := range params {
+		cloned[i] = p.Clone()
+	}
+	return cloned
+}
+
 func setIsDataSourceRecursive(fields []FieldInfo) {
 	for i := range fields {
 		fields[i].IsDataSource = true
@@ -48,8 +56,8 @@ func (g *Generator) generateDataSourceImplementation(rd *ResourceData, dataSourc
 	responseFields := cloneFields(rd.ResponseFields)
 	setIsDataSourceRecursive(responseFields)
 
-	filterParams := cloneFields(rd.FilterParams)
-	setIsDataSourceRecursive(filterParams)
+	filterParams := cloneFilterParams(rd.FilterParams)
+	// FilterParams dont need setIsDataSourceRecursive as they are simple structs
 
 	modelFields := cloneFields(rd.ModelFields)
 	setIsDataSourceRecursive(modelFields)

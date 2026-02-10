@@ -102,31 +102,9 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	}
 
 	// 4. Merge Fields for Model
-	var modelFields []FieldInfo
-	if resource.Plugin == "order" {
-		modelFields = common.MergeOrderFields(createFields, responseFields)
-		// Add Plan and Limits fields manually to ModelFields for Order resources
-		modelFields = common.MergeFields(modelFields, []FieldInfo{
-			{Name: "plan", Type: "string", Description: "Plan URL", GoType: "types.String", Required: false},
-			{Name: "limits", Type: "object", Description: "Resource limits", GoType: "types.Map", ItemType: "number", Required: false},
-		})
-		// Add Termination Attributes
-		for _, term := range resource.TerminationAttributes {
-			goType := "types.String"
-			switch term.Type {
-			case "boolean":
-				goType = "types.Bool"
-			case "integer":
-				goType = "types.Int64"
-			case "number":
-				goType = "types.Float64"
-			}
-			modelFields = append(modelFields, FieldInfo{
-				Name: term.Name, Type: term.Type, Description: "Termination attribute", GoType: goType,
-			})
-		}
-	} else {
-		modelFields = common.MergeFields(createFields, responseFields)
+	modelFields, err := builder.BuildModelFields(createFields, responseFields)
+	if err != nil {
+		return nil, err
 	}
 
 	// 5. Special Overrides (Marketplace Attributes, Path Params)

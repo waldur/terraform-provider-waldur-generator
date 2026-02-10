@@ -50,6 +50,31 @@ func (b *OrderBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
 	return common.ExtractFields(b.SchemaConfig, schema, true)
 }
 
+func (b *OrderBuilder) BuildModelFields(createFields, responseFields []common.FieldInfo) ([]common.FieldInfo, error) {
+	modelFields := common.MergeOrderFields(createFields, responseFields)
+	// Add Plan and Limits fields manually to ModelFields for Order resources
+	modelFields = common.MergeFields(modelFields, []common.FieldInfo{
+		{Name: "plan", Type: "string", Description: "Plan URL", GoType: "types.String", Required: false},
+		{Name: "limits", Type: "object", Description: "Resource limits", GoType: "types.Map", ItemType: "number", Required: false},
+	})
+	// Add Termination Attributes
+	for _, term := range b.Resource.TerminationAttributes {
+		goType := "types.String"
+		switch term.Type {
+		case "boolean":
+			goType = "types.Bool"
+		case "integer":
+			goType = "types.Int64"
+		case "number":
+			goType = "types.Float64"
+		}
+		modelFields = append(modelFields, common.FieldInfo{
+			Name: term.Name, Type: term.Type, Description: "Termination attribute", GoType: goType,
+		})
+	}
+	return modelFields, nil
+}
+
 func (b *OrderBuilder) GetAPIPaths() map[string]string {
 	paths := b.BaseBuilder.GetAPIPaths()
 	return paths

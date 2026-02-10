@@ -11,6 +11,7 @@ type ResourceBuilder interface {
 	BuildCreateFields() ([]common.FieldInfo, error)
 	BuildUpdateFields() ([]common.FieldInfo, error)
 	BuildResponseFields() ([]common.FieldInfo, error)
+	BuildModelFields(createFields, responseFields []common.FieldInfo) ([]common.FieldInfo, error) // Added
 	GetAPIPaths() map[string]string
 }
 
@@ -20,6 +21,10 @@ type BaseBuilder struct {
 	Resource     *config.Resource
 	Ops          config.OperationSet
 	SchemaConfig common.SchemaConfig
+}
+
+func (b *BaseBuilder) BuildModelFields(createFields, responseFields []common.FieldInfo) ([]common.FieldInfo, error) {
+	return common.MergeFields(createFields, responseFields), nil
 }
 
 func (b *BaseBuilder) GetAPIPaths() map[string]string {

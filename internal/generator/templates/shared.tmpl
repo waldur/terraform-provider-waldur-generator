@@ -132,7 +132,42 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	{{- end }}
 {{- end }}
 
-
+{{- define "renderValidators" }}
+{{- $type := .Type }}
+{{- $enum := .Enum }}
+{{- $min := .Minimum }}
+{{- $max := .Maximum }}
+{{- $pattern := .Pattern }}
+{{- $goType := .GoType }}
+{{- if or $enum $min $max $pattern }}
+        Validators: []validator.{{ $type }}{
+            {{- if $enum }}
+            {{- if eq $type "String" }}
+            stringvalidator.OneOf({{ range $i, $e := $enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
+            {{- else if eq $type "Int64" }}
+            int64validator.OneOf({{ range $i, $e := $enum }}{{ if $i }}, {{ end }}{{ $e }}{{ end }}),
+            {{- else if eq $type "Float64" }}
+            float64validator.OneOf({{ range $i, $e := $enum }}{{ if $i }}, {{ end }}{{ $e }}{{ end }}),
+            {{- end }}
+            {{- end }}
+            {{- if $pattern }}
+            stringvalidator.RegexMatches(regexp.MustCompile(`{{ $pattern }}`), ""),
+            {{- end }}
+            {{- if $min }}
+            {{- $minVal := formatValidator $min $goType }}
+            {{- if $minVal }}
+            {{ if eq $type "Int64" }}int64validator{{ else }}float64validator{{ end }}.AtLeast({{ $minVal }}),
+            {{- end }}
+            {{- end }}
+            {{- if $max }}
+            {{- $maxVal := formatValidator $max $goType }}
+            {{- if $maxVal }}
+            {{ if eq $type "Int64" }}int64validator{{ else }}float64validator{{ end }}.AtMost({{ $maxVal }}),
+            {{- end }}
+            {{- end }}
+        },
+{{- end }}
+{{- end }}
 
 
 {{- define "schemaNestedAttribute" }}
@@ -330,28 +365,12 @@ schema.SingleNestedAttribute{
         {{- if contains .Name "password" }}
         Sensitive: true,
         {{- end }}
-        {{- if or .Enum .Minimum .Maximum .Pattern }}
-        Validators: []validator.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "number" }}Float64{{ end }}{
-            {{- if .Enum }}
-            stringvalidator.OneOf({{ range $i, $e := .Enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
-            {{- end }}
-            {{- if .Pattern }}
-            stringvalidator.RegexMatches(regexp.MustCompile(`{{ .Pattern }}`), ""),
-            {{- end }}
-            {{- if .Minimum }}
-            {{- $min := formatValidator .Minimum .GoType }}
-            {{- if $min }}
-            {{ if eq .Type "integer" }}int64validator{{ else }}float64validator{{ end }}.AtLeast({{ $min }}),
-            {{- end }}
-            {{- end }}
-            {{- if .Maximum }}
-            {{- $max := formatValidator .Maximum .GoType }}
-            {{- if $max }}
-            {{ if eq .Type "integer" }}int64validator{{ else }}float64validator{{ end }}.AtMost({{ $max }}),
-            {{- end }}
-            {{- end }}
-        },
-        {{- end }}
+        {{- $vType := "" -}}
+        {{- if eq .Type "string" }}{{ $vType = "String" -}}
+        {{- else if eq .Type "integer" }}{{ $vType = "Int64" -}}
+        {{- else if eq .Type "number" }}{{ $vType = "Float64" -}}
+        {{- end -}}
+        {{ template "renderValidators" dict "Field" . "Type" $vType "Enum" .Enum "Minimum" .Minimum "Maximum" .Maximum "Pattern" .Pattern "GoType" .GoType }}
     },
 {{- end }}
 {{- end }}

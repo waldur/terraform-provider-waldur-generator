@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
@@ -37,10 +39,7 @@ func (m *{{ .Name | title }}FiltersModel) GetSchema() schema.SingleNestedAttribu
 			"{{ .Name }}": schema.{{ .Type }}Attribute{
 				Optional:            true,
 				MarkdownDescription: "{{ .Description }}",
-				{{- if and (eq .Type "String") .Enum }}
-				Validators: []validator.String{
-				},
-				{{- end }}
+				{{ template "renderValidators" dict "Type" .Type "Enum" .Enum "Minimum" nil "Maximum" nil "Pattern" "" "GoType" "" }}
 			},
 			{{- end }}
 		},

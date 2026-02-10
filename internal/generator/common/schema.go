@@ -662,10 +662,16 @@ func ExtractFilterParams(op *openapi3.Operation, resourceName string) []FilterPa
 					continue
 				}
 
+				var enumValues []string
+				for _, val := range param.Schema.Value.Enum {
+					enumValues = append(enumValues, fmt.Sprintf("%v", val))
+				}
+
 				filterParams = append(filterParams, FilterParam{
 					Name:        param.Name,
 					Type:        GetFilterParamType(goType),
 					Description: param.Description,
+					Enum:        enumValues,
 				})
 			}
 		}

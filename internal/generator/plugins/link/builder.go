@@ -80,10 +80,30 @@ func (b *LinkBuilder) BuildUpdateFields() ([]common.FieldInfo, error) {
 }
 
 func (b *LinkBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
-	if schema, err := b.Parser.GetOperationResponseSchema(b.Ops.Retrieve); err == nil {
-		return common.ExtractFields(b.SchemaConfig, schema, true)
+	fields, err := func() ([]common.FieldInfo, error) {
+		if schema, err := b.Parser.GetOperationResponseSchema(b.Ops.Retrieve); err == nil {
+			return common.ExtractFields(b.SchemaConfig, schema, true)
+		}
+		return nil, nil
+	}()
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+
+	// Update Source and Target fields to be Required and ForceNew
+	for i := range fields {
+		f := &fields[i]
+		isSource := b.Resource.Source != nil && f.Name == b.Resource.Source.Param
+		isTarget := b.Resource.Target != nil && f.Name == b.Resource.Target.Param
+
+		if isSource || isTarget {
+			f.Required = true
+			f.ReadOnly = false
+			f.ForceNew = true
+		}
+	}
+
+	return fields, nil
 }
 
 func (b *LinkBuilder) GetAPIPaths() map[string]string {

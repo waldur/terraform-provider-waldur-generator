@@ -33,5 +33,12 @@ func (g *Generator) cleanupImports() error {
 		fmt.Printf("Warning: failed to format services: %v\n", err)
 	}
 
+	// Clean up e2e_test
+	e2eDir := filepath.Join(g.config.Generator.OutputDir, "e2e_test")
+	cmd = exec.Command(toolPath, "-w", e2eDir)
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Warning: failed to format e2e_test: %v\n", err)
+	}
+
 	return nil
 }

@@ -45,24 +45,8 @@ func TestOpenstackVolume_Create(t *testing.T) {
 	})
 }
 
-func getProviderConfigVolume() string {
-	endpoint := os.Getenv("WALDUR_API_URL")
-	if endpoint == "" {
-		endpoint = "https://api.waldur.example.com"
-	}
-	token := os.Getenv("WALDUR_ACCESS_TOKEN")
-	if token == "" {
-		token = "test-token-sanitized"
-	}
-	return fmt.Sprintf(`provider "waldur" {
-  endpoint = %q
-  token    = %q
-}
-`, endpoint, token)
-}
-
 func testAccOpenstackVolumeConfig_basic() string {
-	return getProviderConfigVolume() + `
+	return testhelpers.GetProviderConfig() + `
 data "waldur_structure_project" "test" {
   filters = {
     name_exact = "Naked azanide as an aminating agent and a superbase"

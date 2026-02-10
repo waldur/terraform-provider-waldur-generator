@@ -80,3 +80,16 @@ func GetHTTPClient(t *testing.T, cassetteName string) (*http.Client, func()) {
 
 	return client, cleanup
 }
+
+// GetProviderConfig returns the provider configuration for E2E tests.
+func GetProviderConfig() string {
+	endpoint := os.Getenv("WALDUR_API_URL")
+	if endpoint == "" {
+		endpoint = "https://api.waldur.example.com"
+	}
+	token := os.Getenv("WALDUR_ACCESS_TOKEN")
+	if token == "" {
+		token = "test-token-sanitized"
+	}
+	return "provider \"waldur\" {\n  endpoint = \"" + endpoint + "\"\n  token    = \"" + token + "\"\n}\n"
+}

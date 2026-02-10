@@ -52,7 +52,7 @@ func TestOpenstackSubnet_CRUD(t *testing.T) {
 }
 
 func testAccOpenstackSubnetConfig_basic(name, cidr string) string {
-	return getProviderConfig() + fmt.Sprintf(`
+	return testhelpers.GetProviderConfig() + fmt.Sprintf(`
 
 data "waldur_structure_project" "test" {
   filters = {

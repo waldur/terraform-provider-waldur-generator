@@ -42,24 +42,8 @@ func TestOpenstackInstance_CRUD(t *testing.T) {
 	})
 }
 
-func getProviderConfig() string {
-	endpoint := os.Getenv("WALDUR_API_URL")
-	if endpoint == "" {
-		endpoint = "https://api.waldur.example.com"
-	}
-	token := os.Getenv("WALDUR_ACCESS_TOKEN")
-	if token == "" {
-		token = "test-token-sanitized"
-	}
-	return fmt.Sprintf(`provider "waldur" {
-  endpoint = %q
-  token    = %q
-}
-`, endpoint, token)
-}
-
 func testAccOpenstackInstanceConfig_basic() string {
-	return getProviderConfig() + `
+	return testhelpers.GetProviderConfig() + `
 
 data "waldur_structure_project" "test" {
   filters = {

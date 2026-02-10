@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
-	"text/template"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
@@ -27,11 +25,6 @@ func (g *Generator) GenerateSDK() error {
 }
 
 func (g *Generator) generateSharedSDKTypes() error {
-	tmpl, err := template.New("shared_types.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/shared_types.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse shared types template: %w", err)
-	}
-
 	usedTypes, err := g.collectUsedTypes()
 	if err != nil {
 		return fmt.Errorf("failed to collect used types: %w", err)
@@ -48,18 +41,13 @@ func (g *Generator) generateSharedSDKTypes() error {
 		"Package": "common",
 	}
 
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common", "types.go")
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		return err
-	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return tmpl.Execute(f, data)
+	return g.renderTemplate(
+		"shared_types.go.tmpl",
+		[]string{"templates/shared.tmpl", "templates/shared_types.go.tmpl"},
+		data,
+		filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common"),
+		"types.go",
+	)
 }
 
 func (g *Generator) generateResourceSDKs() error {
@@ -120,43 +108,33 @@ func (g *Generator) generateResourceSDK(rd *ResourceData) error {
 }
 
 func (g *Generator) generateResourceSDKTypes(rd *ResourceData, outputDir string) error {
-	tmpl, err := template.New("sdk_types.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/sdk_types.go.tmpl")
-	if err != nil {
-		return err
-	}
-
 	data := map[string]interface{}{
 		"Resources": []ResourceData{*rd},
 		"Package":   rd.CleanName,
 	}
 
-	f, err := os.Create(filepath.Join(outputDir, "types.go"))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return tmpl.Execute(f, data)
+	return g.renderTemplate(
+		"sdk_types.go.tmpl",
+		[]string{"templates/shared.tmpl", "templates/sdk_types.go.tmpl"},
+		data,
+		outputDir,
+		"types.go",
+	)
 }
 
 func (g *Generator) generateResourceSDKClient(rd *ResourceData, outputDir string) error {
-	tmpl, err := template.New("sdk_client.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/sdk_client.go.tmpl")
-	if err != nil {
-		return err
-	}
-
 	data := map[string]interface{}{
 		"Resources": []ResourceData{*rd},
 		"Package":   rd.CleanName,
 	}
 
-	f, err := os.Create(filepath.Join(outputDir, "client.go"))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return tmpl.Execute(f, data)
+	return g.renderTemplate(
+		"sdk_client.go.tmpl",
+		[]string{"templates/shared.tmpl", "templates/sdk_client.go.tmpl"},
+		data,
+		outputDir,
+		"client.go",
+	)
 }
 
 // prepareDatasourceData creates minimal ResourceData for a datasource-only definition
@@ -178,18 +156,7 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	}
 
 	// 0. Construct SchemaConfig
-	excludedMap := make(map[string]bool)
-	for _, f := range g.config.Generator.ExcludedFields {
-		excludedMap[f] = true
-	}
-	setMap := make(map[string]bool)
-	for _, f := range g.config.Generator.SetFields {
-		setMap[f] = true
-	}
-	cfg := common.SchemaConfig{
-		ExcludedFields: excludedMap,
-		SetFields:      setMap,
-	}
+	cfg := g.getSchemaConfig()
 
 	// Extract Response fields
 	var responseFields []FieldInfo
@@ -208,30 +175,7 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	// Extract filter parameters
 	var filterParams []common.FilterParam
 	if listOp != nil {
-		for _, paramRef := range listOp.Parameters {
-			if paramRef.Value == nil {
-				continue
-			}
-			param := paramRef.Value
-			if param.In == "query" {
-				paramName := param.Name
-				if paramName == "page" || paramName == "page_size" || paramName == "o" || paramName == "field" {
-					continue
-				}
-				if param.Schema != nil {
-					typeStr := common.GetSchemaType(param.Schema.Value)
-					goType := common.GetGoType(typeStr)
-					if goType != "" && !strings.HasPrefix(goType, "types.List") && !strings.HasPrefix(goType, "types.Object") {
-						filterParams = append(filterParams, common.FilterParam{
-							Name:        param.Name,
-							Type:        common.GetFilterParamType(goType),
-							Description: param.Description,
-						})
-					}
-				}
-			}
-		}
-		sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
+		filterParams = common.ExtractFilterParams(listOp, "")
 	}
 
 	// Use response fields for model
@@ -270,18 +214,7 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	usedTypes := make(map[string]bool)
 
 	// 0. Construct SchemaConfig
-	excludedMap := make(map[string]bool)
-	for _, f := range g.config.Generator.ExcludedFields {
-		excludedMap[f] = true
-	}
-	setMap := make(map[string]bool)
-	for _, f := range g.config.Generator.SetFields {
-		setMap[f] = true
-	}
-	cfg := common.SchemaConfig{
-		ExcludedFields: excludedMap,
-		SetFields:      setMap,
-	}
+	cfg := g.getSchemaConfig()
 
 	// Helper to collect types recursively
 	var collectTypes func([]FieldInfo)
@@ -337,18 +270,7 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
 	var allFields []FieldInfo
 
 	// 0. Construct SchemaConfig
-	excludedMap := make(map[string]bool)
-	for _, f := range g.config.Generator.ExcludedFields {
-		excludedMap[f] = true
-	}
-	setMap := make(map[string]bool)
-	for _, f := range g.config.Generator.SetFields {
-		setMap[f] = true
-	}
-	cfg := common.SchemaConfig{
-		ExcludedFields: excludedMap,
-		SetFields:      setMap,
-	}
+	cfg := g.getSchemaConfig()
 
 	// Collect only used schemas
 	schemaNames := make([]string, 0, len(g.parser.Document().Components.Schemas))

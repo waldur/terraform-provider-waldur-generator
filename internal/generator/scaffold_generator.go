@@ -38,18 +38,6 @@ func (g *Generator) createDirectoryStructure() error {
 
 // generateProvider generates the main provider file
 func (g *Generator) generateProvider() error {
-	tmpl, err := template.New("provider.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/provider.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse provider template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "internal", "provider", "provider.go")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	// Collect unique services
 	services := make(map[string]bool)
 	for _, res := range g.config.Resources {
@@ -72,15 +60,16 @@ func (g *Generator) generateProvider() error {
 		"Services":     serviceList,
 	}
 
-	return tmpl.Execute(f, data)
+	return g.renderTemplate(
+		"provider.go.tmpl",
+		[]string{"templates/provider.go.tmpl"},
+		data,
+		filepath.Join(g.config.Generator.OutputDir, "internal", "provider"),
+		"provider.go",
+	)
 }
 
 func (g *Generator) generateServiceRegistrations() error {
-	tmpl, err := template.New("service_register.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/service_register.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse service register template: %w", err)
-	}
-
 	// Group resources by service
 	serviceResources := make(map[string][]*ResourceData)
 
@@ -120,20 +109,19 @@ func (g *Generator) generateServiceRegistrations() error {
 			return err
 		}
 
-		outputPath := filepath.Join(outputDir, "register.go")
-		f, err := os.Create(outputPath)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
 		data := map[string]interface{}{
 			"Service":      service,
 			"Resources":    resources,
 			"ProviderName": g.config.Generator.ProviderName,
 		}
 
-		if err := tmpl.Execute(f, data); err != nil {
+		if err := g.renderTemplate(
+			"service_register.go.tmpl",
+			[]string{"templates/service_register.go.tmpl"},
+			data,
+			filepath.Join(g.config.Generator.OutputDir, "services", service),
+			"register.go",
+		); err != nil {
 			return err
 		}
 	}
@@ -193,23 +181,17 @@ func (g *Generator) generateSupportingFiles() error {
 
 // generateMain creates the main.go file for the generated provider
 func (g *Generator) generateMain() error {
-	tmpl, err := template.New("main.go.tmpl").ParseFS(templates, "templates/main.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse main template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "main.go")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	data := map[string]interface{}{
 		"ProviderName": g.config.Generator.ProviderName,
 	}
 
-	return tmpl.Execute(f, data)
+	return g.renderTemplate(
+		"main.go.tmpl",
+		[]string{"templates/main.go.tmpl"},
+		data,
+		g.config.Generator.OutputDir,
+		"main.go",
+	)
 }
 
 // generateGoMod creates the go.mod file for the generated provider
@@ -230,23 +212,18 @@ require (
 
 // generateGoReleaser creates the .goreleaser.yml file
 func (g *Generator) generateGoReleaser() error {
-	tmpl, err := template.ParseFS(templates, "templates/goreleaser.yml.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse goreleaser template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, ".goreleaser.yml")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	data := map[string]interface{}{
 		"ProviderName": g.config.Generator.ProviderName,
 	}
 
-	return tmpl.Execute(f, data)
+	// Note: We use renderTemplate but template name is .goreleaser.yml which is fine
+	return g.renderTemplate(
+		"goreleaser.yml.tmpl",
+		[]string{"templates/goreleaser.yml.tmpl"},
+		data,
+		g.config.Generator.OutputDir,
+		".goreleaser.yml",
+	)
 }
 
 // generateRegistryManifest creates the terraform-registry-manifest.json file
@@ -264,25 +241,19 @@ func (g *Generator) generateRegistryManifest() error {
 
 // generateReadme creates the README.md file for the generated provider
 func (g *Generator) generateReadme() error {
-	tmpl, err := template.New("readme.md.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/readme.md.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse readme template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "README.md")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	data := map[string]interface{}{
 		"ProviderName": g.config.Generator.ProviderName,
 		"Resources":    g.config.Resources,
 		"DataSources":  g.config.DataSources,
 	}
 
-	return tmpl.Execute(f, data)
+	return g.renderTemplate(
+		"readme.md.tmpl",
+		[]string{"templates/readme.md.tmpl"},
+		data,
+		g.config.Generator.OutputDir,
+		"README.md",
+	)
 }
 
 // generateLicense copies the LICENSE file from root to output
@@ -297,23 +268,17 @@ func (g *Generator) generateLicense() error {
 
 // generateGitHubWorkflow creates the GitHub Actions release workflow
 func (g *Generator) generateGitHubWorkflow() error {
-	tmpl, err := template.ParseFS(templates, "templates/release.yml.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse release workflow template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, ".github", "workflows", "release.yml")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	data := map[string]interface{}{
 		"ProviderName": g.config.Generator.ProviderName,
 	}
 
-	return tmpl.Execute(f, data)
+	return g.renderTemplate(
+		"release.yml.tmpl",
+		[]string{"templates/release.yml.tmpl"},
+		data,
+		filepath.Join(g.config.Generator.OutputDir, ".github", "workflows"),
+		"release.yml",
+	)
 }
 
 // generateE2ETests copies E2E tests from templates to output

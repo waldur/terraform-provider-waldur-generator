@@ -2,11 +2,8 @@ package generator
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
-	"strings"
-	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/builders"
@@ -15,28 +12,13 @@ import (
 
 // generateResourceImplementation generates a resource file
 func (g *Generator) generateResourceImplementation(rd *ResourceData) error {
-	tmpl, err := template.New("resource.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl", "templates/resource_order.tmpl", "templates/resource_link.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse resource template: %w", err)
-	}
-
-	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName)
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return err
-	}
-
-	outputPath := filepath.Join(outputDir, "resource.go")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err := tmpl.Execute(f, rd); err != nil {
-		return err
-	}
-
-	return nil
+	return g.renderTemplate(
+		"resource.go.tmpl",
+		[]string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl", "templates/resource_order.tmpl", "templates/resource_link.tmpl"},
+		rd,
+		filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName),
+		"resource.go",
+	)
 }
 
 // prepareResourceData extracts fields and info for a resource
@@ -44,18 +26,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	ops := resource.OperationIDs()
 
 	// 0. Construct SchemaConfig
-	excludedMap := make(map[string]bool)
-	for _, f := range g.config.Generator.ExcludedFields {
-		excludedMap[f] = true
-	}
-	setMap := make(map[string]bool)
-	for _, f := range g.config.Generator.SetFields {
-		setMap[f] = true
-	}
-	cfg := common.SchemaConfig{
-		ExcludedFields: excludedMap,
-		SetFields:      setMap,
-	}
+	cfg := g.getSchemaConfig()
 
 	// 1. Choose builder
 	var builder builders.ResourceBuilder
@@ -127,42 +98,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	// Extract filter parameters
 	var filterParams []common.FilterParam
 	if op, _, _, err := g.parser.GetOperation(ops.List); err == nil {
-		for _, paramRef := range op.Parameters {
-			if paramRef.Value == nil {
-				continue
-			}
-			param := paramRef.Value
-			if param.In == "query" {
-				paramName := param.Name
-				if paramName == "page" || paramName == "page_size" || paramName == "o" || paramName == "field" {
-					continue
-				}
-				if param.Schema != nil && param.Schema.Value != nil {
-					typeStr := common.GetSchemaType(param.Schema.Value)
-					goType := common.GetGoType(typeStr)
-					if goType == "" || strings.HasPrefix(goType, "types.List") || strings.HasPrefix(goType, "types.Object") {
-						continue
-					}
-					var enumValues []string
-					if len(param.Schema.Value.Enum) > 0 {
-						for _, e := range param.Schema.Value.Enum {
-							if str, ok := e.(string); ok {
-								enumValues = append(enumValues, str)
-							}
-						}
-					}
-					filterParams = append(filterParams, common.FilterParam{
-						Name:        param.Name,
-						Type:        common.GetFilterParamType(goType),
-						Description: param.Description,
-					})
-				}
-			}
-		}
-		sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
-		for i := range filterParams {
-			filterParams[i].Description = common.GetDefaultDescription(filterParams[i].Name, humanize(resource.Name), filterParams[i].Description)
-		}
+		filterParams = common.ExtractFilterParams(op, humanize(resource.Name))
 	}
 
 	// 4. Merge Fields for Model
@@ -316,21 +252,11 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 // generateModel creates the shared model file for a resource
 func (g *Generator) generateModel(res *ResourceData) error {
-	tmpl, err := template.New("model.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/model.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse model template: %w", err)
-	}
-
-	outputPath := filepath.Join(g.config.Generator.OutputDir, "services", res.Service, res.CleanName, "model.go")
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		return err
-	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return tmpl.Execute(f, res)
+	return g.renderTemplate(
+		"model.go.tmpl",
+		[]string{"templates/shared.tmpl", "templates/model.go.tmpl"},
+		res,
+		filepath.Join(g.config.Generator.OutputDir, "services", res.Service, res.CleanName),
+		"model.go",
+	)
 }

@@ -632,3 +632,46 @@ func toTitle(s string) string {
 	}
 	return strings.Join(parts, "")
 }
+
+// ExtractFilterParams extracts filter parameters from an OpenAPI operation
+func ExtractFilterParams(op *openapi3.Operation, resourceName string) []FilterParam {
+	var filterParams []FilterParam
+	if op == nil {
+		return filterParams
+	}
+
+	for _, paramRef := range op.Parameters {
+		if paramRef.Value == nil {
+			continue
+		}
+		param := paramRef.Value
+		if param.In == "query" {
+			paramName := param.Name
+			if paramName == "page" || paramName == "page_size" || paramName == "o" || paramName == "field" {
+				continue
+			}
+			if param.Schema != nil && param.Schema.Value != nil {
+				typeStr := GetSchemaType(param.Schema.Value)
+				goType := GetGoType(typeStr)
+				if goType == "" || strings.HasPrefix(goType, "types.List") || strings.HasPrefix(goType, "types.Object") {
+					continue
+				}
+
+				filterParams = append(filterParams, FilterParam{
+					Name:        param.Name,
+					Type:        GetFilterParamType(goType),
+					Description: param.Description,
+				})
+			}
+		}
+	}
+	sort.Slice(filterParams, func(i, j int) bool { return filterParams[i].Name < filterParams[j].Name })
+
+	if resourceName != "" {
+		for i := range filterParams {
+			filterParams[i].Description = GetDefaultDescription(filterParams[i].Name, resourceName, filterParams[i].Description)
+		}
+	}
+
+	return filterParams
+}

@@ -1,10 +1,7 @@
 package generator
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
-	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
@@ -46,11 +43,6 @@ func setIsDataSourceRecursive(fields []FieldInfo) {
 
 // generateDataSourceImplementation generates a data source file
 func (g *Generator) generateDataSourceImplementation(rd *ResourceData, dataSource *config.DataSource) error {
-	tmpl, err := template.New("datasource.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/datasource.go.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to parse datasource template: %w", err)
-	}
-
 	// For datasources, all fields must be IsDataSource = true
 	// We clone fields to avoid modifying the originals which are shared with Resources.
 	responseFields := cloneFields(rd.ResponseFields)
@@ -74,21 +66,11 @@ func (g *Generator) generateDataSourceImplementation(rd *ResourceData, dataSourc
 		"ModelFields":    modelFields,
 	}
 
-	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName)
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return err
-	}
-
-	outputPath := filepath.Join(outputDir, "datasource.go")
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err := tmpl.Execute(f, data); err != nil {
-		return err
-	}
-
-	return nil
+	return g.renderTemplate(
+		"datasource.go.tmpl",
+		[]string{"templates/shared.tmpl", "templates/datasource.go.tmpl"},
+		data,
+		filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName),
+		"datasource.go",
+	)
 }

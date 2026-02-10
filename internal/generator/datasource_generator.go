@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
 func cloneFields(fields []FieldInfo) []FieldInfo {
@@ -54,16 +55,16 @@ func (g *Generator) generateDataSourceImplementation(rd *ResourceData, dataSourc
 	modelFields := cloneFields(rd.ModelFields)
 	setIsDataSourceRecursive(modelFields)
 
-	data := map[string]interface{}{
-		"Name":           rd.Name,
-		"Service":        rd.Service,
-		"CleanName":      rd.CleanName,
-		"Operations":     rd.Operations,
-		"ListPath":       rd.APIPaths["Base"],
-		"RetrievePath":   rd.APIPaths["Retrieve"],
-		"FilterParams":   filterParams,
-		"ResponseFields": responseFields,
-		"ModelFields":    modelFields,
+	data := common.DataSourceTemplateData{
+		Name:           rd.Name,
+		Service:        rd.Service,
+		CleanName:      rd.CleanName,
+		Operations:     rd.Operations,
+		ListPath:       rd.APIPaths["Base"],
+		RetrievePath:   rd.APIPaths["Retrieve"],
+		FilterParams:   filterParams,
+		ResponseFields: responseFields,
+		ModelFields:    modelFields,
 	}
 
 	return g.renderTemplate(

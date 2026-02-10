@@ -150,3 +150,45 @@ func GetFilterParamType(goTypeStr string) string {
 		return "String"
 	}
 }
+
+// DataSourceTemplateData holds data for generating data source files
+type DataSourceTemplateData struct {
+	Name           string
+	Service        string
+	CleanName      string
+	Operations     config.OperationSet
+	ListPath       string
+	RetrievePath   string
+	FilterParams   []FilterParam
+	ResponseFields []FieldInfo
+	ModelFields    []FieldInfo
+}
+
+// ListResourceData holds data for generating list resource files
+type ListResourceData struct {
+	Name              string
+	Service           string
+	CleanName         string
+	APIPaths          map[string]string
+	ResponseFields    []FieldInfo
+	ModelFields       []FieldInfo
+	FilterParams      []FilterParam
+	ProviderName      string
+	SkipFilterMapping bool
+}
+
+// ActionTemplateData holds data for generating resource action files
+type ActionTemplateData struct {
+	ResourceName    string
+	Service         string
+	CleanName       string
+	ActionName      string
+	OperationID     string
+	BaseOperationID string
+	Description     string
+	IdentifierParam string
+	IdentifierDesc  string
+	ProviderName    string
+	Path            string
+	Method          string
+}

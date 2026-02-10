@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
 // generateListResourceImplementation generates a list resource file
@@ -30,16 +32,16 @@ func (g *Generator) generateListResourceImplementation(rd *ResourceData) error {
 	defer f.Close()
 
 	// data for template - list resource template expects some specific flags
-	data := map[string]interface{}{
-		"Name":              rd.Name,
-		"Service":           rd.Service,
-		"CleanName":         rd.CleanName,
-		"APIPaths":          rd.APIPaths,
-		"ResponseFields":    rd.ResponseFields,
-		"ModelFields":       rd.ModelFields,
-		"FilterParams":      rd.FilterParams,
-		"ProviderName":      g.config.Generator.ProviderName,
-		"SkipFilterMapping": true,
+	data := common.ListResourceData{
+		Name:              rd.Name,
+		Service:           rd.Service,
+		CleanName:         rd.CleanName,
+		APIPaths:          rd.APIPaths,
+		ResponseFields:    rd.ResponseFields,
+		ModelFields:       rd.ModelFields,
+		FilterParams:      rd.FilterParams,
+		ProviderName:      g.config.Generator.ProviderName,
+		SkipFilterMapping: true,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {

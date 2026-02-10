@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
 func (g *Generator) generateActionsImplementation(rd *ResourceData) error {
@@ -16,26 +18,26 @@ func (g *Generator) generateActionsImplementation(rd *ResourceData) error {
 
 	for _, action := range rd.StandaloneActions {
 		// Validate operation exists
-		method, path, _, err := g.parser.GetOperation(action.Operation)
+		_, path, method, err := g.parser.GetOperation(action.Operation)
 		if err != nil {
 			return fmt.Errorf("action %s operation %s not found: %w", action.Name, action.Operation, err)
 		}
 
 		// Prepare data for template
 		resourceName := strings.ReplaceAll(rd.Name, "_", " ")
-		data := map[string]interface{}{
-			"ResourceName":    rd.Name,
-			"Service":         rd.Service,
-			"CleanName":       rd.CleanName,
-			"ActionName":      action.Name,
-			"OperationID":     action.Operation,
-			"BaseOperationID": rd.BaseOperationID,
-			"Description":     fmt.Sprintf("Perform %s action on %s", action.Name, resourceName),
-			"IdentifierParam": "uuid", // Default identifier
-			"IdentifierDesc":  fmt.Sprintf("The UUID of the %s", resourceName),
-			"ProviderName":    g.config.Generator.ProviderName,
-			"Path":            path,
-			"Method":          method,
+		data := common.ActionTemplateData{
+			ResourceName:    rd.Name,
+			Service:         rd.Service,
+			CleanName:       rd.CleanName,
+			ActionName:      action.Name,
+			OperationID:     action.Operation,
+			BaseOperationID: rd.BaseOperationID,
+			Description:     fmt.Sprintf("Perform %s action on %s", action.Name, resourceName),
+			IdentifierParam: "uuid", // Default identifier
+			IdentifierDesc:  fmt.Sprintf("The UUID of the %s", resourceName),
+			ProviderName:    g.config.Generator.ProviderName,
+			Path:            path,
+			Method:          method,
 		}
 
 		// Generate file

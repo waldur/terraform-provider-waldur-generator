@@ -4,6 +4,11 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
+// Renderer defines the interface for rendering templates
+type Renderer interface {
+	RenderTemplate(templateName string, templatePaths []string, data interface{}, outputDir, fileName string) error
+}
+
 // FieldInfo represents information about a field extracted from OpenAPI schema
 type FieldInfo struct {
 	Name               string // JSON field name, e.g., "name"
@@ -52,7 +57,6 @@ type ResourceData struct {
 	ResponseFields        []FieldInfo
 	ModelFields           []FieldInfo
 	IsOrder               bool
-	IsLink                bool
 	IsDatasourceOnly      bool // True if this is a datasource-only definition (no resource)
 	Source                *config.LinkResourceConfig
 	Target                *config.LinkResourceConfig
@@ -116,46 +120,4 @@ func (f FieldInfo) Clone() FieldInfo {
 		}
 	}
 	return clone
-}
-
-// DataSourceTemplateData holds data for generating data source files
-type DataSourceTemplateData struct {
-	Name           string
-	Service        string
-	CleanName      string
-	Operations     config.OperationSet
-	ListPath       string
-	RetrievePath   string
-	FilterParams   []FilterParam
-	ResponseFields []FieldInfo
-	ModelFields    []FieldInfo
-}
-
-// ListResourceData holds data for generating list resource files
-type ListResourceData struct {
-	Name              string
-	Service           string
-	CleanName         string
-	APIPaths          map[string]string
-	ResponseFields    []FieldInfo
-	ModelFields       []FieldInfo
-	FilterParams      []FilterParam
-	ProviderName      string
-	SkipFilterMapping bool
-}
-
-// ActionTemplateData holds data for generating resource action files
-type ActionTemplateData struct {
-	ResourceName    string
-	Service         string
-	CleanName       string
-	ActionName      string
-	OperationID     string
-	BaseOperationID string
-	Description     string
-	IdentifierParam string
-	IdentifierDesc  string
-	ProviderName    string
-	Path            string
-	Method          string
 }

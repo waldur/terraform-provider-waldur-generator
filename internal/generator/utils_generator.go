@@ -7,7 +7,7 @@ import (
 // generateSharedUtils generates the utils.go file in internal/sdk/common
 func (g *Generator) generateSharedUtils() error {
 	// The template already has "package common", so we can render it directly
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"utils.go.tmpl",
 		[]string{"templates/utils.go.tmpl"},
 		nil,

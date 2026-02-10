@@ -6,45 +6,11 @@ import (
 	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
-// toTitle converts a string to title case for use in templates
-func toTitle(s string) string {
-	// Convert snake_case to TitleCase
-	parts := strings.Split(s, "_")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[:1]) + part[1:]
-		}
-	}
-	return strings.Join(parts, "")
-}
-
-// humanize converts snake_case to Title Case with spaces
-func humanize(s string) string {
-	parts := strings.Split(s, "_")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[:1]) + part[1:]
-		}
-	}
-	return strings.Join(parts, " ")
-}
-
-// displayName strips module prefix (anything before first underscore) and converts to title case for user-facing messages
-func displayName(s string) string {
-	// Strip everything before first underscore (e.g., "structure_project" -> "project")
-	name := s
-	if idx := strings.Index(s, "_"); idx != -1 {
-		name = s[idx+1:]
-	}
-
-	// Convert to title case
-	return toTitle(name)
-}
-
 // ToAttrType returns the type definition or a function call to a shared type helper
-func ToAttrType(f FieldInfo) string {
+func ToAttrType(f common.FieldInfo) string {
 	// If it's an object with a AttrTypeRef, return the helper function call
 	if f.GoType == "types.Object" && f.AttrTypeRef != "" {
 		return f.AttrTypeRef + "Type()"
@@ -58,17 +24,13 @@ func ToAttrType(f FieldInfo) string {
 			collectionType = "types.SetType"
 		}
 		return collectionType + "{ElemType: " + f.ItemSchema.AttrTypeRef + "Type()}"
-	} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemType == "string" && f.ItemRefName != "" {
-		// e.g. List of Enums (which are strings but might have a helper if we decide to generate helpers for enums too)
-		// For now, enums are just strings, so we fall through to definition
 	}
 
 	return ToAttrTypeDefinition(f)
 }
 
 // ToAttrTypeDefinition converts FieldInfo to proper attr.Type expression used in Terraform schema
-// This generates the full inline definition.
-func ToAttrTypeDefinition(f FieldInfo) string {
+func ToAttrTypeDefinition(f common.FieldInfo) string {
 	switch f.GoType {
 	case "types.String":
 		return "types.StringType"
@@ -81,9 +43,7 @@ func ToAttrTypeDefinition(f FieldInfo) string {
 	case "types.List":
 		if f.ItemType == "object" && f.ItemSchema != nil {
 			var attrTypes []string
-			// Sort properties for deterministic output
 			sortedProps := f.ItemSchema.Properties
-			// We can't easily sort here without mutating or copying, relying on ExtractFields sort
 			for _, prop := range sortedProps {
 				attrTypes = append(attrTypes, "\""+prop.Name+"\": "+ToAttrType(prop))
 			}
@@ -94,7 +54,6 @@ func ToAttrTypeDefinition(f FieldInfo) string {
 			objType := "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
 			return "types.ListType{ElemType: " + objType + "}"
 		}
-		// List of primitives
 		elemType := "types.StringType"
 		if f.ItemType == "integer" {
 			elemType = "types.Int64Type"
@@ -107,9 +66,7 @@ func ToAttrTypeDefinition(f FieldInfo) string {
 	case "types.Set":
 		if f.ItemType == "object" && f.ItemSchema != nil {
 			var attrTypes []string
-			// Sort properties for deterministic output
 			sortedProps := f.ItemSchema.Properties
-			// We can't easily sort here without mutating or copying, relying on ExtractFields sort
 			for _, prop := range sortedProps {
 				attrTypes = append(attrTypes, "\""+prop.Name+"\": "+ToAttrType(prop))
 			}
@@ -120,7 +77,6 @@ func ToAttrTypeDefinition(f FieldInfo) string {
 			objType := "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
 			return "types.SetType{ElemType: " + objType + "}"
 		}
-		// Set of primitives
 		elemType := "types.StringType"
 		if f.ItemType == "integer" {
 			elemType = "types.Int64Type"
@@ -139,18 +95,14 @@ func ToAttrTypeDefinition(f FieldInfo) string {
 		if len(attrTypes) > 0 {
 			content += ","
 		}
-		// Notice we use ToAttrType recursively above, which will capture nested REFs too.
 		return "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
 	default:
 		return "types.StringType"
 	}
 }
 
-// formatValidatorValue formats a float64 for use in validators, handling integer truncation and large values
 func formatValidatorValue(v float64, goType string) string {
 	if goType == "types.Int64" {
-		// If the value is very large (likely representing MaxInt64 but lost precision in float64),
-		// it's safer to skip the validator to avoid overflow errors in generated code.
 		if v > 9e18 || v < -9e18 {
 			return ""
 		}
@@ -162,9 +114,9 @@ func formatValidatorValue(v float64, goType string) string {
 // GetFuncMap returns the common template functions
 func GetFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"title":                toTitle,
-		"humanize":             humanize,
-		"displayName":          displayName,
+		"title":                common.ToTitle,
+		"humanize":             common.Humanize,
+		"displayName":          common.DisplayName,
 		"toAttrType":           ToAttrType,
 		"toAttrTypeDefinition": ToAttrTypeDefinition,
 		"formatValidator":      formatValidatorValue,
@@ -200,13 +152,10 @@ func GetFuncMap() template.FuncMap {
 		"makeSlice": func(items ...interface{}) interface{} {
 			return items
 		},
-		"renderGoType": func(f FieldInfo, pkgName string, prefix string, suffix string) string {
+		"renderGoType": func(f common.FieldInfo, pkgName string, prefix string, suffix string) string {
 			typeName := ""
 			isPointer := true
-
-			// Base type logic
 			if f.JsonTag == "-" {
-				// For hidden fields (injected for Terraform compatibility), use framework types to handle Unknown values
 				switch f.GoType {
 				case "types.String":
 					typeName = "types.String"
@@ -228,7 +177,6 @@ func GetFuncMap() template.FuncMap {
 					isPointer = false
 				}
 			}
-
 			if typeName == "" {
 				if f.Type == "string" {
 					typeName = "string"
@@ -247,9 +195,7 @@ func GetFuncMap() template.FuncMap {
 					}
 				}
 			}
-
 			if typeName != "" {
-				// primitive type determined
 			} else if f.Type == "array" {
 				isPointer = !f.Required
 				if f.ItemType == "string" {
@@ -257,7 +203,6 @@ func GetFuncMap() template.FuncMap {
 				} else if f.ItemType == "integer" {
 					typeName = "[]int64"
 				} else {
-					// Complex array item
 					elemType := ""
 					if f.ItemSchema != nil && f.ItemSchema.RefName != "" {
 						if pkgName != "common" {
@@ -266,14 +211,13 @@ func GetFuncMap() template.FuncMap {
 							elemType = f.ItemSchema.RefName
 						}
 					} else {
-						// Inline struct
-						elemType = prefix + toTitle(f.Name) + suffix
+						elemType = prefix + common.ToTitle(f.Name) + suffix
 					}
 					typeName = "[]" + elemType
 				}
 			} else if f.GoType == "types.Map" {
 				typeName = "map[string]interface{}"
-				isPointer = false // Maps are reference types
+				isPointer = false
 			} else if f.Type == "object" {
 				if f.RefName != "" {
 					if pkgName != "common" {
@@ -282,14 +226,12 @@ func GetFuncMap() template.FuncMap {
 						typeName = f.RefName
 					}
 				} else {
-					typeName = prefix + toTitle(f.Name) + suffix
+					typeName = prefix + common.ToTitle(f.Name) + suffix
 				}
 			}
-
 			if typeName == "" {
-				typeName = "string" // Default fallback
+				typeName = "string"
 			}
-
 			if isPointer {
 				return "*" + typeName
 			}

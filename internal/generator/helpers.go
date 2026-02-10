@@ -9,8 +9,8 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
-// renderTemplate handles the common pattern of parsing a template and executing it to a file
-func (g *Generator) renderTemplate(templateName string, templatePaths []string, data interface{}, outputDir, fileName string) error {
+// RenderTemplate handles the common pattern of parsing a template and executing it to a file
+func (g *Generator) RenderTemplate(templateName string, templatePaths []string, data interface{}, outputDir, fileName string) error {
 	// Parse templates
 	tmpl, err := template.New(templateName).Funcs(GetFuncMap()).ParseFS(templates, templatePaths...)
 	if err != nil {
@@ -31,15 +31,15 @@ func (g *Generator) renderTemplate(templateName string, templatePaths []string, 
 	defer f.Close()
 
 	// Execute template
-	if err := tmpl.Execute(f, data); err != nil {
+	if err := tmpl.ExecuteTemplate(f, templateName, data); err != nil {
 		return fmt.Errorf("failed to execute template %s: %w", templateName, err)
 	}
 
 	return nil
 }
 
-// getSchemaConfig constructs the standard schema configuration from generator config
-func (g *Generator) getSchemaConfig() common.SchemaConfig {
+// GetSchemaConfig constructs the standard schema configuration from generator config
+func (g *Generator) GetSchemaConfig() common.SchemaConfig {
 	excludedMap := make(map[string]bool)
 	for _, f := range g.config.Generator.ExcludedFields {
 		excludedMap[f] = true

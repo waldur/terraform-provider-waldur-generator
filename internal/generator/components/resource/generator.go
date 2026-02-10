@@ -1,9 +1,11 @@
-package generator
+package resource
 
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
@@ -11,29 +13,30 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/link"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/order"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/standard"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
 )
 
-// generateResourceImplementation generates a resource file
-func (g *Generator) generateResourceImplementation(rd *ResourceData) error {
-	return g.renderTemplate(
+// GenerateImplementation generates a resource file
+func GenerateImplementation(cfg *config.Config, renderer common.Renderer, rd *common.ResourceData) error {
+	return renderer.RenderTemplate(
 		"resource.go.tmpl",
 		rd.TemplateFiles,
 		rd,
-		filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName),
+		filepath.Join(cfg.Generator.OutputDir, "services", rd.Service, rd.CleanName),
 		"resource.go",
 	)
 }
 
-// prepareResourceData extracts fields and info for a resource
-func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceData, error) {
+// PrepareData extracts fields and info for a resource
+func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Resource, hasDataSource func(string) bool, getSchemaConfig func() common.SchemaConfig) (*common.ResourceData, error) {
 	ops := resource.OperationIDs()
 
 	// 0. Construct SchemaConfig
-	cfg := g.getSchemaConfig()
+	schemaCfg := getSchemaConfig()
 
 	// 1. Choose builder
 	var builder plugins.ResourceBuilder
-	base := plugins.BaseBuilder{Parser: g.parser, Resource: resource, Ops: ops, SchemaConfig: cfg}
+	base := plugins.BaseBuilder{Parser: parser, Resource: resource, Ops: ops, SchemaConfig: schemaCfg}
 	if resource.Plugin == "order" {
 		builder = &order.OrderBuilder{BaseBuilder: base}
 	} else if resource.Plugin == "link" || resource.LinkOp != "" {
@@ -78,7 +81,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		if action.CompareKey == "" {
 			action.CompareKey = action.Param
 		}
-		if _, actionPath, _, err := g.parser.GetOperation(actionConfig.Operation); err == nil {
+		if _, actionPath, _, err := parser.GetOperation(actionConfig.Operation); err == nil {
 			action.Path = actionPath
 		}
 		updateActions = append(updateActions, action)
@@ -92,7 +95,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 			Name:      actionName,
 			Operation: operationID,
 		}
-		if _, actionPath, _, err := g.parser.GetOperation(operationID); err == nil {
+		if _, actionPath, _, err := parser.GetOperation(operationID); err == nil {
 			action.Path = actionPath
 		}
 		standaloneActions = append(standaloneActions, action)
@@ -100,8 +103,8 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 	// Extract filter parameters
 	var filterParams []common.FilterParam
-	if op, _, _, err := g.parser.GetOperation(ops.List); err == nil {
-		filterParams = common.ExtractFilterParams(op, humanize(resource.Name))
+	if op, _, _, err := parser.GetOperation(ops.List); err == nil {
+		filterParams = common.ExtractFilterParams(op, common.Humanize(resource.Name))
 	}
 
 	// 4. Merge Fields for Model
@@ -152,7 +155,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 				}
 			}
 			if !found {
-				createFields = append(createFields, FieldInfo{
+				createFields = append(createFields, common.FieldInfo{
 					Name: name, Type: "string", Description: "Required path parameter", GoType: "types.String", Required: true, IsPathParam: true,
 				})
 			}
@@ -168,7 +171,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		validUpdateFields[action.Param] = true
 	}
 
-	common.FillDescriptions(modelFields, humanize(resource.Name))
+	common.FillDescriptions(modelFields, common.Humanize(resource.Name))
 	for i := range modelFields {
 		if !modelFields[i].ReadOnly && !validUpdateFields[modelFields[i].Name] {
 			modelFields[i].ForceNew = true
@@ -178,7 +181,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	common.CalculateSchemaStatusRecursive(modelFields, createFields, responseFields)
 
 	// Update responseFields to use merged field definitions
-	modelMap := make(map[string]FieldInfo)
+	modelMap := make(map[string]common.FieldInfo)
 	for _, f := range modelFields {
 		modelMap[f.Name] = f
 	}
@@ -188,10 +191,15 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		}
 	}
 
-	sort.Slice(createFields, func(i, j int) bool { return createFields[i].Name < createFields[j].Name })
-	sort.Slice(updateFields, func(i, j int) bool { return updateFields[i].Name < updateFields[j].Name })
-	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
-	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
+	// Define a generic sorter
+	sortByName := func(a, b common.FieldInfo) int {
+		return strings.Compare(a.Name, b.Name)
+	}
+
+	slices.SortFunc(createFields, sortByName)
+	slices.SortFunc(updateFields, sortByName)
+	slices.SortFunc(responseFields, sortByName)
+	slices.SortFunc(modelFields, sortByName)
 
 	service, cleanName := common.SplitResourceName(resource.Name)
 	skipPolling := true
@@ -206,39 +214,53 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	for _, f := range createFields {
 		inputFields[f.Name] = true
 	}
-	common.ApplySchemaSkipRecursive(cfg, modelFields, inputFields)
-	common.ApplySchemaSkipRecursive(cfg, responseFields, inputFields)
+	common.ApplySchemaSkipRecursive(schemaCfg, modelFields, inputFields)
+	common.ApplySchemaSkipRecursive(schemaCfg, responseFields, inputFields)
 
-	rd := &ResourceData{
-		Name: resource.Name, Service: service, CleanName: cleanName, Plugin: resource.Plugin,
-		Operations: ops, APIPaths: apiPaths, CreateFields: createFields, UpdateFields: updateFields,
-		ResponseFields: responseFields, ModelFields: modelFields, IsOrder: resource.Plugin == "order",
-		IsLink: resource.LinkOp != "", Source: resource.Source, Target: resource.Target,
-		LinkCheckKey: resource.LinkCheckKey, OfferingType: resource.OfferingType,
-		UpdateActions: updateActions, StandaloneActions: standaloneActions,
-		TerminationAttributes: resource.TerminationAttributes, CreateOperation: resource.CreateOperation,
-		CompositeKeys: resource.CompositeKeys, FilterParams: filterParams, SkipPolling: skipPolling,
-		BaseOperationID: resource.BaseOperationID,
-		HasDataSource:   g.hasDataSource(resource.Name),
+	rd := &common.ResourceData{
+		Name:                  resource.Name,
+		Service:               service,
+		CleanName:             cleanName,
+		Plugin:                resource.Plugin,
+		Operations:            ops,
+		APIPaths:              apiPaths,
+		CreateFields:          createFields,
+		UpdateFields:          updateFields,
+		ResponseFields:        responseFields,
+		ModelFields:           modelFields,
+		IsOrder:               resource.Plugin == "order",
+		Source:                resource.Source,
+		Target:                resource.Target,
+		LinkCheckKey:          resource.LinkCheckKey,
+		OfferingType:          resource.OfferingType,
+		UpdateActions:         updateActions,
+		StandaloneActions:     standaloneActions,
+		TerminationAttributes: resource.TerminationAttributes,
+		CreateOperation:       resource.CreateOperation,
+		CompositeKeys:         resource.CompositeKeys,
+		FilterParams:          filterParams,
+		SkipPolling:           skipPolling,
+		BaseOperationID:       resource.BaseOperationID,
+		HasDataSource:         hasDataSource(resource.Name),
 	}
 
 	seenHashes := make(map[string]string)
 	seenNames := make(map[string]string)
-	common.AssignMissingAttrTypeRefs(cfg, rd.ModelFields, "", seenHashes, seenNames)
-	common.AssignMissingAttrTypeRefs(cfg, rd.ResponseFields, "", seenHashes, seenNames)
+	common.AssignMissingAttrTypeRefs(schemaCfg, rd.ModelFields, "", seenHashes, seenNames)
+	common.AssignMissingAttrTypeRefs(schemaCfg, rd.ResponseFields, "", seenHashes, seenNames)
 	rd.NestedStructs = common.CollectUniqueStructs(rd.ModelFields)
 	rd.TemplateFiles = builder.GetTemplateFiles()
 
 	return rd, nil
 }
 
-// generateModel creates the shared model file for a resource
-func (g *Generator) generateModel(res *ResourceData) error {
-	return g.renderTemplate(
+// GenerateModel creates the shared model file for a resource
+func GenerateModel(cfg *config.Config, renderer common.Renderer, res *common.ResourceData) error {
+	return renderer.RenderTemplate(
 		"model.go.tmpl",
-		[]string{"templates/shared.tmpl", "templates/model.go.tmpl"},
+		[]string{"templates/shared.tmpl", "components/resource/model.go.tmpl"},
 		res,
-		filepath.Join(g.config.Generator.OutputDir, "services", res.Service, res.CleanName),
+		filepath.Join(cfg.Generator.OutputDir, "services", res.Service, res.CleanName),
 		"model.go",
 	)
 }

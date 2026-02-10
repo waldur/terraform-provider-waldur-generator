@@ -55,10 +55,16 @@ type {{ .Name | title }}ResourceModel struct {
 	{{- range $field := .ModelFields }}
 	{{- $found := false }}
 	{{- range $.ResponseFields }}
-	{{- if eq .Name $field.Name }}{{ $found = true }}{{ end }}
+		{{- if eq .Name $field.Name }}{{ $found = true }}{{ end }}
 	{{- end }}
 	{{- if not $found }}
+	{{- if not $field.SchemaSkip }}
+	{{- if eq $field.Format "date-time" }}
+	{{ $field.Name | title }} timetypes.RFC3339 `tfsdk:"{{ $field.Name }}"`
+	{{- else }}
 	{{ $field.Name | title }} {{ $field.GoType }} `tfsdk:"{{ $field.Name }}"`
+	{{- end }}
+	{{- end }}
 	{{- end }}
 	{{- end }}
 	Timeouts timeouts.Value `tfsdk:"timeouts"`

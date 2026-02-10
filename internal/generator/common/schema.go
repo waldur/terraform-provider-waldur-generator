@@ -75,7 +75,7 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, dep
 
 	for _, propName := range propNames {
 		// Skip uuid field if requested (hard-coded in templates with tfsdk:"id")
-		if depth == 0 && propName == "uuid" && skipRootUUID {
+		if depth == 0 && strings.ToLower(propName) == "uuid" && skipRootUUID {
 			continue
 		}
 

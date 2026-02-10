@@ -6,10 +6,14 @@ import (
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
+	actgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/action"
+	dsgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/datasource"
+	lsgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/list"
+	resgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/resource"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
 )
 
-//go:embed templates/* plugins/*
+//go:embed templates/* plugins/* components/*
 var templates embed.FS
 
 // Generator orchestrates the provider code generation
@@ -17,18 +21,6 @@ type Generator struct {
 	config *config.Config
 	parser *openapi.Parser
 }
-
-// ResourceData holds all data required to generate resource/sdk code
-type ResourceData = common.ResourceData
-
-// FieldInfo represents information about a field extracted from OpenAPI schema
-type FieldInfo = common.FieldInfo
-
-// UpdateAction represents an enriched update action with resolved API path
-type UpdateAction = common.UpdateAction
-
-// FilterParam describes a query parameter for filtering
-type FilterParam = common.FilterParam
 
 // New creates a new generator instance
 func New(cfg *config.Config, parser *openapi.Parser) *Generator {
@@ -51,12 +43,12 @@ func (g *Generator) Generate() error {
 	}
 
 	// 1. Prepare data
-	mergedResources := make(map[string]*ResourceData)
+	mergedResources := make(map[string]*common.ResourceData)
 	var resourceOrder []string
 
 	for i := range g.config.Resources {
 		res := &g.config.Resources[i]
-		rd, err := g.prepareResourceData(res)
+		rd, err := resgen.PrepareData(g.config, g.parser, res, g.hasDataSource, g.GetSchemaConfig)
 		if err != nil {
 			return err
 		}
@@ -66,7 +58,7 @@ func (g *Generator) Generate() error {
 
 	for i := range g.config.DataSources {
 		ds := &g.config.DataSources[i]
-		dd, err := g.prepareDatasourceData(ds)
+		dd, err := dsgen.PrepareData(g.parser, ds, g.GetSchemaConfig())
 		if err != nil {
 			return err
 		}
@@ -118,7 +110,7 @@ func (g *Generator) Generate() error {
 			if foundIndex != -1 {
 				rd.ResponseFields[foundIndex].SchemaSkip = false
 			} else {
-				rd.ResponseFields = append(rd.ResponseFields, FieldInfo{
+				rd.ResponseFields = append(rd.ResponseFields, common.FieldInfo{
 					Name:        "target_tenant",
 					GoType:      "types.String",
 					Type:        "string",
@@ -129,7 +121,7 @@ func (g *Generator) Generate() error {
 		}
 
 		// Generate model once for the entity
-		if err := g.generateModel(rd); err != nil {
+		if err := resgen.GenerateModel(g.config, g, rd); err != nil {
 			return fmt.Errorf("failed to generate model for %s: %w", name, err)
 		}
 
@@ -148,16 +140,16 @@ func (g *Generator) Generate() error {
 				}
 			}
 			if configRes != nil && configRes.Plugin != "actions" {
-				if err := g.generateResourceImplementation(rd); err != nil {
+				if err := resgen.GenerateImplementation(g.config, g, rd); err != nil {
 					return fmt.Errorf("failed to generate resource implementation %s: %w", name, err)
 				}
-				if err := g.generateListResourceImplementation(rd); err != nil {
+				if err := lsgen.GenerateImplementation(g.config, g, rd); err != nil {
 					fmt.Printf("Warning: failed to generate list resource %s: %s\n", name, err)
 				}
 
 				// Actions
 				if len(configRes.Actions) > 0 {
-					if err := g.generateActionsImplementation(rd); err != nil {
+					if err := actgen.GenerateImplementation(g.config, g, rd); err != nil {
 						return fmt.Errorf("failed to generate actions for resource %s: %w", name, err)
 					}
 				}
@@ -167,7 +159,7 @@ func (g *Generator) Generate() error {
 		// If it has a datasource configuration, generate it
 		for i := range g.config.DataSources {
 			if g.config.DataSources[i].Name == name {
-				if err := g.generateDataSourceImplementation(rd, &g.config.DataSources[i]); err != nil {
+				if err := dsgen.GenerateImplementation(g.config, g, rd, &g.config.DataSources[i]); err != nil {
 					return fmt.Errorf("failed to generate data source %s: %w", name, err)
 				}
 			}

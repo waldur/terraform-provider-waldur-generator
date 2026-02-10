@@ -109,5 +109,5 @@ func (b *LinkBuilder) GetAPIPaths() map[string]string {
 }
 
 func (b *LinkBuilder) GetTemplateFiles() []string {
-	return []string{"templates/shared.tmpl", "plugins/resource.go.tmpl", "plugins/link/resource.tmpl"}
+	return []string{"templates/shared.tmpl", "components/resource/resource.go.tmpl", "plugins/link/resource.tmpl"}
 }

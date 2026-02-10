@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
+	resgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/resource"
 )
 
 // createDirectoryStructure creates the output directory structure
@@ -60,7 +61,7 @@ func (g *Generator) generateProvider() error {
 		"Services":     serviceList,
 	}
 
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"provider.go.tmpl",
 		[]string{"templates/provider.go.tmpl"},
 		data,
@@ -71,11 +72,11 @@ func (g *Generator) generateProvider() error {
 
 func (g *Generator) generateServiceRegistrations() error {
 	// Group resources by service
-	serviceResources := make(map[string][]*ResourceData)
+	serviceResources := make(map[string][]*common.ResourceData)
 
 	// Process resources
 	for _, res := range g.config.Resources {
-		rd, err := g.prepareResourceData(&res)
+		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
 		if err != nil {
 			return err
 		}
@@ -115,7 +116,7 @@ func (g *Generator) generateServiceRegistrations() error {
 			"ProviderName": g.config.Generator.ProviderName,
 		}
 
-		if err := g.renderTemplate(
+		if err := g.RenderTemplate(
 			"service_register.go.tmpl",
 			[]string{"templates/service_register.go.tmpl"},
 			data,
@@ -185,7 +186,7 @@ func (g *Generator) generateMain() error {
 		"ProviderName": g.config.Generator.ProviderName,
 	}
 
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"main.go.tmpl",
 		[]string{"templates/main.go.tmpl"},
 		data,
@@ -217,7 +218,7 @@ func (g *Generator) generateGoReleaser() error {
 	}
 
 	// Note: We use renderTemplate but template name is .goreleaser.yml which is fine
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"goreleaser.yml.tmpl",
 		[]string{"templates/goreleaser.yml.tmpl"},
 		data,
@@ -247,7 +248,7 @@ func (g *Generator) generateReadme() error {
 		"DataSources":  g.config.DataSources,
 	}
 
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"readme.md.tmpl",
 		[]string{"templates/readme.md.tmpl"},
 		data,
@@ -272,7 +273,7 @@ func (g *Generator) generateGitHubWorkflow() error {
 		"ProviderName": g.config.Generator.ProviderName,
 	}
 
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"release.yml.tmpl",
 		[]string{"templates/release.yml.tmpl"},
 		data,

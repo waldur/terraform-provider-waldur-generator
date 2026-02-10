@@ -9,6 +9,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
+	resgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/resource"
 )
 
 // GenerateSDK generates the decentralized SDK components
@@ -41,7 +42,7 @@ func (g *Generator) generateSharedSDKTypes() error {
 		"Package": "common",
 	}
 
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"shared_types.go.tmpl",
 		[]string{"templates/shared.tmpl", "templates/shared_types.go.tmpl"},
 		data,
@@ -51,11 +52,11 @@ func (g *Generator) generateSharedSDKTypes() error {
 }
 
 func (g *Generator) generateResourceSDKs() error {
-	mergedResources := make(map[string]*ResourceData)
+	mergedResources := make(map[string]*common.ResourceData)
 	var resourceOrder []string
 
 	for _, res := range g.config.Resources {
-		rd, err := g.prepareResourceData(&res)
+		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
 		if err != nil {
 			return err
 		}
@@ -88,7 +89,7 @@ func (g *Generator) generateResourceSDKs() error {
 	return nil
 }
 
-func (g *Generator) generateResourceSDK(rd *ResourceData) error {
+func (g *Generator) generateResourceSDK(rd *common.ResourceData) error {
 	outputDir := filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
@@ -107,13 +108,13 @@ func (g *Generator) generateResourceSDK(rd *ResourceData) error {
 	return nil
 }
 
-func (g *Generator) generateResourceSDKTypes(rd *ResourceData, outputDir string) error {
+func (g *Generator) generateResourceSDKTypes(rd *common.ResourceData, outputDir string) error {
 	data := map[string]interface{}{
-		"Resources": []ResourceData{*rd},
+		"Resources": []common.ResourceData{*rd},
 		"Package":   rd.CleanName,
 	}
 
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"sdk_types.go.tmpl",
 		[]string{"templates/shared.tmpl", "templates/sdk_types.go.tmpl"},
 		data,
@@ -122,13 +123,13 @@ func (g *Generator) generateResourceSDKTypes(rd *ResourceData, outputDir string)
 	)
 }
 
-func (g *Generator) generateResourceSDKClient(rd *ResourceData, outputDir string) error {
+func (g *Generator) generateResourceSDKClient(rd *common.ResourceData, outputDir string) error {
 	data := map[string]interface{}{
-		"Resources": []ResourceData{*rd},
+		"Resources": []common.ResourceData{*rd},
 		"Package":   rd.CleanName,
 	}
 
-	return g.renderTemplate(
+	return g.RenderTemplate(
 		"sdk_client.go.tmpl",
 		[]string{"templates/shared.tmpl", "templates/sdk_client.go.tmpl"},
 		data,
@@ -137,8 +138,8 @@ func (g *Generator) generateResourceSDKClient(rd *ResourceData, outputDir string
 	)
 }
 
-// prepareDatasourceData creates minimal ResourceData for a datasource-only definition
-func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*ResourceData, error) {
+// prepareDatasourceData creates minimal common.ResourceData for a datasource-only definition
+func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*common.ResourceData, error) {
 	ops := dataSource.OperationIDs()
 
 	// Extract API paths from OpenAPI operations
@@ -156,10 +157,10 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	}
 
 	// 0. Construct SchemaConfig
-	cfg := g.getSchemaConfig()
+	cfg := g.GetSchemaConfig()
 
 	// Extract Response fields
-	var responseFields []FieldInfo
+	var responseFields []common.FieldInfo
 	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
 		if fields, err := common.ExtractFields(cfg, responseSchema, true); err == nil {
 			responseFields = fields
@@ -191,7 +192,7 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 
 	service, cleanName := common.SplitResourceName(dataSource.Name)
 
-	return &ResourceData{
+	return &common.ResourceData{
 		Name:           dataSource.Name,
 		Service:        service,
 		CleanName:      cleanName,
@@ -214,11 +215,11 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	usedTypes := make(map[string]bool)
 
 	// 0. Construct SchemaConfig
-	cfg := g.getSchemaConfig()
+	cfg := g.GetSchemaConfig()
 
 	// Helper to collect types recursively
-	var collectTypes func([]FieldInfo)
-	collectTypes = func(fields []FieldInfo) {
+	var collectTypes func([]common.FieldInfo)
+	collectTypes = func(fields []common.FieldInfo) {
 		for _, f := range fields {
 			if f.RefName != "" {
 				if !usedTypes[f.RefName] {
@@ -232,7 +233,7 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 				}
 			}
 			if f.ItemSchema != nil {
-				collectTypes([]FieldInfo{*f.ItemSchema})
+				collectTypes([]common.FieldInfo{*f.ItemSchema})
 			}
 			if len(f.Properties) > 0 {
 				collectTypes(f.Properties)
@@ -245,7 +246,7 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	usedTypes["OrderDetails"] = true
 
 	for _, res := range g.config.Resources {
-		rd, err := g.prepareResourceData(&res)
+		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -266,11 +267,11 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	return usedTypes, nil
 }
 
-func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
-	var allFields []FieldInfo
+func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []common.FieldInfo {
+	var allFields []common.FieldInfo
 
 	// 0. Construct SchemaConfig
-	cfg := g.getSchemaConfig()
+	cfg := g.GetSchemaConfig()
 
 	// Collect only used schemas
 	schemaNames := make([]string, 0, len(g.parser.Document().Components.Schemas))
@@ -293,7 +294,7 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
 					enumValues = append(enumValues, s)
 				}
 			}
-			allFields = append(allFields, FieldInfo{
+			allFields = append(allFields, common.FieldInfo{
 				RefName: name,
 				GoType:  "types.String",
 				Enum:    enumValues,
@@ -302,7 +303,7 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
 		}
 
 		fields, _ := common.ExtractFields(cfg, schemaRef, false)
-		allFields = append(allFields, FieldInfo{
+		allFields = append(allFields, common.FieldInfo{
 			RefName:    name,
 			GoType:     "types.Object",
 			Properties: fields,
@@ -311,19 +312,19 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
 	return allFields
 }
 
-func (g *Generator) calculateIgnoredFields() map[string]map[string]FieldInfo {
+func (g *Generator) calculateIgnoredFields() map[string]map[string]common.FieldInfo {
 	// Dynamically calculate ignored fields based on merged resource schemas
-	extraFields := make(map[string]map[string]FieldInfo)
+	extraFields := make(map[string]map[string]common.FieldInfo)
 
-	var scanForExtraFields func([]FieldInfo)
-	scanForExtraFields = func(fields []FieldInfo) {
+	var scanForExtraFields func([]common.FieldInfo)
+	scanForExtraFields = func(fields []common.FieldInfo) {
 		for _, f := range fields {
 			// recursion first
 			if len(f.Properties) > 0 {
 				scanForExtraFields(f.Properties)
 			}
 			if f.ItemSchema != nil {
-				scanForExtraFields([]FieldInfo{*f.ItemSchema})
+				scanForExtraFields([]common.FieldInfo{*f.ItemSchema})
 			}
 
 			// Check if this field refers to a shared struct via RefName
@@ -335,7 +336,7 @@ func (g *Generator) calculateIgnoredFields() map[string]map[string]FieldInfo {
 			if targetName != "" {
 				cleanName := targetName
 				if extraFields[cleanName] == nil {
-					extraFields[cleanName] = make(map[string]FieldInfo)
+					extraFields[cleanName] = make(map[string]common.FieldInfo)
 				}
 
 				if len(f.Properties) > 0 {
@@ -353,7 +354,7 @@ func (g *Generator) calculateIgnoredFields() map[string]map[string]FieldInfo {
 	}
 
 	for _, res := range g.config.Resources {
-		rd, err := g.prepareResourceData(&res)
+		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
 		if err != nil {
 			continue // Should log warning but sticking to signature
 		}
@@ -363,7 +364,7 @@ func (g *Generator) calculateIgnoredFields() map[string]map[string]FieldInfo {
 	return extraFields
 }
 
-func (g *Generator) applyIgnoredFields(uniqueStructs []FieldInfo, extraFields map[string]map[string]FieldInfo) {
+func (g *Generator) applyIgnoredFields(uniqueStructs []common.FieldInfo, extraFields map[string]map[string]common.FieldInfo) {
 	for i, s := range uniqueStructs {
 		if expected, ok := extraFields[s.RefName]; ok {
 			// Find missing fields
@@ -372,7 +373,7 @@ func (g *Generator) applyIgnoredFields(uniqueStructs []FieldInfo, extraFields ma
 				existing[p.Name] = true
 			}
 
-			var missing []FieldInfo
+			var missing []common.FieldInfo
 			expectedNames := make([]string, 0, len(expected))
 			for name := range expected {
 				expectedNames = append(expectedNames, name)

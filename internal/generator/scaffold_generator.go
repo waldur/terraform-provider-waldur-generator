@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
 // createDirectoryStructure creates the output directory structure
@@ -51,11 +53,11 @@ func (g *Generator) generateProvider() error {
 	// Collect unique services
 	services := make(map[string]bool)
 	for _, res := range g.config.Resources {
-		service, _ := splitResourceName(res.Name)
+		service, _ := common.SplitResourceName(res.Name)
 		services[service] = true
 	}
 	for _, ds := range g.config.DataSources {
-		service, _ := splitResourceName(ds.Name)
+		service, _ := common.SplitResourceName(ds.Name)
 		services[service] = true
 	}
 
@@ -95,7 +97,7 @@ func (g *Generator) generateServiceRegistrations() error {
 	for _, ds := range g.config.DataSources {
 		// Check if resource already exists for this datasource
 		exists := false
-		service, cleanName := splitResourceName(ds.Name)
+		service, cleanName := common.SplitResourceName(ds.Name)
 		for _, rd := range serviceResources[service] {
 			if rd.CleanName == cleanName {
 				exists = true

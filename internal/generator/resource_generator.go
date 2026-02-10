@@ -14,7 +14,7 @@ import (
 )
 
 // generateResourceImplementation generates a resource file
-func (g *Generator) generateResourceImplementation(rd *ResourceData, resource *config.Resource) error {
+func (g *Generator) generateResourceImplementation(rd *ResourceData) error {
 	tmpl, err := template.New("resource.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl", "templates/resource_order.tmpl", "templates/resource_link.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to parse resource template: %w", err)
@@ -255,7 +255,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
-	service, cleanName := splitResourceName(resource.Name)
+	service, cleanName := common.SplitResourceName(resource.Name)
 	skipPolling := true
 	for _, f := range responseFields {
 		if f.Name == "state" || f.Name == "status" {
@@ -277,10 +277,11 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 		ResponseFields: responseFields, ModelFields: modelFields, IsOrder: resource.Plugin == "order",
 		IsLink: resource.LinkOp != "", Source: resource.Source, Target: resource.Target,
 		LinkCheckKey: resource.LinkCheckKey, OfferingType: resource.OfferingType,
-		UpdateActions: updateActions, StandaloneActions: standaloneActions, Actions: resource.Actions,
+		UpdateActions: updateActions, StandaloneActions: standaloneActions,
 		TerminationAttributes: resource.TerminationAttributes, CreateOperation: resource.CreateOperation,
 		CompositeKeys: resource.CompositeKeys, FilterParams: filterParams, SkipPolling: skipPolling,
-		HasDataSource: g.hasDataSource(resource.Name),
+		BaseOperationID: resource.BaseOperationID,
+		HasDataSource:   g.hasDataSource(resource.Name),
 	}
 
 	seenHashes := make(map[string]string)

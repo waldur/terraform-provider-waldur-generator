@@ -6,37 +6,31 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-
-	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
-func (g *Generator) generateActionsImplementation(rd *ResourceData, resource *config.Resource) error {
+func (g *Generator) generateActionsImplementation(rd *ResourceData) error {
 	tmpl, err := template.New("action.go.tmpl").Funcs(GetFuncMap()).ParseFS(templates, "templates/shared.tmpl", "templates/action.go.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to parse action template: %w", err)
 	}
 
-	for _, actionName := range resource.Actions {
-		// Construct operation ID: typically "base_operation_id" + "_" + actionName
-		// e.g., marketplace_resources_pull
-		operationID := fmt.Sprintf("%s_%s", resource.BaseOperationID, actionName)
-
+	for _, action := range rd.StandaloneActions {
 		// Validate operation exists
-		method, path, _, err := g.parser.GetOperation(operationID)
+		method, path, _, err := g.parser.GetOperation(action.Operation)
 		if err != nil {
-			return fmt.Errorf("action %s operation %s not found: %w", actionName, operationID, err)
+			return fmt.Errorf("action %s operation %s not found: %w", action.Name, action.Operation, err)
 		}
 
 		// Prepare data for template
-		resourceName := strings.ReplaceAll(resource.Name, "_", " ")
+		resourceName := strings.ReplaceAll(rd.Name, "_", " ")
 		data := map[string]interface{}{
 			"ResourceName":    rd.Name,
 			"Service":         rd.Service,
 			"CleanName":       rd.CleanName,
-			"ActionName":      actionName,
-			"OperationID":     operationID,
-			"BaseOperationID": resource.BaseOperationID,
-			"Description":     fmt.Sprintf("Perform %s action on %s", actionName, resourceName),
+			"ActionName":      action.Name,
+			"OperationID":     action.Operation,
+			"BaseOperationID": rd.BaseOperationID,
+			"Description":     fmt.Sprintf("Perform %s action on %s", action.Name, resourceName),
 			"IdentifierParam": "uuid", // Default identifier
 			"IdentifierDesc":  fmt.Sprintf("The UUID of the %s", resourceName),
 			"ProviderName":    g.config.Generator.ProviderName,
@@ -50,7 +44,7 @@ func (g *Generator) generateActionsImplementation(rd *ResourceData, resource *co
 			return err
 		}
 
-		outputPath := filepath.Join(outputDir, fmt.Sprintf("%s.go", actionName))
+		outputPath := filepath.Join(outputDir, fmt.Sprintf("%s.go", action.Name))
 		f, err := os.Create(outputPath)
 		if err != nil {
 			return err

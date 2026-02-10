@@ -3,7 +3,6 @@ package generator
 import (
 	"embed"
 	"fmt"
-	"strings"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
@@ -149,16 +148,16 @@ func (g *Generator) Generate() error {
 				}
 			}
 			if configRes != nil && configRes.Plugin != "actions" {
-				if err := g.generateResourceImplementation(rd, configRes); err != nil {
+				if err := g.generateResourceImplementation(rd); err != nil {
 					return fmt.Errorf("failed to generate resource implementation %s: %w", name, err)
 				}
-				if err := g.generateListResourceImplementation(rd, configRes); err != nil {
+				if err := g.generateListResourceImplementation(rd); err != nil {
 					fmt.Printf("Warning: failed to generate list resource %s: %s\n", name, err)
 				}
 
 				// Actions
 				if len(configRes.Actions) > 0 {
-					if err := g.generateActionsImplementation(rd, configRes); err != nil {
+					if err := g.generateActionsImplementation(rd); err != nil {
 						return fmt.Errorf("failed to generate actions for resource %s: %w", name, err)
 					}
 				}
@@ -213,15 +212,6 @@ func (g *Generator) Generate() error {
 	return nil
 }
 
-func (g *Generator) hasResource(name string) bool {
-	for _, res := range g.config.Resources {
-		if res.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
 func (g *Generator) hasDataSource(resourceName string) bool {
 	for _, ds := range g.config.DataSources {
 		if ds.Name == resourceName {
@@ -229,12 +219,4 @@ func (g *Generator) hasDataSource(resourceName string) bool {
 		}
 	}
 	return false
-}
-
-func splitResourceName(name string) (string, string) {
-	parts := strings.SplitN(name, "_", 2)
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
-	return "core", name // Fallback to core
 }

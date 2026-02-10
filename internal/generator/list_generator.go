@@ -5,12 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
-
-	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
 // generateListResourceImplementation generates a list resource file
-func (g *Generator) generateListResourceImplementation(rd *ResourceData, resource *config.Resource) error {
+func (g *Generator) generateListResourceImplementation(rd *ResourceData) error {
 	// Determine template name and path
 	templateName := "list_resource.go.tmpl"
 

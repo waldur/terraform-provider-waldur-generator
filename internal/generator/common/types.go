@@ -45,7 +45,6 @@ type ResourceData struct {
 	Service               string // e.g., "openstack", "marketplace"
 	CleanName             string // e.g., "instance", "order"
 	Plugin                string
-	CheckingLink          bool
 	Operations            config.OperationSet
 	APIPaths              map[string]string
 	CreateFields          []FieldInfo
@@ -61,14 +60,14 @@ type ResourceData struct {
 	OfferingType          string
 	UpdateActions         []UpdateAction
 	StandaloneActions     []UpdateAction
-	Actions               []string
 	TerminationAttributes []config.ParameterConfig
 	CreateOperation       *config.CreateOperationConfig
 	CompositeKeys         []string
 	NestedStructs         []FieldInfo // Only used for legacy resource generation if needed
 	FilterParams          []FilterParam
-	HasDataSource         bool // True if a corresponding data source exists
-	SkipPolling           bool // True if resource does not need polling (e.g. Structure Project)
+	BaseOperationID       string // Base operation ID for actions
+	HasDataSource         bool   // True if a corresponding data source exists
+	SkipPolling           bool   // True if resource does not need polling (e.g. Structure Project)
 }
 
 // UpdateAction represents an enriched update action with resolved API path

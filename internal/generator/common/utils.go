@@ -16,3 +16,12 @@ func SanitizeString(s string) string {
 	}
 	return strings.TrimSpace(s)
 }
+
+// SplitResourceName splits a resource name into service and clean name
+func SplitResourceName(name string) (string, string) {
+	parts := strings.SplitN(name, "_", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return "core", name // Fallback to core
+}

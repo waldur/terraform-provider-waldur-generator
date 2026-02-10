@@ -232,7 +232,7 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
 	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
-	service, cleanName := splitResourceName(dataSource.Name)
+	service, cleanName := common.SplitResourceName(dataSource.Name)
 
 	return &ResourceData{
 		Name:           dataSource.Name,

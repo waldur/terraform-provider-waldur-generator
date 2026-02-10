@@ -36,8 +36,8 @@ func GetActions() []func() action.Action {
 		{{- range .Resources }}
 			{{- $resClean := .CleanName }}
 			{{- $resTitle := .Name | title }}
-			{{- range .Actions }}
-		pkg_{{ $resClean }}.New{{ $resTitle }}{{ . | title }}Action,
+			{{- range .StandaloneActions }}
+		pkg_{{ $resClean }}.New{{ $resTitle }}{{ .Name | title }}Action,
 			{{- end }}
 		{{- end }}
 	}

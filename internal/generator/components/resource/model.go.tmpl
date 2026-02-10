@@ -36,6 +36,7 @@ func (m *{{ .Name | title }}FiltersModel) GetSchema() schema.SingleNestedAttribu
 			{{- range .FilterParams }}
 			"{{ .Name }}": schema.{{ .Type }}Attribute{
 				Optional:            true,
+				MarkdownDescription: "{{ .Description }}",
 				{{- if and (eq .Type "String") .Enum }}
 				Validators: []validator.String{
 				},

@@ -103,13 +103,18 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, dep
 			refName = parts[len(parts)-1]
 		}
 
+		description := SanitizeString(prop.Description)
+		if description == "" {
+			description = Humanize(propName)
+		}
+
 		field := FieldInfo{
 			Name:        propName,
 			Type:        typeStr,
 			Format:      prop.Format,
 			Required:    requiredMap[propName],
 			ReadOnly:    prop.ReadOnly,
-			Description: SanitizeString(prop.Description),
+			Description: description,
 			RefName:     refName,
 			Minimum:     prop.Min,
 			Maximum:     prop.Max,

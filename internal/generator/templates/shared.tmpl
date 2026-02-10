@@ -167,7 +167,7 @@ schema.ListNestedAttribute{
     },
     {{- end }}
     {{- end }}
-    MarkdownDescription: "{{ or .Description " " }}",
+    MarkdownDescription: "{{ .Description }}",
 },
 {{- else if eq .GoType "types.Set" }}
 schema.SetNestedAttribute{
@@ -202,7 +202,7 @@ schema.SetNestedAttribute{
     },
     {{- end }}
     {{- end }}
-    MarkdownDescription: "{{ or .Description " " }}",
+    MarkdownDescription: "{{ .Description }}",
 },
 {{- else if eq .GoType "types.Object" }}
 schema.SingleNestedAttribute{
@@ -233,7 +233,7 @@ schema.SingleNestedAttribute{
     },
     {{- end }}
     {{- end }}
-    MarkdownDescription: "{{ or .Description " " }}",
+    MarkdownDescription: "{{ .Description }}",
 },
 {{- end }}
 {{- end }}
@@ -268,7 +268,7 @@ schema.SingleNestedAttribute{
             },
             {{- end }}
             {{- end }}
-            MarkdownDescription: "{{ or .Description " " }}",
+            MarkdownDescription: "{{ .Description }}",
         },
     {{- end }}
 {{- else if eq .GoType "types.Map" }}
@@ -296,7 +296,7 @@ schema.SingleNestedAttribute{
         },
         {{- end }}
         {{- end }}
-        MarkdownDescription: "{{ or .Description " " }}",
+        MarkdownDescription: "{{ .Description }}",
     },
 {{- else }}
     {{- /* Primitive Type */ -}}
@@ -326,7 +326,7 @@ schema.SingleNestedAttribute{
         },
         {{- end }}
         {{- end }}
-        MarkdownDescription: "{{ or .Description " " }}",
+        MarkdownDescription: "{{ .Description }}",
         {{- if contains .Name "password" }}
         Sensitive: true,
         {{- end }}

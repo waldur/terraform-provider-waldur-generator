@@ -79,3 +79,7 @@ func (b *OrderBuilder) GetAPIPaths() map[string]string {
 	paths := b.BaseBuilder.GetAPIPaths()
 	return paths
 }
+
+func (b *OrderBuilder) GetTemplateFiles() []string {
+	return []string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_order.tmpl"}
+}

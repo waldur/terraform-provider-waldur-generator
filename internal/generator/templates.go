@@ -6,7 +6,6 @@ import (
 	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
-	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
 // toTitle converts a string to title case for use in templates
@@ -168,7 +167,6 @@ func GetFuncMap() template.FuncMap {
 		"displayName":          displayName,
 		"toAttrType":           ToAttrType,
 		"toAttrTypeDefinition": ToAttrTypeDefinition,
-		"toFilterParamType":    common.GetFilterParamType,
 		"formatValidator":      formatValidatorValue,
 		"replace": func(old, new, s string) string {
 			return strings.ReplaceAll(s, old, new)

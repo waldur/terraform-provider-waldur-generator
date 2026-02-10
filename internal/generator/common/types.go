@@ -68,6 +68,7 @@ type ResourceData struct {
 	BaseOperationID       string // Base operation ID for actions
 	HasDataSource         bool   // True if a corresponding data source exists
 	SkipPolling           bool   // True if resource does not need polling (e.g. Structure Project)
+	TemplateFiles         []string
 }
 
 // UpdateAction represents an enriched update action with resolved API path
@@ -115,40 +116,6 @@ func (f FieldInfo) Clone() FieldInfo {
 		}
 	}
 	return clone
-}
-
-// GetGoType maps OpenAPI types to Terraform Plugin Framework types
-func GetGoType(openAPIType string) string {
-	switch openAPIType {
-	case "string":
-		return "types.String"
-	case "integer":
-		return "types.Int64"
-	case "boolean":
-		return "types.Bool"
-	case "number":
-		return "types.Float64"
-	case "array":
-		return "types.List"
-	case "object":
-		return "types.Object"
-	default:
-		return "types.String" // Fallback
-	}
-}
-
-// GetFilterParamType maps OpenAPI/Go types to string identifiers used in FilterParam
-func GetFilterParamType(goTypeStr string) string {
-	switch goTypeStr {
-	case "types.Int64":
-		return "Int64"
-	case "types.Bool":
-		return "Bool"
-	case "types.Float64":
-		return "Float64"
-	default:
-		return "String"
-	}
 }
 
 // DataSourceTemplateData holds data for generating data source files

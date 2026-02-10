@@ -5,7 +5,11 @@
     2. Submit the Order via the Marketplace API.
     3. Poll the Order status until it completes, then resolve the Resource UUID.
 */ -}}
-{{- define "resource_create_order" }}
+{{- define "resource_create" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
 	// Phase 1: Payload Construction
 	// We map the Terraform schema fields to the 'attributes' map required by the Marketplace Order API.
 	attributes := {{ .Name | title }}CreateAttributes{}
@@ -104,15 +108,23 @@
 
 	// Resolve unknown attributes to explicit null values
 	r.resolveUnknownAttributes(&data)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}
 
 {{- /* 
-    resource_update_order handles updates for order-based resources.
+    resource_update handles updates for order-based resources.
     Updates can be:
     1. Standard PATCH updates (e.g. name, description) which are simple API calls.
     2. RPC Actions (e.g. resize, update_security_groups) which trigger specific endpoints.
 */ -}}
-{{- define "resource_update_order" }}
+{{- define "resource_update" }}
+	var data {{ .Name | title }}ResourceModel
+	var state {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() { return }
+
 	// Phase 1: Standard PATCH (Simple fields)
 	// We compare the plan (data) with the state (state) to determine which fields changed.
 	anyChanges := false
@@ -204,13 +216,19 @@
 
 	// Resolve unknown attributes to explicit null values
 	r.resolveUnknownAttributes(&data)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}
 
 {{- /* 
     resource_delete_order handles the termination of order-based resources.
     This typically involves creating a termination order and waiting for it to complete.
 */ -}}
-{{- define "resource_delete_order" }}
+{{- define "resource_delete" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
 	// Order-based Delete
 	{{- if eq .Name "openstack_instance" }}
 	// OpenStack instances must be stopped before they can be terminated.
@@ -277,14 +295,18 @@
 	}
 {{- end }}
 
-{{- define "resource_read_order" }}
-	{{ template "resource_read_standard" . }}
+{{- define "resource_read" }}
+	{{ template "resource_read_base" . }}
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	// Resolve unknown attributes to explicit null values
 	r.resolveUnknownAttributes(&data)
+{{- end }}
+
+{{- define "resource_import" }}
+	{{ template "resource_import_base" . }}
 {{- end }}
 
 {{- /* 

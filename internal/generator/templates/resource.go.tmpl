@@ -120,38 +120,7 @@ func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resourc
 
 
 func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	{{- /* Order-based provisioning uses a different workflow than standard CRUD */ -}}
-	{{- if .IsOrder }}
-	var data {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_create_order" . }}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-	{{- /* Link resources are composite objects (attachments) */ -}}
-	{{- else if .IsLink }}
-	var data {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_create_link" . }}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-	{{- else }}
-	{{- /* Standard CRUD resource */ -}}
-	{{- if or .APIPaths.Create .CreateOperation }}
-	var data {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_create_standard" . }}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-	{{- else }}
-	resp.Diagnostics.AddError("Creation Not Supported", "This resource cannot be created via the API.")
-	{{- end }}
-	{{- end }}
+	{{ template "resource_create" . }}
 }
 
 func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -165,83 +134,20 @@ func (r *{{ .Name | title }}Resource) Read(ctx context.Context, req resource.Rea
 	}
 
 	// Call Waldur API to read resource
-	
-	{{- if .IsOrder }}
-	{{ template "resource_read_order" . }}
-	{{- else if .IsLink }}
-	{{ template "resource_read_link" . }}
-	{{- else }}
-	{{ template "resource_read_standard" . }}
-	{{- end }}
+	{{ template "resource_read" . }}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *{{ .Name | title }}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	{{- /* Update logic for Order resources */ -}}
-	{{- if .IsOrder }}
-	var data {{ .Name | title }}ResourceModel
-	var state {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_update_order" . }}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-	{{- /* Link resources are immutable */ -}}
-	{{- else if .IsLink }}
-	// Link resources typically do not support update, as they are bindings.
-	resp.Diagnostics.AddError("Update Not Supported", "Link resources cannot be updated.")
-	{{- else }}
-	{{- /* Standard CRUD Update */ -}}
-	{{- if .APIPaths.Update }}
-	var data {{ .Name | title }}ResourceModel
-	var state {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_update_standard" . }}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-	{{- else }}
-	resp.Diagnostics.AddError("Update Not Supported", "This resource cannot be updated via the API.")
-	{{- end }}
-	{{- end }}
+	{{ template "resource_update" . }}
 }
 
 func (r *{{ .Name | title }}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	{{- if .IsOrder }}
-	var data {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_delete_order" . }}
-	{{- else if .IsLink }}
-	var data {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_delete_link" . }}
-	{{- else }}
-	{{- if .APIPaths.Delete }}
-	var data {{ .Name | title }}ResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() { return }
-
-	{{ template "resource_delete_standard" . }}
-	{{- else }}
-	resp.Diagnostics.AddError("Deletion Not Supported", "This resource cannot be deleted via the API.")
-	{{- end }}
-	{{- end }}
+	{{ template "resource_delete" . }}
 }
 
 func (r *{{ .Name | title }}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	{{- if .IsLink }}
-	{{ template "resource_import_link" . }}
-	{{- else }}
-	{{ template "resource_import_standard" . }}
-	{{- end }}
+	{{ template "resource_import" . }}
 }

@@ -13,6 +13,7 @@ type ResourceBuilder interface {
 	BuildResponseFields() ([]common.FieldInfo, error)
 	BuildModelFields(createFields, responseFields []common.FieldInfo) ([]common.FieldInfo, error) // Added
 	GetAPIPaths() map[string]string
+	GetTemplateFiles() []string
 }
 
 // BaseBuilder provides common functionality for all builders
@@ -65,4 +66,8 @@ func (b *BaseBuilder) GetAPIPaths() map[string]string {
 	}
 
 	return paths
+}
+
+func (b *BaseBuilder) GetTemplateFiles() []string {
+	return nil
 }

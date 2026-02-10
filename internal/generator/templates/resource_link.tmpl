@@ -3,7 +3,11 @@
     A Link resource represents a relationship between two other resources (Source and Target).
     The 'Create' operation effectively creates this relationship in the API.
 */ -}}
-{{- define "resource_create_link" }}
+{{- define "resource_create" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
 	// Link Plugin Create Logic
 	sourceUUID := data.{{ .Source.Param | title }}.ValueString()
 
@@ -29,14 +33,15 @@
 	data.UUID = types.StringValue(sourceUUID + "/" + data.{{ .Target.Param | title }}.ValueString())
 
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}
 
 {{- /* 
-    resource_read_link verifies if the Link still exists.
+    resource_read verifies if the Link still exists.
     Since Links might not have a direct GET endpoint, we often read the Source resource
     and check if the Target resource (or the specific link object) is present in a specific field (e.g. 'volumes' list in an instance).
 */ -}}
-{{- define "resource_read_link" }}
+{{- define "resource_read" }}
 	// For Link resources, we read the Source resource and check if Target is linked
 	parts := strings.Split(data.UUID.ValueString(), "/")
 	if len(parts) != 2 {
@@ -98,10 +103,19 @@
 	delete(result, "uuid") 
 {{- end }}
 
+{{- define "resource_update" }}
+	// Link resources typically do not support update, as they are bindings.
+	resp.Diagnostics.AddError("Update Not Supported", "Link resources cannot be updated.")
+{{- end }}
+
 {{- /* 
-    resource_delete_link handles the removal of the relationship (Unlink).
+    resource_delete handles the removal of the relationship (Unlink).
 */ -}}
-{{- define "resource_delete_link" }}
+{{- define "resource_delete" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
 	// Link Plugin Delete (Unlink)
 	parts := strings.Split(data.UUID.ValueString(), "/")
 	if len(parts) != 2 {
@@ -132,9 +146,9 @@
 {{- end }}
 
 {{- /* 
-    resource_import_link allows importing an existing link using the composite ID source_uuid/target_uuid.
+    resource_import allows importing an existing link using the composite ID source_uuid/target_uuid.
 */ -}}
-{{- define "resource_import_link" }}
+{{- define "resource_import" }}
 	// Import ID: source_uuid/target_uuid
 	parts := strings.Split(req.ID, "/")
 	if len(parts) != 2 {

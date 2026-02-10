@@ -14,7 +14,7 @@ import (
 func (g *Generator) generateResourceImplementation(rd *ResourceData) error {
 	return g.renderTemplate(
 		"resource.go.tmpl",
-		[]string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl", "templates/resource_order.tmpl", "templates/resource_link.tmpl"},
+		rd.TemplateFiles,
 		rd,
 		filepath.Join(g.config.Generator.OutputDir, "services", rd.Service, rd.CleanName),
 		"resource.go",
@@ -224,6 +224,7 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	common.AssignMissingAttrTypeRefs(cfg, rd.ModelFields, "", seenHashes, seenNames)
 	common.AssignMissingAttrTypeRefs(cfg, rd.ResponseFields, "", seenHashes, seenNames)
 	rd.NestedStructs = common.CollectUniqueStructs(rd.ModelFields)
+	rd.TemplateFiles = builder.GetTemplateFiles()
 
 	return rd, nil
 }

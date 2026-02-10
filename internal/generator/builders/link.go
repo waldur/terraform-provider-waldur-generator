@@ -106,3 +106,7 @@ func (b *LinkBuilder) GetAPIPaths() map[string]string {
 	}
 	return paths
 }
+
+func (b *LinkBuilder) GetTemplateFiles() []string {
+	return []string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_link.tmpl"}
+}

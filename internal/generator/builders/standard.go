@@ -36,3 +36,7 @@ func (b *StandardBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
 	}
 	return common.ExtractFields(b.SchemaConfig, schema, true)
 }
+
+func (b *StandardBuilder) GetTemplateFiles() []string {
+	return []string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl"}
+}

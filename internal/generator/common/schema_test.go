@@ -41,7 +41,7 @@ func TestExtractFields(t *testing.T) {
 		},
 	}
 
-	fields, err := ExtractFields(schema, false)
+	fields, err := ExtractFields(SchemaConfig{}, schema, false)
 	if err != nil {
 		t.Fatalf("ExtractFields failed: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestExtractFields(t *testing.T) {
 }
 
 func TestExtractFields_EmptySchema(t *testing.T) {
-	fields, err := ExtractFields(nil, false)
+	fields, err := ExtractFields(SchemaConfig{}, nil, false)
 	if err != nil {
 		t.Fatalf("ExtractFields(nil, false) failed: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestExtractFields_Enum(t *testing.T) {
 		},
 	}
 
-	fields, err := ExtractFields(schema, false)
+	fields, err := ExtractFields(SchemaConfig{}, schema, false)
 	if err != nil {
 		t.Fatalf("ExtractFields failed: %v", err)
 	}
@@ -172,7 +172,10 @@ func TestExtractFields_ListOfStrings(t *testing.T) {
 		},
 	}
 
-	fields, err := ExtractFields(schema, false)
+	cfg := SchemaConfig{
+		SetFields: map[string]bool{"tags": true},
+	}
+	fields, err := ExtractFields(cfg, schema, false)
 	if err != nil {
 		t.Fatalf("ExtractFields failed: %v", err)
 	}
@@ -228,7 +231,7 @@ func TestExtractFields_ListOfObjects(t *testing.T) {
 		},
 	}
 
-	fields, err := ExtractFields(schema, false)
+	fields, err := ExtractFields(SchemaConfig{}, schema, false)
 	if err != nil {
 		t.Fatalf("ExtractFields failed: %v", err)
 	}
@@ -282,7 +285,7 @@ func TestExtractFields_NestedObject(t *testing.T) {
 		},
 	}
 
-	fields, err := ExtractFields(schema, false)
+	fields, err := ExtractFields(SchemaConfig{}, schema, false)
 	if err != nil {
 		t.Fatalf("ExtractFields failed: %v", err)
 	}

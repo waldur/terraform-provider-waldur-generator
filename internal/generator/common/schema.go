@@ -8,57 +8,25 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// ExcludedFields defines fields that should be excluded from standard resources
-var ExcludedFields = map[string]bool{
-	// Marketplace fields
-	"marketplace_category_name":  true,
-	"marketplace_category_uuid":  true,
-	"marketplace_offering_name":  true,
-	"marketplace_offering_uuid":  true,
-	"marketplace_plan_uuid":      true,
-	"marketplace_resource_state": true,
-	"is_limit_based":             true,
-	"is_usage_based":             true,
-	"access_url":                 true,
-	// Service settings
-	"service_name":                   true,
-	"service_settings":               true,
-	"service_settings_error_message": true,
-	"service_settings_state":         true,
-	"service_settings_uuid":          true,
-	// Project/Customer (handled separately)
-	"project_name":          true,
-	"project_uuid":          true,
-	"customer_abbreviation": true,
-	"customer_name":         true,
-	"customer_native_name":  true,
-	"customer_uuid":         true,
-	"created":               true,
-	"modified":              true,
-}
-
-// SetFields defines fields that should be treated as Sets instead of Lists
-// This is used for unordered collections to avoid permadiffs in Terraform
-var SetFields = map[string]bool{
-	"security_groups": true,
-	"floating_ips":    true,
-	"tags":            true,
-	"ssh_keys":        true,
+// SchemaConfig defines field-level rules for schema extraction
+type SchemaConfig struct {
+	ExcludedFields map[string]bool
+	SetFields      map[string]bool
 }
 
 // IsSetField checks if a field should be treated as a Set
-func IsSetField(name string) bool {
-	return SetFields[name]
+func IsSetField(cfg SchemaConfig, name string) bool {
+	return cfg.SetFields[name]
 }
 
 // ExtractFields extracts field information from an OpenAPI schema reference
 // Supports primitive types, enums, arrays (strings, objects), and nested objects
-func ExtractFields(schemaRef *openapi3.SchemaRef, skipRootUUID bool) ([]FieldInfo, error) {
-	return extractFieldsRecursive(schemaRef, 0, 3, skipRootUUID) // max depth: 3
+func ExtractFields(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, skipRootUUID bool) ([]FieldInfo, error) {
+	return extractFieldsRecursive(cfg, schemaRef, 0, 3, skipRootUUID) // max depth: 3
 }
 
 // extractFieldsRecursive extracts field information with depth limiting
-func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, skipRootUUID bool) ([]FieldInfo, error) {
+func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, depth, maxDepth int, skipRootUUID bool) ([]FieldInfo, error) {
 	if schemaRef == nil || schemaRef.Value == nil {
 		return nil, nil
 	}
@@ -111,7 +79,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 			continue
 		}
 
-		if ExcludedFields[propName] {
+		if cfg.ExcludedFields[propName] {
 			continue
 		}
 
@@ -181,7 +149,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 				}
 
 				if itemType == "string" {
-					if IsSetField(propName) {
+					if IsSetField(cfg, propName) {
 						field.GoType = "types.Set"
 					} else {
 						field.GoType = "types.List"
@@ -189,7 +157,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 					fields = append(fields, field)
 				} else if itemType == "object" {
 					// Array of objects - extract nested schema
-					if nestedFields, err := extractFieldsRecursive(prop.Items, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
+					if nestedFields, err := extractFieldsRecursive(cfg, prop.Items, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 						// Store first nested field as representative schema
 						if len(nestedFields) > 0 {
 							field.ItemSchema = &FieldInfo{
@@ -200,7 +168,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 							}
 						}
 
-						if IsSetField(propName) {
+						if IsSetField(cfg, propName) {
 							field.GoType = "types.Set"
 						} else {
 							field.GoType = "types.List"
@@ -212,7 +180,7 @@ func extractFieldsRecursive(schemaRef *openapi3.SchemaRef, depth, maxDepth int, 
 
 		case "object":
 			// Nested object - extract properties
-			if nestedFields, err := extractFieldsRecursive(propSchema, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
+			if nestedFields, err := extractFieldsRecursive(cfg, propSchema, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields
 				field.GoType = "types.Object"
 				fields = append(fields, field)
@@ -445,18 +413,18 @@ func FillDescriptions(fields []FieldInfo, resourceName string) {
 	}
 }
 
-// ApplySchemaSkipRecursive applies SchemaSkip to fields in ExcludedFields but not in inputFields.
-func ApplySchemaSkipRecursive(fields []FieldInfo, inputFields map[string]bool) {
+// ApplySchemaSkipRecursive applies SchemaSkip to fields in cfg.ExcludedFields but not in inputFields.
+func ApplySchemaSkipRecursive(cfg SchemaConfig, fields []FieldInfo, inputFields map[string]bool) {
 	for i := range fields {
 		f := &fields[i]
-		if ExcludedFields[f.Name] && !inputFields[f.Name] {
+		if cfg.ExcludedFields[f.Name] && !inputFields[f.Name] {
 			f.SchemaSkip = true
 		}
 		if len(f.Properties) > 0 {
-			ApplySchemaSkipRecursive(f.Properties, inputFields)
+			ApplySchemaSkipRecursive(cfg, f.Properties, inputFields)
 		}
 		if f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
-			ApplySchemaSkipRecursive(f.ItemSchema.Properties, inputFields)
+			ApplySchemaSkipRecursive(cfg, f.ItemSchema.Properties, inputFields)
 		}
 	}
 }
@@ -582,16 +550,16 @@ func CollectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 }
 
 // AssignMissingAttrTypeRefs recursively assigns a AttrTypeRef to objects/lists of objects that lack one.
-func AssignMissingAttrTypeRefs(fields []FieldInfo, prefix string, seenHashes map[string]string, seenNames map[string]string) {
+func AssignMissingAttrTypeRefs(cfg SchemaConfig, fields []FieldInfo, prefix string, seenHashes map[string]string, seenNames map[string]string) {
 	for i := range fields {
 		f := &fields[i]
 
 		// Recursively process children first (Bottom-Up)
 		if f.GoType == "types.Object" {
-			AssignMissingAttrTypeRefs(f.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+			AssignMissingAttrTypeRefs(cfg, f.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
 		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
 			if f.ItemSchema.GoType == "types.Object" {
-				AssignMissingAttrTypeRefs(f.ItemSchema.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+				AssignMissingAttrTypeRefs(cfg, f.ItemSchema.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
 
 				// Also assign ref to ItemSchema itself
 				hash := computeStructHash(*f.ItemSchema)

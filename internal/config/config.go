@@ -16,9 +16,11 @@ type Config struct {
 
 // GeneratorConfig contains global generator settings
 type GeneratorConfig struct {
-	OpenAPISchema string `yaml:"openapi_schema"`
-	OutputDir     string `yaml:"output_dir"`
-	ProviderName  string `yaml:"provider_name"`
+	OpenAPISchema  string   `yaml:"openapi_schema"`
+	OutputDir      string   `yaml:"output_dir"`
+	ProviderName   string   `yaml:"provider_name"`
+	ExcludedFields []string `yaml:"excluded_fields"`
+	SetFields      []string `yaml:"set_fields"`
 }
 
 // Resource defines a Terraform resource to generate

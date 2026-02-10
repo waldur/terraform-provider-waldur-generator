@@ -14,7 +14,7 @@ func (b *LinkBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, nil
 	}
-	fields, err := common.ExtractFields(schema, true)
+	fields, err := common.ExtractFields(b.SchemaConfig, schema, true)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (b *LinkBuilder) BuildUpdateFields() ([]common.FieldInfo, error) {
 
 func (b *LinkBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
 	if schema, err := b.Parser.GetOperationResponseSchema(b.Ops.Retrieve); err == nil {
-		return common.ExtractFields(schema, true)
+		return common.ExtractFields(b.SchemaConfig, schema, true)
 	}
 	return nil, nil
 }

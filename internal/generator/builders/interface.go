@@ -16,9 +16,10 @@ type ResourceBuilder interface {
 
 // BaseBuilder provides common functionality for all builders
 type BaseBuilder struct {
-	Parser   *openapi.Parser
-	Resource *config.Resource
-	Ops      config.OperationSet
+	Parser       *openapi.Parser
+	Resource     *config.Resource
+	Ops          config.OperationSet
+	SchemaConfig common.SchemaConfig
 }
 
 func (b *BaseBuilder) GetAPIPaths() map[string]string {

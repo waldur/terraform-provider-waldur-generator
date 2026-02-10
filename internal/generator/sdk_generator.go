@@ -177,16 +177,29 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 		retrievePath = retPath
 	}
 
-	// Extract Response fields
+	// 0. Construct SchemaConfig
+	excludedMap := make(map[string]bool)
+	for _, f := range g.config.Generator.ExcludedFields {
+		excludedMap[f] = true
+	}
+	setMap := make(map[string]bool)
+	for _, f := range g.config.Generator.SetFields {
+		setMap[f] = true
+	}
+	cfg := common.SchemaConfig{
+		ExcludedFields: excludedMap,
+		SetFields:      setMap,
+	}
+
 	// Extract Response fields
 	var responseFields []FieldInfo
 	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-		if fields, err := common.ExtractFields(responseSchema, true); err == nil {
+		if fields, err := common.ExtractFields(cfg, responseSchema, true); err == nil {
 			responseFields = fields
 		}
 	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.List); err == nil {
 		if responseSchema.Value.Type != nil && (*responseSchema.Value.Type)[0] == "array" && responseSchema.Value.Items != nil {
-			if fields, err := common.ExtractFields(responseSchema.Value.Items, true); err == nil {
+			if fields, err := common.ExtractFields(cfg, responseSchema.Value.Items, true); err == nil {
 				responseFields = fields
 			}
 		}
@@ -225,8 +238,8 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 	modelFields := responseFields
 
 	// Filter out marketplace and other fields from schema recursively
-	common.ApplySchemaSkipRecursive(modelFields, nil)
-	common.ApplySchemaSkipRecursive(responseFields, nil)
+	common.ApplySchemaSkipRecursive(cfg, modelFields, nil)
+	common.ApplySchemaSkipRecursive(cfg, responseFields, nil)
 
 	// Sort for deterministic output
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
@@ -256,6 +269,20 @@ func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*Resou
 func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	usedTypes := make(map[string]bool)
 
+	// 0. Construct SchemaConfig
+	excludedMap := make(map[string]bool)
+	for _, f := range g.config.Generator.ExcludedFields {
+		excludedMap[f] = true
+	}
+	setMap := make(map[string]bool)
+	for _, f := range g.config.Generator.SetFields {
+		setMap[f] = true
+	}
+	cfg := common.SchemaConfig{
+		ExcludedFields: excludedMap,
+		SetFields:      setMap,
+	}
+
 	// Helper to collect types recursively
 	var collectTypes func([]FieldInfo)
 	collectTypes = func(fields []FieldInfo) {
@@ -265,7 +292,7 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 					usedTypes[f.RefName] = true
 					// Find schema and recurse
 					if schemaRef, ok := g.parser.Document().Components.Schemas[f.RefName]; ok {
-						if nestedFields, err := common.ExtractFields(schemaRef, false); err == nil {
+						if nestedFields, err := common.ExtractFields(cfg, schemaRef, false); err == nil {
 							collectTypes(nestedFields)
 						}
 					}
@@ -309,8 +336,29 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
 	var allFields []FieldInfo
 
+	// 0. Construct SchemaConfig
+	excludedMap := make(map[string]bool)
+	for _, f := range g.config.Generator.ExcludedFields {
+		excludedMap[f] = true
+	}
+	setMap := make(map[string]bool)
+	for _, f := range g.config.Generator.SetFields {
+		setMap[f] = true
+	}
+	cfg := common.SchemaConfig{
+		ExcludedFields: excludedMap,
+		SetFields:      setMap,
+	}
+
 	// Collect only used schemas
-	for name, schemaRef := range g.parser.Document().Components.Schemas {
+	schemaNames := make([]string, 0, len(g.parser.Document().Components.Schemas))
+	for name := range g.parser.Document().Components.Schemas {
+		schemaNames = append(schemaNames, name)
+	}
+	sort.Strings(schemaNames)
+
+	for _, name := range schemaNames {
+		schemaRef := g.parser.Document().Components.Schemas[name]
 		if !usedTypes[name] {
 			continue
 		}
@@ -331,7 +379,7 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []FieldInfo {
 			continue
 		}
 
-		fields, _ := common.ExtractFields(schemaRef, false)
+		fields, _ := common.ExtractFields(cfg, schemaRef, false)
 		allFields = append(allFields, FieldInfo{
 			RefName:    name,
 			GoType:     "types.Object",
@@ -403,7 +451,14 @@ func (g *Generator) applyIgnoredFields(uniqueStructs []FieldInfo, extraFields ma
 			}
 
 			var missing []FieldInfo
-			for name, prop := range expected {
+			expectedNames := make([]string, 0, len(expected))
+			for name := range expected {
+				expectedNames = append(expectedNames, name)
+			}
+			sort.Strings(expectedNames)
+
+			for _, name := range expectedNames {
+				prop := expected[name]
 				if !existing[name] {
 					// Create ignored field
 					p := prop

@@ -18,7 +18,7 @@ func (b *StandardBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, nil // Some resources might not have a create schema
 	}
-	return common.ExtractFields(schema, true)
+	return common.ExtractFields(b.SchemaConfig, schema, true)
 }
 
 func (b *StandardBuilder) BuildUpdateFields() ([]common.FieldInfo, error) {
@@ -26,7 +26,7 @@ func (b *StandardBuilder) BuildUpdateFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, nil
 	}
-	return common.ExtractFields(schema, true)
+	return common.ExtractFields(b.SchemaConfig, schema, true)
 }
 
 func (b *StandardBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
@@ -34,5 +34,5 @@ func (b *StandardBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return common.ExtractFields(schema, true)
+	return common.ExtractFields(b.SchemaConfig, schema, true)
 }

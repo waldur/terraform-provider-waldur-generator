@@ -18,7 +18,7 @@ func (b *OrderBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to find offering schema %s: %w", schemaName, err)
 	}
-	fields, err := common.ExtractFields(offeringSchema, true)
+	fields, err := common.ExtractFields(b.SchemaConfig, offeringSchema, true)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (b *OrderBuilder) BuildUpdateFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, nil
 	}
-	return common.ExtractFields(schema, true)
+	return common.ExtractFields(b.SchemaConfig, schema, true)
 }
 
 func (b *OrderBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
@@ -47,7 +47,7 @@ func (b *OrderBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return common.ExtractFields(schema, true)
+	return common.ExtractFields(b.SchemaConfig, schema, true)
 }
 
 func (b *OrderBuilder) GetAPIPaths() map[string]string {

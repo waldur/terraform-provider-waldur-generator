@@ -43,9 +43,23 @@ func (g *Generator) generateResourceImplementation(rd *ResourceData) error {
 func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceData, error) {
 	ops := resource.OperationIDs()
 
+	// 0. Construct SchemaConfig
+	excludedMap := make(map[string]bool)
+	for _, f := range g.config.Generator.ExcludedFields {
+		excludedMap[f] = true
+	}
+	setMap := make(map[string]bool)
+	for _, f := range g.config.Generator.SetFields {
+		setMap[f] = true
+	}
+	cfg := common.SchemaConfig{
+		ExcludedFields: excludedMap,
+		SetFields:      setMap,
+	}
+
 	// 1. Choose builder
 	var builder builders.ResourceBuilder
-	base := builders.BaseBuilder{Parser: g.parser, Resource: resource, Ops: ops}
+	base := builders.BaseBuilder{Parser: g.parser, Resource: resource, Ops: ops, SchemaConfig: cfg}
 	if resource.Plugin == "order" {
 		builder = &builders.OrderBuilder{BaseBuilder: base}
 	} else if resource.Plugin == "link" || resource.LinkOp != "" {
@@ -73,7 +87,14 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	// 3. Common Enriched Logic (Actions, Filters, etc.)
 	// Resolve update action paths from OpenAPI schema
 	var updateActions []common.UpdateAction
-	for actionName, actionConfig := range resource.UpdateActions {
+	actionNames := make([]string, 0, len(resource.UpdateActions))
+	for name := range resource.UpdateActions {
+		actionNames = append(actionNames, name)
+	}
+	sort.Strings(actionNames)
+
+	for _, actionName := range actionNames {
+		actionConfig := resource.UpdateActions[actionName]
 		action := common.UpdateAction{
 			Name:       actionName,
 			Operation:  actionConfig.Operation,
@@ -268,8 +289,8 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	for _, f := range createFields {
 		inputFields[f.Name] = true
 	}
-	common.ApplySchemaSkipRecursive(modelFields, inputFields)
-	common.ApplySchemaSkipRecursive(responseFields, inputFields)
+	common.ApplySchemaSkipRecursive(cfg, modelFields, inputFields)
+	common.ApplySchemaSkipRecursive(cfg, responseFields, inputFields)
 
 	rd := &ResourceData{
 		Name: resource.Name, Service: service, CleanName: cleanName, Plugin: resource.Plugin,
@@ -286,8 +307,8 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 
 	seenHashes := make(map[string]string)
 	seenNames := make(map[string]string)
-	common.AssignMissingAttrTypeRefs(rd.ModelFields, "", seenHashes, seenNames)
-	common.AssignMissingAttrTypeRefs(rd.ResponseFields, "", seenHashes, seenNames)
+	common.AssignMissingAttrTypeRefs(cfg, rd.ModelFields, "", seenHashes, seenNames)
+	common.AssignMissingAttrTypeRefs(cfg, rd.ResponseFields, "", seenHashes, seenNames)
 	rd.NestedStructs = common.CollectUniqueStructs(rd.ModelFields)
 
 	return rd, nil

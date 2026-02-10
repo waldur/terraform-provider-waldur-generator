@@ -69,5 +69,5 @@ func (b *BaseBuilder) GetAPIPaths() map[string]string {
 }
 
 func (b *BaseBuilder) GetTemplateFiles() []string {
-	return nil
+	return []string{"templates/shared.tmpl", "components/resource/resource.go.tmpl"}
 }

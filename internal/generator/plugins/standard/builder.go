@@ -39,5 +39,5 @@ func (b *StandardBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
 }
 
 func (b *StandardBuilder) GetTemplateFiles() []string {
-	return []string{"templates/shared.tmpl", "components/resource/resource.go.tmpl", "plugins/standard/resource.tmpl"}
+	return append(b.BaseBuilder.GetTemplateFiles(), "plugins/standard/resource.tmpl")
 }

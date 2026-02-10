@@ -82,5 +82,5 @@ func (b *OrderBuilder) GetAPIPaths() map[string]string {
 }
 
 func (b *OrderBuilder) GetTemplateFiles() []string {
-	return []string{"templates/shared.tmpl", "components/resource/resource.go.tmpl", "plugins/order/resource.tmpl"}
+	return append(b.BaseBuilder.GetTemplateFiles(), "plugins/order/resource.tmpl")
 }

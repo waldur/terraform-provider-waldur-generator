@@ -10,7 +10,6 @@ import (
 	"text/template"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
-	resgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/resource"
 )
 
 // createDirectoryStructure creates the output directory structure
@@ -74,34 +73,10 @@ func (g *Generator) generateServiceRegistrations() error {
 	// Group resources by service
 	serviceResources := make(map[string][]*common.ResourceData)
 
-	// Process resources
-	for _, res := range g.config.Resources {
-		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
-		if err != nil {
-			return err
-		}
+	// Process all prepared resources
+	for _, name := range g.ResourceOrder {
+		rd := g.Resources[name]
 		serviceResources[rd.Service] = append(serviceResources[rd.Service], rd)
-	}
-
-	// Process datasources
-	for _, ds := range g.config.DataSources {
-		// Check if resource already exists for this datasource
-		exists := false
-		service, cleanName := common.SplitResourceName(ds.Name)
-		for _, rd := range serviceResources[service] {
-			if rd.CleanName == cleanName {
-				exists = true
-				break
-			}
-		}
-
-		if !exists {
-			dd, err := g.prepareDatasourceData(&ds)
-			if err != nil {
-				return err
-			}
-			serviceResources[dd.Service] = append(serviceResources[dd.Service], dd)
-		}
 	}
 
 	for service, resources := range serviceResources {

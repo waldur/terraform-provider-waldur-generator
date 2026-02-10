@@ -114,22 +114,36 @@ func PrepareData(parser *openapi.Parser, dataSource *config.DataSource, schemaCf
 		filterParams = common.ExtractFilterParams(op, common.Humanize(dataSource.Name))
 	}
 
+	// Use response fields for model
+	modelFields := make([]common.FieldInfo, len(responseFields))
+	for i, f := range responseFields {
+		modelFields[i] = f.Clone()
+	}
+
+	// Filter out marketplace and other fields from schema recursively
+	common.ApplySchemaSkipRecursive(schemaCfg, modelFields, nil)
+	common.ApplySchemaSkipRecursive(schemaCfg, responseFields, nil)
+
 	// Sort for deterministic output
 	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
+	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
 
 	// Split name into service and clean name
 	service, cleanName := common.SplitResourceName(dataSource.Name)
 
 	return &common.ResourceData{
-		Name:           dataSource.Name,
-		Service:        service,
-		CleanName:      cleanName,
-		ResponseFields: responseFields,
+		Name:             dataSource.Name,
+		Service:          service,
+		CleanName:        cleanName,
+		ResponseFields:   responseFields,
+		ModelFields:      modelFields,
+		IsDatasourceOnly: true,
+		HasDataSource:    true,
+		FilterParams:     filterParams,
 		APIPaths: map[string]string{
 			"Base":     listPath,
 			"Retrieve": retrievePath,
 		},
-		IsDatasourceOnly: true,
-		FilterParams:     filterParams,
+		Operations: ops,
 	}, nil
 }

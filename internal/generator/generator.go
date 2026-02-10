@@ -18,15 +18,18 @@ var templates embed.FS
 
 // Generator orchestrates the provider code generation
 type Generator struct {
-	config *config.Config
-	parser *openapi.Parser
+	config        *config.Config
+	parser        *openapi.Parser
+	Resources     map[string]*common.ResourceData
+	ResourceOrder []string
 }
 
 // New creates a new generator instance
 func New(cfg *config.Config, parser *openapi.Parser) *Generator {
 	return &Generator{
-		config: cfg,
-		parser: parser,
+		config:    cfg,
+		parser:    parser,
+		Resources: make(map[string]*common.ResourceData),
 	}
 }
 
@@ -43,17 +46,14 @@ func (g *Generator) Generate() error {
 	}
 
 	// 1. Prepare data
-	mergedResources := make(map[string]*common.ResourceData)
-	var resourceOrder []string
-
 	for i := range g.config.Resources {
 		res := &g.config.Resources[i]
 		rd, err := resgen.PrepareData(g.config, g.parser, res, g.hasDataSource, g.GetSchemaConfig)
 		if err != nil {
 			return err
 		}
-		mergedResources[res.Name] = rd
-		resourceOrder = append(resourceOrder, res.Name)
+		g.Resources[res.Name] = rd
+		g.ResourceOrder = append(g.ResourceOrder, res.Name)
 	}
 
 	for i := range g.config.DataSources {
@@ -63,7 +63,7 @@ func (g *Generator) Generate() error {
 			return err
 		}
 
-		if existing, ok := mergedResources[ds.Name]; ok {
+		if existing, ok := g.Resources[ds.Name]; ok {
 			// Merge datasource fields into existing resource data
 			existing.ResponseFields = common.MergeFields(existing.ResponseFields, dd.ResponseFields)
 			existing.ModelFields = common.MergeFields(existing.ModelFields, dd.ModelFields)
@@ -79,8 +79,8 @@ func (g *Generator) Generate() error {
 				}
 			}
 		} else {
-			mergedResources[ds.Name] = dd
-			resourceOrder = append(resourceOrder, ds.Name)
+			g.Resources[ds.Name] = dd
+			g.ResourceOrder = append(g.ResourceOrder, ds.Name)
 		}
 	}
 
@@ -95,8 +95,8 @@ func (g *Generator) Generate() error {
 	}
 
 	// 4. Generate implementation for all entities
-	for _, name := range resourceOrder {
-		rd := mergedResources[name]
+	for _, name := range g.ResourceOrder {
+		rd := g.Resources[name]
 
 		// Hack: Ensure target_tenant is present for openstack_port and NOT skipped
 		if name == "openstack_port" {

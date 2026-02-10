@@ -6,10 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
-	resgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/resource"
 )
 
 // GenerateSDK generates the decentralized SDK components
@@ -52,35 +49,8 @@ func (g *Generator) generateSharedSDKTypes() error {
 }
 
 func (g *Generator) generateResourceSDKs() error {
-	mergedResources := make(map[string]*common.ResourceData)
-	var resourceOrder []string
-
-	for _, res := range g.config.Resources {
-		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
-		if err != nil {
-			return err
-		}
-		mergedResources[res.Name] = rd
-		resourceOrder = append(resourceOrder, res.Name)
-	}
-
-	for _, ds := range g.config.DataSources {
-		dd, err := g.prepareDatasourceData(&ds)
-		if err != nil {
-			return err
-		}
-
-		if existing, ok := mergedResources[ds.Name]; ok {
-			existing.ResponseFields = common.MergeFields(existing.ResponseFields, dd.ResponseFields)
-			existing.ModelFields = common.MergeFields(existing.ModelFields, dd.ModelFields)
-		} else {
-			mergedResources[ds.Name] = dd
-			resourceOrder = append(resourceOrder, ds.Name)
-		}
-	}
-
-	for _, name := range resourceOrder {
-		rd := mergedResources[name]
+	for _, name := range g.ResourceOrder {
+		rd := g.Resources[name]
 		if err := g.generateResourceSDK(rd); err != nil {
 			return err
 		}
@@ -138,79 +108,6 @@ func (g *Generator) generateResourceSDKClient(rd *common.ResourceData, outputDir
 	)
 }
 
-// prepareDatasourceData creates minimal common.ResourceData for a datasource-only definition
-func (g *Generator) prepareDatasourceData(dataSource *config.DataSource) (*common.ResourceData, error) {
-	ops := dataSource.OperationIDs()
-
-	// Extract API paths from OpenAPI operations
-	listPath := ""
-	retrievePath := ""
-
-	var listOp *openapi3.Operation
-	if op, path, _, err := g.parser.GetOperation(ops.List); err == nil {
-		listPath = path
-		listOp = op
-	}
-
-	if _, retPath, _, err := g.parser.GetOperation(ops.Retrieve); err == nil {
-		retrievePath = retPath
-	}
-
-	// 0. Construct SchemaConfig
-	cfg := g.GetSchemaConfig()
-
-	// Extract Response fields
-	var responseFields []common.FieldInfo
-	if responseSchema, err := g.parser.GetOperationResponseSchema(ops.Retrieve); err == nil {
-		if fields, err := common.ExtractFields(cfg, responseSchema, true); err == nil {
-			responseFields = fields
-		}
-	} else if responseSchema, err := g.parser.GetOperationResponseSchema(ops.List); err == nil {
-		if responseSchema.Value.Type != nil && (*responseSchema.Value.Type)[0] == "array" && responseSchema.Value.Items != nil {
-			if fields, err := common.ExtractFields(cfg, responseSchema.Value.Items, true); err == nil {
-				responseFields = fields
-			}
-		}
-	}
-
-	// Extract filter parameters
-	var filterParams []common.FilterParam
-	if listOp != nil {
-		filterParams = common.ExtractFilterParams(listOp, "")
-	}
-
-	// Use response fields for model
-	modelFields := responseFields
-
-	// Filter out marketplace and other fields from schema recursively
-	common.ApplySchemaSkipRecursive(cfg, modelFields, nil)
-	common.ApplySchemaSkipRecursive(cfg, responseFields, nil)
-
-	// Sort for deterministic output
-	sort.Slice(responseFields, func(i, j int) bool { return responseFields[i].Name < responseFields[j].Name })
-	sort.Slice(modelFields, func(i, j int) bool { return modelFields[i].Name < modelFields[j].Name })
-
-	service, cleanName := common.SplitResourceName(dataSource.Name)
-
-	return &common.ResourceData{
-		Name:           dataSource.Name,
-		Service:        service,
-		CleanName:      cleanName,
-		ResponseFields: responseFields,
-		ModelFields:    modelFields,
-		FilterParams:   filterParams,
-		APIPaths: map[string]string{
-			"Base":     listPath,
-			"Retrieve": retrievePath,
-		},
-		IsDatasourceOnly: true,
-		HasDataSource:    true, // Datasource-only entries are by definition datasources
-		Operations:       ops,
-	}, nil
-}
-
-// mergeFields is no longer needed here as it's in common
-
 func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	usedTypes := make(map[string]bool)
 
@@ -245,23 +142,11 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	// Explicitly add types used in utils.go
 	usedTypes["OrderDetails"] = true
 
-	for _, res := range g.config.Resources {
-		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
-		if err != nil {
-			return nil, err
-		}
+	for _, name := range g.ResourceOrder {
+		rd := g.Resources[name]
 		collectTypes(rd.CreateFields)
 		collectTypes(rd.UpdateFields)
 		collectTypes(rd.ResponseFields)
-	}
-
-	// 2. Collect types from DataSources
-	for _, ds := range g.config.DataSources {
-		dd, err := g.prepareDatasourceData(&ds)
-		if err != nil {
-			return nil, err
-		}
-		collectTypes(dd.ResponseFields)
 	}
 
 	return usedTypes, nil
@@ -353,11 +238,8 @@ func (g *Generator) calculateIgnoredFields() map[string]map[string]common.FieldI
 		}
 	}
 
-	for _, res := range g.config.Resources {
-		rd, err := resgen.PrepareData(g.config, g.parser, &res, g.hasDataSource, g.GetSchemaConfig)
-		if err != nil {
-			continue // Should log warning but sticking to signature
-		}
+	for _, name := range g.ResourceOrder {
+		rd := g.Resources[name]
 		scanForExtraFields(rd.ModelFields)
 	}
 

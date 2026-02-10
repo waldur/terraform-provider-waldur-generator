@@ -98,28 +98,6 @@ func (g *Generator) Generate() error {
 	for _, name := range g.ResourceOrder {
 		rd := g.Resources[name]
 
-		// Hack: Ensure target_tenant is present for openstack_port and NOT skipped
-		if name == "openstack_port" {
-			foundIndex := -1
-			for i, f := range rd.ResponseFields {
-				if f.Name == "target_tenant" {
-					foundIndex = i
-					break
-				}
-			}
-			if foundIndex != -1 {
-				rd.ResponseFields[foundIndex].SchemaSkip = false
-			} else {
-				rd.ResponseFields = append(rd.ResponseFields, common.FieldInfo{
-					Name:        "target_tenant",
-					GoType:      "types.String",
-					Type:        "string",
-					Description: "Target Tenant UUID",
-					SchemaSkip:  false,
-				})
-			}
-		}
-
 		// Generate model once for the entity
 		if err := resgen.GenerateModel(g.config, g, rd); err != nil {
 			return fmt.Errorf("failed to generate model for %s: %w", name, err)

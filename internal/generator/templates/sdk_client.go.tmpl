@@ -36,7 +36,7 @@ func IsNotFoundError(err error) bool {
 	return common.IsNotFoundError(err)
 }
 
-{{ range .Resources }}
+{{ range $res := .Resources }}
 {{ if not .IsDatasourceOnly -}}
 {{- if .IsOrder }}
 // CreateOrder creates a marketplace order for this resource.
@@ -180,6 +180,12 @@ func (c *{{ .Name | title }}Client) Unlink(ctx context.Context, sourceUUID strin
 {{- $resName := .Name }}
 {{- $ops := .Operations }}
 {{- range $action := .UpdateActions }}
+{{- /* Check if field exists in model */ -}}
+{{- $fieldFound := false }}
+{{- range $res.ModelFields }}
+{{- if eq .Name $action.Param }}{{ $fieldFound = true }}{{ end }}
+{{- end }}
+{{- if $fieldFound }}
 func (c *{{ $resName | title }}Client) {{ $action.Name | title }}(ctx context.Context, id string, req *{{ $resName | title }}{{ $action.Name | title }}ActionRequest) error {
 	{{- if $action.Path }}
 	path := "{{ $action.Path }}"
@@ -189,6 +195,7 @@ func (c *{{ $resName | title }}Client) {{ $action.Name | title }}(ctx context.Co
 	err := c.Client.ExecuteAction(ctx, path, id, req, nil)
 	return err
 }
+{{- end }}
 {{- end }}
 
 {{- range $action := .StandaloneActions }}

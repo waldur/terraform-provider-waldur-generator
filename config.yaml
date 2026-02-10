@@ -25,6 +25,7 @@ generator:
     - "customer_uuid"
     - "created"
     - "modified"
+    - "error_traceback"
   set_fields:
     - "security_groups"
     - "floating_ips"
@@ -155,6 +156,25 @@ resources:
       set_rules:
         operation: "openstack_security_groups_set_rules"
         param: "rules"
+    set_fields:
+      rules:
+        optional: true
+        computed: true
+      rules.ethertype:
+        computed: true
+        unknown_if_null: true
+      rules.direction:
+        computed: true
+        unknown_if_null: true
+      rules.protocol:
+        computed: true
+        unknown_if_null: true
+      rules.description:
+        computed: true
+        unknown_if_null: true
+      rules.id:
+        computed: true
+        unknown_if_null: true
 
   - name: "openstack_network"
     base_operation_id: "openstack_networks"

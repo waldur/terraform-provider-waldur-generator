@@ -79,15 +79,11 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	{{- else if eq .ItemType "object" }}
 	{{/* For list of objects, convert each item to Terraform object */}}
 	{{- if .Required }}
-	if len(apiResp.{{ .Name | title }}) > 0 {
-		listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
-		diags.Append(listDiags{{ .Name | title }}...)
-		model.{{ .Name | title }} = listVal{{ .Name | title }}
-	} else {
-		model.{{ .Name | title }} = types.ListNull({{ toAttrType .ItemSchema }})
-	}
+	listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
+	diags.Append(listDiags{{ .Name | title }}...)
+	model.{{ .Name | title }} = listVal{{ .Name | title }}
 	{{- else }}
-	if apiResp.{{ .Name | title }} != nil && len(*apiResp.{{ .Name | title }}) > 0 {
+	if apiResp.{{ .Name | title }} != nil {
 		listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
 		diags.Append(listDiags{{ .Name | title }}...)
 		model.{{ .Name | title }} = listVal{{ .Name | title }}
@@ -351,14 +347,17 @@ schema.SingleNestedAttribute{
         {{- end }}
         {{- if not .IsDataSource }}
         {{- if or .ForceNew .ServerComputed .ReadOnly }}
-        PlanModifiers: []planmodifier.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}{
-            {{- if .ForceNew }}
-            {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.RequiresReplace(),
-            {{- end }}
-            {{- if .UseStateForUnknown }}
-            {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.UseStateForUnknown(),
-            {{- end }}
-        },
+            PlanModifiers: []planmodifier.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}{
+                {{- if .ForceNew }}
+                {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.RequiresReplace(),
+                {{- end }}
+                {{- if .UseStateForUnknown }}
+                {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.UseStateForUnknown(),
+                {{- end }}
+                {{- if .UnknownIfNull }}
+                common.UnknownIfNullModifier{},
+                {{- end }}
+            },
         {{- end }}
         {{- end }}
         MarkdownDescription: "{{ .Description }}",

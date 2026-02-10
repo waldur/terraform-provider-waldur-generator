@@ -35,13 +35,25 @@ type Resource struct {
 	CreateOperation       *CreateOperationConfig        `yaml:"create_operation"` // Custom create operation (for nested resources)
 	CompositeKeys         []string                      `yaml:"composite_keys"`   // Fields that together form a unique identifier
 	// Link Plugin Fields
-	Source       *LinkResourceConfig `yaml:"source"`
-	Target       *LinkResourceConfig `yaml:"target"`
-	LinkOp       string              `yaml:"link_op"`
-	UnlinkOp     string              `yaml:"unlink_op"`
-	LinkCheckKey string              `yaml:"link_check_key"` // Key in source resource to check for target presence
-	LinkParams   []ParameterConfig   `yaml:"link_params"`    // Additional parameters for link operation
-	Actions      []string            `yaml:"actions"`        // List of actions to generate (for "actions" plugin)
+	Source         *LinkResourceConfig    `yaml:"source"`
+	Target         *LinkResourceConfig    `yaml:"target"`
+	LinkOp         string                 `yaml:"link_op"`
+	UnlinkOp       string                 `yaml:"unlink_op"`
+	LinkCheckKey   string                 `yaml:"link_check_key"` // Key in source resource to check for target presence
+	LinkParams     []ParameterConfig      `yaml:"link_params"`    // Additional parameters for link operation
+	Actions        []string               `yaml:"actions"`        // List of actions to generate (for "actions" plugin)
+	SetFields      map[string]FieldConfig `yaml:"set_fields"`
+	ExcludedFields []string               `yaml:"excluded_fields"`
+}
+
+// FieldConfig defines overrides for a field
+type FieldConfig struct {
+	Computed      bool `yaml:"computed"`
+	Optional      bool `yaml:"optional"`
+	Required      bool `yaml:"required"`
+	ForceNew      bool `yaml:"force_new"`
+	Set           bool `yaml:"set"` // True if field should be a Set instead of List
+	UnknownIfNull bool `yaml:"unknown_if_null"`
 }
 
 // LinkResourceConfig defines configuration for a linked resource

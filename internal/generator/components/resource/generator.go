@@ -33,6 +33,18 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 
 	// 0. Construct SchemaConfig
 	schemaCfg := getSchemaConfig()
+	if schemaCfg.FieldOverrides == nil {
+		schemaCfg.FieldOverrides = make(map[string]config.FieldConfig)
+	}
+	for k, v := range resource.SetFields {
+		schemaCfg.FieldOverrides[k] = v
+	}
+	if schemaCfg.ExcludedFields == nil {
+		schemaCfg.ExcludedFields = make(map[string]bool)
+	}
+	for _, f := range resource.ExcludedFields {
+		schemaCfg.ExcludedFields[f] = true
+	}
 
 	// 1. Choose builder
 	var builder plugins.ResourceBuilder

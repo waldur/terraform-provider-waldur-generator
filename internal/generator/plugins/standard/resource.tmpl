@@ -35,7 +35,7 @@
 
 
 {{- /* Helper template for building COMPLEX request body fields (Post-Init) */ -}}
-{{- define "buildComplexRequestBodyFields" -}}
+{{- define "buildComplexRequestBodyFields" }}
 {{- range .Fields }}
 {{- if or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map") }}
 {{- if $.Operation }}
@@ -47,7 +47,7 @@
 {{- end }}
 {{- end }}
 {{- end }}
-{{- end -}}
+{{- end }}
 
 {{- /* Standard Create Operation */ -}}
 {{- define "resource_create" }}
@@ -141,48 +141,136 @@
 
 {{- /* Standard Update Operation */ -}}
 {{- define "resource_update" }}
-	{{- if .APIPaths.Update }}
+	{{- $hasUpdate := .APIPaths.Update }}
+	{{- if or $hasUpdate .UpdateActions }}
 	var data {{ .Name | title }}ResourceModel
 	var state {{ .Name | title }}ResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() { return }
 
-	requestBody := {{ .Name | title }}UpdateRequest{}
-	{{- range .UpdateFields }}
-	{{- if not (or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map")) }}
-	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-		{{ template "fieldAssignment" dict "Field" . "Target" "requestBody" }}
-	}
-	{{- end }}
-	{{- end }}
-	{{- template "buildComplexRequestBodyFields" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
-
-	apiResp, err := r.client.Update(ctx, data.UUID.ValueString(), &requestBody)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Update {{ .Name | humanize }}",
-			"An error occurred while updating the {{ .Name | humanize }}: "+err.Error(),
-		)
-		return
-	}
-
+	var apiResp *{{ .Name | title }}Response
 	{{- if not .SkipPolling }}
 	updateTimeout, diags := data.Timeouts.Update(ctx, common.DefaultUpdateTimeout)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	_ = updateTimeout
+	{{- end }}
 
-	newResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
-		return r.client.Get(ctx, data.UUID.ValueString())
-	}, updateTimeout)
+	{{- if $hasUpdate }}
+	anyChanges := false
+	requestBody := {{ .Name | title }}UpdateRequest{}
+	{{- range .UpdateFields }}
+	{{- $fieldName := .Name }}
+	{{- $isAction := false }}
+	{{- range $.UpdateActions }}
+		{{- if eq .Param $fieldName }}{{ $isAction = true }}{{ end }}
+	{{- end }}
+	{{- if and (not $isAction) (not .ReadOnly) }}
+	{{- /* Check if field exists in model */ -}}
+	{{- $fieldFoundInModel := false }}
+	{{- range $.ModelFields }}
+		{{- if eq .Name $fieldName }}{{ $fieldFoundInModel = true }}{{ end }}
+	{{- end }}
+	{{- if $fieldFoundInModel }}
+	{{- if or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map") }}
+	if !data.{{ .Name | title }}.Equal(state.{{ .Name | title }}) {
+		anyChanges = true
+	}
+	{{- else }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() && !data.{{ .Name | title }}.Equal(state.{{ .Name | title }}) {
+		anyChanges = true
+		{{ template "fieldAssignment" dict "Field" . "Target" "requestBody" }}
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+	{{ template "buildComplexRequestBodyFields" dict "Fields" .UpdateFields "Operation" nil "Prefix" (printf "%sUpdate" (.Name | title)) }}
+
+	if anyChanges {
+		var err error
+		apiResp, err = r.client.Update(ctx, data.UUID.ValueString(), &requestBody)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Unable to Update {{ .Name | humanize }}",
+				"An error occurred while updating the {{ .Name | humanize }}: "+err.Error(),
+			)
+			return
+		}
+
+		{{- if not .SkipPolling }}
+		// Wait for the resource to return to OK state
+		newResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
+			return r.client.Get(ctx, data.UUID.ValueString())
+		}, updateTimeout)
+		if err != nil {
+			resp.Diagnostics.AddError("Wait for update failed", err.Error())
+			return
+		}
+		apiResp = newResp
+		{{- end }}
+	}
+	{{- end }}
+
+	{{- /* Handle UpdateActions */ -}}
+	{{- range $action := .UpdateActions }}
+	{{- /* Check if field exists in model */ -}}
+	{{- $fieldFound := false }}
+	{{- $field := index $.ModelFields 0 }}
+	{{- range $.ModelFields }}
+	{{- if eq .Name $action.Param }}{{ $fieldFound = true }}{{ $field = . }}{{ end }}
+	{{- end }}
+	{{- if $fieldFound }}
+	if !data.{{ $action.Param | title }}.Equal(state.{{ $action.Param | title }}) {
+		// Convert Terraform value to API payload for the specific action
+		var req {{ $.Name | title }}{{ $action.Name | title }}ActionRequest
+
+		{{- if eq $field.GoType "types.List" }}
+		resp.Diagnostics.Append(common.PopulateSliceField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
+		{{- else if eq $field.GoType "types.Set" }}
+		resp.Diagnostics.Append(common.PopulateSetField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
+		{{- else if eq $field.GoType "types.Object" }}
+		var objVal {{ if $field.RefName }}common.{{ $field.RefName }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
+		resp.Diagnostics.Append(data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})...)
+		req.{{ $action.Param | title }} = &objVal
+		{{- else }}
+		{{- template "fieldAssignment" dict "Field" $field "Target" "req" }}
+		{{- end }}
+
+		// Execute the Action
+		if err := r.client.{{ $action.Name | title }}(ctx, data.UUID.ValueString(), &req); err != nil {
+			resp.Diagnostics.AddError("RPC Action Failed: {{ $action.Name }}", err.Error())
+			return
+		}
+
+		{{- if not $.SkipPolling }}
+		// Wait for the resource to return to OK state
+		_, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ $.Name | title }}Response, error) {
+			return r.client.Get(ctx, data.UUID.ValueString())
+		}, updateTimeout)
+		if err != nil {
+			resp.Diagnostics.AddError("Wait for RPC action failed", err.Error())
+			return
+		}
+		{{- end }}
+		state = data
+	}
+	{{- end }}
+	{{- end }}
+
+	newResp, err := r.client.Get(ctx, data.UUID.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to wait for resource update", err.Error())
+		if IsNotFoundError(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Failed to Read Resource After Update", err.Error())
 		return
 	}
 	apiResp = newResp
-	{{- end }}
 
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

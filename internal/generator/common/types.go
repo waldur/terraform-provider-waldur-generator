@@ -35,13 +35,14 @@ type FieldInfo struct {
 	Pattern string   // Regex pattern for string fields
 
 	// Ref support
-	RefName      string // Ref name for object type
-	ItemRefName  string // Ref name for array item type
-	SchemaSkip   bool   // Whether to skip this field in Terraform schema generation
-	IsDataSource bool   // Whether this field is part of a Data Source schema
-	AttrTypeRef  string // Reference name for attribute type (helper function name)
-	JsonTag      string // Custom JSON tag (optional)
-	HasDefault   bool   // Whether field has a default value in OpenAPI schema
+	RefName       string // Ref name for object type
+	ItemRefName   string // Ref name for array item type
+	SchemaSkip    bool   // Whether to skip this field in Terraform schema generation
+	IsDataSource  bool   // Whether this field is part of a Data Source schema
+	AttrTypeRef   string // Reference name for attribute type (helper function name)
+	JsonTag       string // Custom JSON tag (optional)
+	HasDefault    bool   // Whether field has a default value in OpenAPI schema
+	UnknownIfNull bool   // Whether to use UnknownIfNull plan modifier
 }
 
 // ResourceData holds all data required to generate resource/sdk code

@@ -2,6 +2,7 @@ package {{ .Package }}
 
 {{ if ne .Package "common" }}
 import (
+	"encoding/json"
 	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
 )
 {{ end }}
@@ -45,19 +46,24 @@ type {{ .Name | title }}UpdateRequest struct {
 {{- $modelFields := .ModelFields }}
 {{- $pkgName := $.Package }}
 {{- range $action := .UpdateActions }}
+{{- $actionParamField := index $modelFields 0 }}
+{{- $found := false }}
+{{- range $field := $modelFields }}
+	{{- if eq $field.Name $action.Param }}{{ $found = true }}{{ $actionParamField = $field }}{{ end }}
+{{- end }}
+{{- if $found }}
 type {{ $resName | title }}{{ $action.Name | title }}ActionRequest struct {
-	{{- range $field := $modelFields }}
-	{{- if eq $field.Name $action.Param }}
-	{{ .Name | title }} {{ if eq .Type "string" }}*string{{ else if eq .Type "integer" }}*int64{{ else if eq .Type "boolean" }}*bool{{ else if eq .Type "number" }}*float64{{ else if eq .Type "array" }}{{ if eq .ItemType "string" }}[]string{{ else if eq .ItemType "integer" }}[]int64{{ else }}{{ if .ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ .ItemSchema.RefName }}{{ else }}[]{{ .ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }}{{ else if eq .GoType "types.Map" }}map[string]interface{}{{ else if eq .Type "object" }}{{ if .RefName }}{{ if ne $pkgName "common" }}*common.{{ .RefName }}{{ else }}*{{ .RefName }}{{ end }}{{ else }}*{{ $resName | title }}Create{{ .Name | title }}Request{{ end }}{{ end }} `json:"{{ .Name }}"`
-	{{- end }}
-	{{- end }}
+	{{ $actionParamField.Name | title }} {{ if eq $actionParamField.Type "string" }}*string{{ else if eq $actionParamField.Type "integer" }}*int64{{ else if eq $actionParamField.Type "boolean" }}*bool{{ else if eq $actionParamField.Type "number" }}*float64{{ else if eq $actionParamField.Type "array" }}{{ if eq $actionParamField.ItemType "string" }}[]string{{ else if eq $actionParamField.ItemType "integer" }}[]int64{{ else }}{{ if $actionParamField.ItemSchema.RefName }}{{ if ne $pkgName "common" }}[]common.{{ $actionParamField.ItemSchema.RefName }}{{ else }}[]{{ $actionParamField.ItemSchema.RefName }}{{ end }}{{ else }}[]{{ $resName | title }}Create{{ $actionParamField.Name | title }}Request{{ end }}{{ end }}{{ else if eq $actionParamField.GoType "types.Map" }}map[string]interface{}{{ else if eq $actionParamField.Type "object" }}{{ if $actionParamField.RefName }}{{ if ne $pkgName "common" }}*common.{{ $actionParamField.RefName }}{{ else }}*{{ $actionParamField.RefName }}{{ end }}{{ else }}*{{ $resName | title }}Create{{ $actionParamField.Name | title }}Request{{ end }}{{ end }} `json:"{{ if eq $actionParamField.Type "array" }}-{{ else }}{{ $actionParamField.Name }}{{ end }}{{ if and (ne $actionParamField.Type "array") (ne $actionParamField.Type "object") }},omitempty{{ end }}"`
 }
 
-{{- range $field := $modelFields -}}
-{{- if eq $field.Name $action.Param -}}
-{{ template "sdkNestedStructs" dict "Fields" (makeSlice $field) "Prefix" (printf "%sCreate" ($resName | title)) "Package" $pkgName }}
-{{- end -}}
-{{- end -}}
+{{- if eq $actionParamField.Type "array" }}
+func (r {{ $resName | title }}{{ $action.Name | title }}ActionRequest) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.{{ $actionParamField.Name | title }})
+}
+{{- end }}
+
+{{ template "sdkNestedStructs" dict "Fields" (makeSlice $actionParamField) "Prefix" (printf "%sCreate" ($resName | title)) "Package" $pkgName }}
+{{- end }}
 {{- end }}
 
 type {{ .Name | title }}Response struct {

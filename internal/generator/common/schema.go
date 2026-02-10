@@ -6,27 +6,32 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 )
 
 // SchemaConfig defines field-level rules for schema extraction
 type SchemaConfig struct {
 	ExcludedFields map[string]bool
-	SetFields      map[string]bool
+	SetFields      map[string]bool // Legacy global set fields
+	FieldOverrides map[string]config.FieldConfig
 }
 
 // IsSetField checks if a field should be treated as a Set
 func IsSetField(cfg SchemaConfig, name string) bool {
+	if override, ok := cfg.FieldOverrides[name]; ok {
+		return override.Set
+	}
 	return cfg.SetFields[name]
 }
 
 // ExtractFields extracts field information from an OpenAPI schema reference
 // Supports primitive types, enums, arrays (strings, objects), and nested objects
 func ExtractFields(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, skipRootUUID bool) ([]FieldInfo, error) {
-	return extractFieldsRecursive(cfg, schemaRef, 0, 3, skipRootUUID) // max depth: 3
+	return extractFieldsRecursive(cfg, schemaRef, "", 0, 3, skipRootUUID) // max depth: 3
 }
 
 // extractFieldsRecursive extracts field information with depth limiting
-func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, depth, maxDepth int, skipRootUUID bool) ([]FieldInfo, error) {
+func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pathPrefix string, depth, maxDepth int, skipRootUUID bool) ([]FieldInfo, error) {
 	if schemaRef == nil || schemaRef.Value == nil {
 		return nil, nil
 	}
@@ -79,7 +84,12 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, dep
 			continue
 		}
 
-		if cfg.ExcludedFields[propName] {
+		fullPath := propName
+		if pathPrefix != "" {
+			fullPath = pathPrefix + "." + propName
+		}
+
+		if cfg.ExcludedFields[propName] || cfg.ExcludedFields[fullPath] {
 			continue
 		}
 
@@ -122,6 +132,24 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, dep
 			HasDefault:  prop.Default != nil,
 		}
 
+		// Apply overrides
+		if override, ok := cfg.FieldOverrides[fullPath]; ok {
+			if override.Computed {
+				field.ServerComputed = true
+				field.UseStateForUnknown = true
+			}
+			field.UnknownIfNull = override.UnknownIfNull
+			if override.Optional {
+				field.Required = false
+			}
+			if override.Required {
+				field.Required = true
+			}
+			if override.ForceNew {
+				field.ForceNew = true
+			}
+		}
+
 		// Handle different types
 		field.GoType = GetGoType(typeStr)
 
@@ -162,7 +190,7 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, dep
 					fields = append(fields, field)
 				} else if itemType == "object" {
 					// Array of objects - extract nested schema
-					if nestedFields, err := extractFieldsRecursive(cfg, prop.Items, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
+					if nestedFields, err := extractFieldsRecursive(cfg, prop.Items, fullPath, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 						// Store first nested field as representative schema
 						if len(nestedFields) > 0 {
 							field.ItemSchema = &FieldInfo{
@@ -185,7 +213,7 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, dep
 
 		case "object":
 			// Nested object - extract properties
-			if nestedFields, err := extractFieldsRecursive(cfg, propSchema, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
+			if nestedFields, err := extractFieldsRecursive(cfg, propSchema, fullPath, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields
 				field.GoType = "types.Object"
 				fields = append(fields, field)

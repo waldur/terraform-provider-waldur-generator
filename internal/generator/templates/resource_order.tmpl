@@ -317,7 +317,7 @@
     - Termination attributes (from config)
     - Creation-only fields like volume sizes (from CreateFields)
 */ -}}
-{{- define "resolveUnknownAttributesHelper" }}
+{{- define "resource_extra_definitions" }}
 // resolveUnknownAttributes ensures that fields not returned by the Waldur GET API
 // are set to explicit null values instead of remaining "Unknown".
 func (r *{{ .Name | title }}Resource) resolveUnknownAttributes(data *{{ .Name | title }}ResourceModel) {

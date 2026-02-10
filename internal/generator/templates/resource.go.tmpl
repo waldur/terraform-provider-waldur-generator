@@ -114,9 +114,7 @@ func (r *{{ .Name | title }}Resource) Configure(ctx context.Context, req resourc
 	}
 }
 
-{{- if .IsOrder }}
-{{ template "resolveUnknownAttributesHelper" . }}
-{{- end }}
+{{ template "resource_extra_definitions" . }}
 
 
 func (r *{{ .Name | title }}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

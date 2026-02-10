@@ -76,7 +76,7 @@ Templates should be kept minimal and focused on structure.
 
 1. **Unit Tests**: `go test ./internal/...`
 2. **Generation**: Run `go run main.go`.
-3. **Compilation**: `cd output && go mod tidy && go build ./...`
+3. **Compilation**: `cd output && go mod tidy && go build ./...` **(MANDATORY: Always build after generation to verify code validity)**
 4. **E2E Tests**: `cd output && go test -v ./e2e_test/...` (Use acceptance testing flags below).
 
 ### 4.2. Acceptance Testing Flags

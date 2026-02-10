@@ -39,18 +39,6 @@ func (l *{{ .Name | title }}List) ListResourceConfigSchema(ctx context.Context, 
 	}
 }
 
-func (l *{{ .Name | title }}List) ListResourceStateSchema(ctx context.Context, req list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
-	resp.Schema = schema.Schema{
-		Attributes: map[string]schema.Attribute{
-			{{- range .ResponseFields }}
-			{{- if not .SchemaSkip }}
-			"{{ .Name }}": {{ template "schemaAttribute" . }}
-			{{- end }}
-			{{- end }}
-		},
-	}
-}
-
 func (l *{{ .Name | title }}List) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	l.client = &{{ .Name | title }}Client{}
 	if err := l.client.Configure(ctx, req.ProviderData); err != nil {

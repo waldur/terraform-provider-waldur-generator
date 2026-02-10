@@ -1,4 +1,4 @@
-package builders
+package plugins
 
 import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"

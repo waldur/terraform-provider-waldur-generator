@@ -1,15 +1,16 @@
-package builders
+package order
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins"
 )
 
 // OrderBuilder implements ResourceBuilder for marketplace order resources
 type OrderBuilder struct {
-	BaseBuilder
+	plugins.BaseBuilder
 }
 
 func (b *OrderBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
@@ -81,5 +82,5 @@ func (b *OrderBuilder) GetAPIPaths() map[string]string {
 }
 
 func (b *OrderBuilder) GetTemplateFiles() []string {
-	return []string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_order.tmpl"}
+	return []string{"templates/shared.tmpl", "plugins/resource.go.tmpl", "plugins/order/resource.tmpl"}
 }

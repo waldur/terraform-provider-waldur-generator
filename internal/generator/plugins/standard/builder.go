@@ -1,12 +1,13 @@
-package builders
+package standard
 
 import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins"
 )
 
 // StandardBuilder implements ResourceBuilder for standard resources
 type StandardBuilder struct {
-	BaseBuilder
+	plugins.BaseBuilder
 }
 
 func (b *StandardBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
@@ -38,5 +39,5 @@ func (b *StandardBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
 }
 
 func (b *StandardBuilder) GetTemplateFiles() []string {
-	return []string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_standard.tmpl"}
+	return []string{"templates/shared.tmpl", "plugins/resource.go.tmpl", "plugins/standard/resource.tmpl"}
 }

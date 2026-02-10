@@ -6,8 +6,11 @@ import (
 	"sort"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
-	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/builders"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/link"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/order"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/standard"
 )
 
 // generateResourceImplementation generates a resource file
@@ -29,14 +32,14 @@ func (g *Generator) prepareResourceData(resource *config.Resource) (*ResourceDat
 	cfg := g.getSchemaConfig()
 
 	// 1. Choose builder
-	var builder builders.ResourceBuilder
-	base := builders.BaseBuilder{Parser: g.parser, Resource: resource, Ops: ops, SchemaConfig: cfg}
+	var builder plugins.ResourceBuilder
+	base := plugins.BaseBuilder{Parser: g.parser, Resource: resource, Ops: ops, SchemaConfig: cfg}
 	if resource.Plugin == "order" {
-		builder = &builders.OrderBuilder{BaseBuilder: base}
+		builder = &order.OrderBuilder{BaseBuilder: base}
 	} else if resource.Plugin == "link" || resource.LinkOp != "" {
-		builder = &builders.LinkBuilder{BaseBuilder: base}
+		builder = &link.LinkBuilder{BaseBuilder: base}
 	} else {
-		builder = &builders.StandardBuilder{BaseBuilder: base}
+		builder = &standard.StandardBuilder{BaseBuilder: base}
 	}
 
 	// 2. Build Paths and Fields

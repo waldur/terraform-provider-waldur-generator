@@ -1,12 +1,13 @@
-package builders
+package link
 
 import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins"
 )
 
 // LinkBuilder implements ResourceBuilder for link resources
 type LinkBuilder struct {
-	BaseBuilder
+	plugins.BaseBuilder
 }
 
 func (b *LinkBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
@@ -108,5 +109,5 @@ func (b *LinkBuilder) GetAPIPaths() map[string]string {
 }
 
 func (b *LinkBuilder) GetTemplateFiles() []string {
-	return []string{"templates/shared.tmpl", "templates/resource.go.tmpl", "templates/resource_link.tmpl"}
+	return []string{"templates/shared.tmpl", "plugins/resource.go.tmpl", "plugins/link/resource.tmpl"}
 }

@@ -212,15 +212,6 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 			}
 
 		case OpenAPITypeObject:
-			// Special case: generic map fields
-			if propName == "attributes" || propName == "limits" {
-				field.GoType = TFTypeMap
-				field.ItemType = OpenAPITypeString
-				CalculateSDKType(&field)
-				fields = append(fields, field)
-				continue
-			}
-
 			// Nested object - extract properties
 			if nestedFields, err := extractFieldsRecursive(cfg, propSchema, fullPath, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields

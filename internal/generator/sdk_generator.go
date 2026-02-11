@@ -181,7 +181,7 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []common.Fiel
 			}
 			allFields = append(allFields, common.FieldInfo{
 				RefName: name,
-				GoType:  "types.String",
+				GoType:  common.TFTypeString,
 				Enum:    enumValues,
 			})
 			continue
@@ -190,7 +190,7 @@ func (g *Generator) collectSchemaFields(usedTypes map[string]bool) []common.Fiel
 		fields, _ := common.ExtractFields(cfg, schemaRef, false)
 		allFields = append(allFields, common.FieldInfo{
 			RefName:    name,
-			GoType:     "types.Object",
+			GoType:     common.TFTypeObject,
 			Properties: fields,
 		})
 	}

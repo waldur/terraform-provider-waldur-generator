@@ -12,13 +12,13 @@ import (
 // ToAttrType returns the type definition or a function call to a shared type helper
 func ToAttrType(f common.FieldInfo) string {
 	// If it's an object with a AttrTypeRef, return the helper function call
-	if f.GoType == "types.Object" && f.AttrTypeRef != "" {
+	if f.GoType == common.TFTypeObject && f.AttrTypeRef != "" {
 		return f.AttrTypeRef + "Type()"
 	}
 	// If it's a list/set of objects with a AttrTypeRef, return collection with helper function
-	if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemType == "object" && f.ItemSchema != nil && f.ItemSchema.AttrTypeRef != "" {
+	if (f.GoType == common.TFTypeList || f.GoType == common.TFTypeSet) && f.ItemType == common.OpenAPITypeObject && f.ItemSchema != nil && f.ItemSchema.AttrTypeRef != "" {
 		var collectionType string
-		if f.GoType == "types.List" {
+		if f.GoType == common.TFTypeList {
 			collectionType = "types.ListType"
 		} else {
 			collectionType = "types.SetType"
@@ -32,16 +32,16 @@ func ToAttrType(f common.FieldInfo) string {
 // ToAttrTypeDefinition converts FieldInfo to proper attr.Type expression used in Terraform schema
 func ToAttrTypeDefinition(f common.FieldInfo) string {
 	switch f.GoType {
-	case "types.String":
+	case common.TFTypeString:
 		return "types.StringType"
-	case "types.Int64":
+	case common.TFTypeInt64:
 		return "types.Int64Type"
-	case "types.Bool":
+	case common.TFTypeBool:
 		return "types.BoolType"
-	case "types.Float64":
+	case common.TFTypeFloat64:
 		return "types.Float64Type"
-	case "types.List":
-		if f.ItemType == "object" && f.ItemSchema != nil {
+	case common.TFTypeList:
+		if f.ItemType == common.OpenAPITypeObject && f.ItemSchema != nil {
 			var attrTypes []string
 			sortedProps := f.ItemSchema.Properties
 			for _, prop := range sortedProps {
@@ -55,16 +55,16 @@ func ToAttrTypeDefinition(f common.FieldInfo) string {
 			return "types.ListType{ElemType: " + objType + "}"
 		}
 		elemType := "types.StringType"
-		if f.ItemType == "integer" {
+		if f.ItemType == common.OpenAPITypeInteger {
 			elemType = "types.Int64Type"
-		} else if f.ItemType == "boolean" {
+		} else if f.ItemType == common.OpenAPITypeBoolean {
 			elemType = "types.BoolType"
-		} else if f.ItemType == "number" {
+		} else if f.ItemType == common.OpenAPITypeNumber {
 			elemType = "types.Float64Type"
 		}
 		return "types.ListType{ElemType: " + elemType + "}"
-	case "types.Set":
-		if f.ItemType == "object" && f.ItemSchema != nil {
+	case common.TFTypeSet:
+		if f.ItemType == common.OpenAPITypeObject && f.ItemSchema != nil {
 			var attrTypes []string
 			sortedProps := f.ItemSchema.Properties
 			for _, prop := range sortedProps {
@@ -78,15 +78,15 @@ func ToAttrTypeDefinition(f common.FieldInfo) string {
 			return "types.SetType{ElemType: " + objType + "}"
 		}
 		elemType := "types.StringType"
-		if f.ItemType == "integer" {
+		if f.ItemType == common.OpenAPITypeInteger {
 			elemType = "types.Int64Type"
-		} else if f.ItemType == "boolean" {
+		} else if f.ItemType == common.OpenAPITypeBoolean {
 			elemType = "types.BoolType"
-		} else if f.ItemType == "number" {
+		} else if f.ItemType == common.OpenAPITypeNumber {
 			elemType = "types.Float64Type"
 		}
 		return "types.SetType{ElemType: " + elemType + "}"
-	case "types.Object":
+	case common.TFTypeObject:
 		var attrTypes []string
 		for _, prop := range f.Properties {
 			attrTypes = append(attrTypes, "\""+prop.Name+"\": "+ToAttrType(prop))
@@ -102,7 +102,7 @@ func ToAttrTypeDefinition(f common.FieldInfo) string {
 }
 
 func formatValidatorValue(v float64, goType string) string {
-	if goType == "types.Int64" {
+	if goType == common.TFTypeInt64 {
 		if v > 9e18 || v < -9e18 {
 			return ""
 		}

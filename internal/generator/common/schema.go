@@ -403,11 +403,13 @@ func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
 	} else {
 		merged = append(merged, FieldInfo{
 			Name:        "project",
-			Type:        "string",
+			Type:        OpenAPITypeString,
 			Required:    true,
 			ReadOnly:    false,
 			Description: "Project URL",
-			GoType:      "types.String",
+			GoType:      TFTypeString,
+			SDKType:     GoTypeString,
+			IsPointer:   true,
 		})
 		fieldMap["project"] = len(merged) - 1
 	}
@@ -419,11 +421,13 @@ func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
 	} else {
 		merged = append(merged, FieldInfo{
 			Name:        "offering",
-			Type:        "string",
+			Type:        OpenAPITypeString,
 			Required:    true,
 			ReadOnly:    false,
 			Description: "Offering URL",
-			GoType:      "types.String",
+			GoType:      TFTypeString,
+			SDKType:     GoTypeString,
+			IsPointer:   true,
 		})
 		fieldMap["offering"] = len(merged) - 1
 	}
@@ -469,10 +473,10 @@ func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
 			}
 
 			// Merge nested lists of objects
-			if existing.ItemType == "object" && f.ItemType == "object" && existing.ItemSchema != nil && f.ItemSchema != nil {
+			if existing.ItemType == OpenAPITypeObject && f.ItemType == OpenAPITypeObject && existing.ItemSchema != nil && f.ItemSchema != nil {
 				existing.ItemSchema.Properties = mergeOrderedFieldsRecursive(existing.ItemSchema.Properties, f.ItemSchema.Properties)
 				updated = true
-			} else if existing.GoType == "types.Object" && f.GoType == "types.Object" {
+			} else if existing.GoType == TFTypeObject && f.GoType == TFTypeObject {
 				// Merge nested objects
 				existing.Properties = mergeOrderedFieldsRecursive(existing.Properties, f.Properties)
 				updated = true
@@ -618,7 +622,7 @@ func CalculateSchemaStatusRecursive(fields []FieldInfo, createFields, responseFi
 		}
 
 		// Recursively process nested types
-		if f.GoType == "types.Object" {
+		if f.GoType == TFTypeObject {
 			var subCreate, subResponse []FieldInfo
 			if inCreate {
 				subCreate = cf.Properties
@@ -627,7 +631,7 @@ func CalculateSchemaStatusRecursive(fields []FieldInfo, createFields, responseFi
 				subResponse = responseMap[f.Name].Properties
 			}
 			CalculateSchemaStatusRecursive(f.Properties, subCreate, subResponse)
-		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+		} else if (f.GoType == TFTypeList || f.GoType == TFTypeSet) && f.ItemSchema != nil {
 			var subCreate, subResponse []FieldInfo
 			if inCreate && cf.ItemSchema != nil {
 				subCreate = cf.ItemSchema.Properties
@@ -649,7 +653,7 @@ func CollectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 	traverse = func(fields []FieldInfo) {
 		for _, f := range fields {
 			// Check object type with AttrTypeRef or RefName
-			if f.GoType == "types.Object" {
+			if f.GoType == TFTypeObject {
 				key := f.AttrTypeRef
 				if key == "" {
 					key = f.RefName
@@ -669,7 +673,7 @@ func CollectUniqueStructs(params ...[]FieldInfo) []FieldInfo {
 				}
 			}
 			// Check list/set of objects with AttrTypeRef or RefName
-			if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
+			if (f.GoType == TFTypeList || f.GoType == TFTypeSet) && f.ItemSchema != nil {
 				key := f.ItemSchema.AttrTypeRef
 				if key == "" {
 					key = f.ItemSchema.RefName
@@ -705,10 +709,10 @@ func AssignMissingAttrTypeRefs(cfg SchemaConfig, fields []FieldInfo, prefix stri
 		f := &fields[i]
 
 		// Recursively process children first (Bottom-Up)
-		if f.GoType == "types.Object" {
+		if f.GoType == TFTypeObject {
 			AssignMissingAttrTypeRefs(cfg, f.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
-		} else if (f.GoType == "types.List" || f.GoType == "types.Set") && f.ItemSchema != nil {
-			if f.ItemSchema.GoType == "types.Object" {
+		} else if (f.GoType == TFTypeList || f.GoType == TFTypeSet) && f.ItemSchema != nil {
+			if f.ItemSchema.GoType == TFTypeObject {
 				AssignMissingAttrTypeRefs(cfg, f.ItemSchema.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
 
 				// Also assign ref to ItemSchema itself
@@ -729,7 +733,7 @@ func AssignMissingAttrTypeRefs(cfg SchemaConfig, fields []FieldInfo, prefix stri
 		}
 
 		// Now process f itself if it is Object
-		if f.GoType == "types.Object" {
+		if f.GoType == TFTypeObject {
 			hash := computeStructHash(*f)
 			if name, ok := seenHashes[hash]; ok {
 				f.AttrTypeRef = name
@@ -803,7 +807,7 @@ func ExtractFilterParams(op *openapi3.Operation, resourceName string) []FilterPa
 			if param.Schema != nil && param.Schema.Value != nil {
 				typeStr := GetSchemaType(param.Schema.Value)
 				goType := GetGoType(typeStr)
-				if goType == "" || strings.HasPrefix(goType, "types.List") || strings.HasPrefix(goType, "types.Object") {
+				if goType == "" || strings.HasPrefix(goType, TFTypeList) || strings.HasPrefix(goType, TFTypeObject) {
 					continue
 				}
 
@@ -855,11 +859,11 @@ func GetGoType(openAPIType string) string {
 // GetFilterParamType maps OpenAPI/Go types to string identifiers used in FilterParam
 func GetFilterParamType(goTypeStr string) string {
 	switch goTypeStr {
-	case "types.Int64":
+	case TFTypeInt64:
 		return "Int64"
-	case "types.Bool":
+	case TFTypeBool:
 		return "Bool"
-	case "types.Float64":
+	case TFTypeFloat64:
 		return "Float64"
 	default:
 		return "String"

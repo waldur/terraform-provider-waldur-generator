@@ -48,18 +48,11 @@ func (b *OrderBuilder) BuildModelFields(createFields, responseFields []common.Fi
 	modelFields := common.MergeOrderFields(createFields, responseFields)
 	// Add Termination Attributes
 	for _, term := range b.Resource.TerminationAttributes {
-		goType := "types.String"
-		switch term.Type {
-		case "boolean":
-			goType = "types.Bool"
-		case "integer":
-			goType = "types.Int64"
-		case "number":
-			goType = "types.Float64"
+		f := common.FieldInfo{
+			Name: term.Name, Type: term.Type, Description: "Termination attribute", GoType: common.GetGoType(term.Type),
 		}
-		modelFields = append(modelFields, common.FieldInfo{
-			Name: term.Name, Type: term.Type, Description: "Termination attribute", GoType: goType,
-		})
+		common.CalculateSDKType(&f)
+		modelFields = append(modelFields, f)
 	}
 	return modelFields, nil
 }

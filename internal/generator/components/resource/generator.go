@@ -129,18 +129,20 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 	if resource.Name == "marketplace_order" {
 		for i := range modelFields {
 			if modelFields[i].Name == "attributes" {
-				modelFields[i].GoType = "types.Map"
-				modelFields[i].ItemType = "string"
-				modelFields[i].Type = "object"
+				modelFields[i].GoType = common.TFTypeMap
+				modelFields[i].ItemType = common.OpenAPITypeString
+				modelFields[i].Type = common.OpenAPITypeObject
 				modelFields[i].Properties = nil
+				common.CalculateSDKType(&modelFields[i])
 			}
 		}
 		for i := range createFields {
 			if createFields[i].Name == "attributes" {
-				createFields[i].GoType = "types.Map"
-				createFields[i].ItemType = "string"
-				createFields[i].Type = "object"
+				createFields[i].GoType = common.TFTypeMap
+				createFields[i].ItemType = common.OpenAPITypeString
+				createFields[i].Type = common.OpenAPITypeObject
 				createFields[i].Properties = nil
+				common.CalculateSDKType(&createFields[i])
 			}
 		}
 	}
@@ -167,9 +169,11 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 				}
 			}
 			if !found {
-				createFields = append(createFields, common.FieldInfo{
-					Name: name, Type: "string", Description: "Required path parameter", GoType: "types.String", Required: true, IsPathParam: true,
-				})
+				f := common.FieldInfo{
+					Name: name, Type: common.OpenAPITypeString, Description: "Required path parameter", GoType: common.TFTypeString, Required: true, IsPathParam: true,
+				}
+				common.CalculateSDKType(&f)
+				createFields = append(createFields, f)
 			}
 		}
 	}

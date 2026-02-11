@@ -4,32 +4,11 @@
 {{- /* Helper template for complex field assignment (Post-Init) */ -}}
 {{- define "complexFieldAssignment" -}}
 	{{- if eq .GoType "types.Map" }}
-	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-		var mapItems {{ .SDKType }}
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false)
-		resp.Diagnostics.Append(diags...)
-		if !diags.HasError() && len(mapItems) > 0 {
-			requestBody.{{ .Name | title }} = mapItems
-		}
-	}
+	resp.Diagnostics.Append(common.{{ if .Required }}PopulateMapField{{ else }}PopulateOptionalMapField{{ end }}(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
 	{{- else if eq .Type "array" }}
-	{{- if .Required }}
-	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateSetField{{ else }}PopulateSliceField{{ end }}(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
-	{{- else }}
-	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateOptionalSetField{{ else }}PopulateOptionalSliceField{{ end }}(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
-	{{- end }}
+	resp.Diagnostics.Append(common.{{ if .Required }}{{ if eq .GoType "types.Set" }}PopulateSetField{{ else }}PopulateSliceField{{ end }}{{ else }}{{ if eq .GoType "types.Set" }}PopulateOptionalSetField{{ else }}PopulateOptionalSliceField{{ end }}{{ end }}(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
 	{{- else if eq .Type "object" }}
-	{{- if .Required }}
-	{{- /* Required objects are just the struct, not a pointer to it usually? No, our SDK use pointers for objects too often. */ -}}
-	var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Prefix }}{{ .Name | title }}Request{{ end }}
-	diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if !diags.HasError() {
-		requestBody.{{ .Name | title }} = obj
-	}
-	{{- else }}
-	resp.Diagnostics.Append(common.PopulateOptionalObjectField(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
-	{{- end }}
+	resp.Diagnostics.Append(common.{{ if .Required }}PopulateObjectField{{ else }}PopulateOptionalObjectField{{ end }}(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
 	{{- end }}
 {{- end -}}
 
@@ -246,13 +225,9 @@
 		{{- else if eq $field.GoType "types.Set" }}
 		resp.Diagnostics.Append(common.PopulateSetField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
 		{{- else if eq $field.GoType "types.Object" }}
-		var objVal {{ if $field.RefName }}common.{{ $field.RefName }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
-		resp.Diagnostics.Append(data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})...)
-		req.{{ $action.Param | title }} = &objVal
+		resp.Diagnostics.Append(common.PopulateOptionalObjectField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
 		{{- else if eq $field.GoType "types.Map" }}
-		var mapItems map[string]interface{}
-		resp.Diagnostics.Append(data.{{ $action.Param | title }}.ElementsAs(ctx, &mapItems, false)...)
-		req.{{ $action.Param | title }} = mapItems
+		resp.Diagnostics.Append(common.PopulateMapField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
 		{{- else }}
 		{{- template "fieldAssignment" dict "Field" $field "Target" "req" }}
 		{{- end }}

@@ -32,16 +32,7 @@
 	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateOptionalSetField{{ else }}PopulateOptionalSliceField{{ end }}(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})...)
 	{{- end }}
 	{{- else if eq .Type "object" }}
-	{{- if .Required }}
-	var obj {{ if .RefName }}common.{{ .RefName }}{{ else }}{{ $.Name | title }}Create{{ .Name | title }}Request{{ end }}
-	diags := data.{{ .Name | title }}.As(ctx, &obj, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if !diags.HasError() {
-		attributes.{{ .Name | title }} = obj
-	}
-	{{- else }}
-	resp.Diagnostics.Append(common.PopulateOptionalObjectField(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})...)
-	{{- end }}
+	resp.Diagnostics.Append(common.{{ if .Required }}PopulateObjectField{{ else }}PopulateOptionalObjectField{{ end }}(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})...)
 	{{- end }}
 	{{- end }}
 	{{- end }}
@@ -54,15 +45,7 @@
 	{{- range .CreateFields }}
 	{{- if not (isOrderAttribute .Name) }}
 	{{- if eq .GoType "types.Map" }}
-	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
-		{{ .Name }} := make(map[string]{{ if eq .ItemType "number" }}float64{{ else if eq .ItemType "integer" }}int64{{ else }}string{{ end }})
-		diags := data.{{ .Name | title }}.ElementsAs(ctx, &{{ .Name }}, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		payload.{{ .Name | title }} = {{ .Name }}
-	}
+	resp.Diagnostics.Append(common.{{ if .Required }}PopulateMapField{{ else }}PopulateOptionalMapField{{ end }}(ctx, data.{{ .Name | title }}, &payload.{{ .Name | title }})...)
 	{{- else }}
 	{{- if .Required }}
 	payload.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
@@ -183,9 +166,9 @@
 		{{- else if eq $field.GoType "types.Set" }}
 		resp.Diagnostics.Append(common.PopulateSetField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
 		{{- else if eq $field.GoType "types.Object" }}
-		var objVal {{ if $field.RefName }}common.{{ $field.RefName }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
-		resp.Diagnostics.Append(data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})...)
-		req.{{ $action.Param | title }} = &objVal
+		resp.Diagnostics.Append(common.PopulateOptionalObjectField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
+		{{- else if eq $field.GoType "types.Map" }}
+		resp.Diagnostics.Append(common.PopulateMapField(ctx, data.{{ $action.Param | title }}, &req.{{ $action.Param | title }})...)
 		{{- else }}
 		{{- template "fieldAssignment" dict "Field" $field "Target" "req" }}
 		{{- end }}

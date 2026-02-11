@@ -322,6 +322,50 @@ func PopulateOptionalObjectField[T any](ctx context.Context, obj types.Object, t
 	return diags
 }
 
+// PopulateObjectField populates an object field (*T) from a Terraform object.
+func PopulateObjectField[T any](ctx context.Context, obj types.Object, target *T) diag.Diagnostics {
+	if obj.IsNull() || obj.IsUnknown() {
+		return nil
+	}
+	// Sanitize first
+	cleanObj, diags := sanitizeObject(ctx, obj)
+	if diags.HasError() {
+		return diags
+	}
+
+	d := cleanObj.As(ctx, target, basetypes.ObjectAsOptions{})
+	diags.Append(d...)
+	return diags
+}
+
+// PopulateMapField populates a map field (*map[string]T) from a Terraform map.
+func PopulateMapField[T any](ctx context.Context, tfMap types.Map, target *map[string]T) diag.Diagnostics {
+	if tfMap.IsNull() || tfMap.IsUnknown() {
+		return nil
+	}
+
+	items := make(map[string]T)
+	diags := tfMap.ElementsAs(ctx, &items, false)
+	if !diags.HasError() {
+		*target = items
+	}
+	return diags
+}
+
+// PopulateOptionalMapField populates an optional map field (*map[string]T) from a Terraform map.
+func PopulateOptionalMapField[T any](ctx context.Context, tfMap types.Map, target *map[string]T) diag.Diagnostics {
+	if tfMap.IsNull() || tfMap.IsUnknown() {
+		return nil
+	}
+
+	items := make(map[string]T)
+	diags := tfMap.ElementsAs(ctx, &items, false)
+	if !diags.HasError() {
+		*target = items
+	}
+	return diags
+}
+
 // ResolveResourceUUID extracts the resource UUID from a marketplace order response.
 func ResolveResourceUUID(orderRes *OrderDetails) string {
 	if orderRes == nil {

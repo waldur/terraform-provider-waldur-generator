@@ -41,7 +41,7 @@ func (g *Generator) generateSharedSDKTypes() error {
 
 	return g.RenderTemplate(
 		"shared_types.go.tmpl",
-		[]string{"templates/shared.tmpl", "templates/shared_types.go.tmpl"},
+		[]string{"templates/shared/*.tmpl", "templates/shared_types.go.tmpl"},
 		data,
 		filepath.Join(g.config.Generator.OutputDir, "internal", "sdk", "common"),
 		"types.go",
@@ -86,7 +86,7 @@ func (g *Generator) generateResourceSDKTypes(rd *common.ResourceData, outputDir 
 
 	return g.RenderTemplate(
 		"sdk_types.go.tmpl",
-		[]string{"templates/shared.tmpl", "templates/sdk_types.go.tmpl"},
+		[]string{"templates/shared/*.tmpl", "templates/sdk_types.go.tmpl"},
 		data,
 		outputDir,
 		"types.go",
@@ -101,7 +101,7 @@ func (g *Generator) generateResourceSDKClient(rd *common.ResourceData, outputDir
 
 	return g.RenderTemplate(
 		"sdk_client.go.tmpl",
-		[]string{"templates/shared.tmpl", "templates/sdk_client.go.tmpl"},
+		[]string{"templates/shared/*.tmpl", "templates/sdk_client.go.tmpl"},
 		data,
 		outputDir,
 		"client.go",

@@ -71,7 +71,7 @@ func GenerateImplementation(cfg *config.Config, renderer common.Renderer, rd *co
 
 	return renderer.RenderTemplate(
 		"datasource.go.tmpl",
-		[]string{"templates/shared.tmpl", "components/datasource/datasource.go.tmpl"},
+		[]string{"templates/shared/*.tmpl", "components/datasource/datasource.go.tmpl"},
 		data,
 		filepath.Join(cfg.Generator.OutputDir, "services", rd.Service, rd.CleanName),
 		"datasource.go",

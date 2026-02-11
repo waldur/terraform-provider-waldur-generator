@@ -274,7 +274,7 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 func GenerateModel(cfg *config.Config, renderer common.Renderer, res *common.ResourceData) error {
 	return renderer.RenderTemplate(
 		"model.go.tmpl",
-		[]string{"templates/shared.tmpl", "components/resource/model.go.tmpl"},
+		[]string{"templates/shared/*.tmpl", "components/resource/model.go.tmpl"},
 		res,
 		filepath.Join(cfg.Generator.OutputDir, "services", res.Service, res.CleanName),
 		"model.go",

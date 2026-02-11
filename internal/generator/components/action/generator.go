@@ -34,7 +34,7 @@ func GenerateImplementation(cfg *config.Config, renderer common.Renderer, rd *co
 
 		if err := renderer.RenderTemplate(
 			"action.go.tmpl",
-			[]string{"templates/shared.tmpl", "components/action/action.go.tmpl"},
+			[]string{"templates/shared/*.tmpl", "components/action/action.go.tmpl"},
 			data,
 			filepath.Join(cfg.Generator.OutputDir, "services", rd.Service, rd.CleanName),
 			action.Name+".go",

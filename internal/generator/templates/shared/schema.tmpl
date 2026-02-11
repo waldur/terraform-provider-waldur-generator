@@ -1,0 +1,136 @@
+{{- define "attr_lifecycle" }}
+    {{- if .ReadOnly }}
+    Computed: true,
+    {{- else if .Required }}
+    Required: true,
+    {{- else }}
+    Optional: true,
+    {{- if or .ServerComputed .ReadOnly }}
+    Computed: true,
+    {{- end }}
+    {{- end }}
+{{- end }}
+ 
+{{- define "plan_modifier_list" }}
+    {{- if .ForceNew }}
+    {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
+    {{- end }}
+    {{- if .UseStateForUnknown }}
+    {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
+    {{- end }}
+    {{- if .UnknownIfNull }}
+    common.UnknownIfNullModifier{},
+    {{- end }}
+{{- end }}
+ 
+{{- define "attr_plan_modifiers" }}
+    {{- if not .IsDataSource }}
+    {{- if or .ForceNew .ServerComputed .ReadOnly }}
+    PlanModifiers: []{{ .TypeMeta.PlanModType }}{
+        {{ template "plan_modifier_list" . }}
+    },
+    {{- end }}
+    {{- end }}
+{{- end }}
+ 
+{{- define "attr_description" }}
+    MarkdownDescription: "{{ .Description }}",
+    {{- if contains (lower .Name) "password" }}
+    Sensitive: true,
+    {{- end }}
+{{- end }}
+ 
+{{- define "renderValidators" }}
+{{- $type := .Type }}
+{{- $enum := .Enum }}
+{{- $min := .Minimum }}
+{{- $max := .Maximum }}
+{{- $pattern := .Pattern }}
+{{- $goType := .GoType }}
+{{- if or $enum $min $max $pattern }}
+        Validators: []validator.{{ $type }}{
+            {{- if $enum }}
+            {{- if eq $type "String" }}
+            stringvalidator.OneOf({{ range $i, $e := $enum }}{{ if $i }}, {{ end }}"{{ $e }}"{{ end }}),
+            {{- else if eq $type "Int64" }}
+            int64validator.OneOf({{ range $i, $e := $enum }}{{ if $i }}, {{ end }}{{ $e }}{{ end }}),
+            {{- else if eq $type "Float64" }}
+            float64validator.OneOf({{ range $i, $e := $enum }}{{ if $i }}, {{ end }}{{ $e }}{{ end }}),
+            {{- end }}
+            {{- end }}
+            {{- if $pattern }}
+            stringvalidator.RegexMatches(regexp.MustCompile(`{{ $pattern }}`), ""),
+            {{- end }}
+            {{- if $min }}
+            {{- $minVal := formatValidator $min $goType }}
+            {{- if $minVal }}
+            {{ if eq $type "Int64" }}int64validator{{ else }}float64validator{{ end }}.AtLeast({{ $minVal }}),
+            {{- end }}
+            {{- end }}
+            {{- if $max }}
+            {{- $maxVal := formatValidator $max $goType }}
+            {{- if $maxVal }}
+            {{ if eq $type "Int64" }}int64validator{{ else }}float64validator{{ end }}.AtMost({{ $maxVal }}),
+            {{- end }}
+            {{- end }}
+        },
+{{- end }}
+{{- end }}
+
+
+{{- define "schemaNestedAttribute" }}
+{{ .TypeMeta.SchemaAttrType }}{
+    {{- if or (eq .GoType "types.List") (eq .GoType "types.Set") }}
+    NestedObject: schema.NestedAttributeObject{
+        Attributes: map[string]schema.Attribute{
+            {{- range .ItemSchema.Properties }}
+                "{{ .Name }}": {{ template "schemaAttribute" . }}
+            {{- end }}
+        },
+    },
+    {{- else }}
+    Attributes: map[string]schema.Attribute{
+        {{- range .Properties }}
+            "{{ .Name }}": {{ template "schemaAttribute" . }}
+        {{- end }}
+    },
+    {{- end }}
+    {{ template "attr_lifecycle" . }}
+    {{ template "attr_plan_modifiers" . }}
+    {{ template "attr_description" . }}
+},
+{{- end }}
+
+{{- define "schemaAttribute" }}
+{{- if or (eq .GoType "types.List") (eq .GoType "types.Object") (eq .GoType "types.Set") }}
+    {{- if or (and (or (eq .GoType "types.List") (eq .GoType "types.Set")) (eq .ItemType "object")) (eq .GoType "types.Object") }}
+        {{ template "schemaNestedAttribute" . }}
+    {{- else }}
+        {{- /* List/Set of primitives */ -}}
+        {{ .TypeMeta.SchemaAttrType }}{
+            ElementType: {{ .TypeMeta.ElemType }},
+            {{ template "attr_lifecycle" . }}
+            {{ template "attr_plan_modifiers" . }}
+            {{ template "attr_description" . }}
+        },
+    {{- end }}
+{{- else if eq .GoType "types.Map" }}
+    {{ .TypeMeta.SchemaAttrType }}{
+        ElementType: {{ .TypeMeta.ElemType }},
+        {{ template "attr_lifecycle" . }}
+        {{ template "attr_plan_modifiers" . }}
+        {{ template "attr_description" . }}
+    },
+{{- else }}
+    {{- /* Primitive Type */ -}}
+    {{ .TypeMeta.SchemaAttrType }}{
+        {{- if .TypeMeta.IsDateTime }}
+        CustomType: timetypes.RFC3339Type{},
+        {{- end }}
+        {{ template "attr_lifecycle" . }}
+        {{ template "attr_plan_modifiers" . }}
+        {{ template "attr_description" . }}
+        {{ template "renderValidators" dict "Field" . "Type" .TypeMeta.ValidatorType "Enum" .Enum "Minimum" .Minimum "Maximum" .Maximum "Pattern" .Pattern "GoType" .GoType }}
+    },
+{{- end }}
+{{- end }}

@@ -24,7 +24,7 @@ func GenerateImplementation(cfg *config.Config, renderer common.Renderer, rd *co
 
 	return renderer.RenderTemplate(
 		"list_resource.go.tmpl",
-		[]string{"templates/shared.tmpl", "components/list/list_resource.go.tmpl"},
+		[]string{"templates/shared/*.tmpl", "components/list/list_resource.go.tmpl"},
 		data,
 		filepath.Join(cfg.Generator.OutputDir, "services", rd.Service, rd.CleanName),
 		"list.go",

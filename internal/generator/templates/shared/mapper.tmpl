@@ -1,0 +1,65 @@
+{{- /* Helper: Map Response Struct to Terraform Model */ -}}
+{{- define "map_response_scalar" }}
+	{{- if eq .Type "string" }}
+	{{- if .TypeMeta.IsDateTime }}
+	val{{ .Name | title }}, diags{{ .Name | title }} := timetypes.NewRFC3339PointerValue(apiResp.{{ .Name | title }})
+	diags.Append(diags{{ .Name | title }}...)
+	model.{{ .Name | title }} = val{{ .Name | title }}
+	{{- else }}
+	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
+	{{- end }}
+	{{- else if eq .Type "number" }}
+	model.{{ .Name | title }} = types.Float64PointerValue(apiResp.{{ .Name | title }}.Float64Ptr())
+	{{- else }}
+	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
+	{{- end }}
+{{- end }}
+ 
+{{- define "map_response_complex" }}
+	{{- if or (eq .GoType "types.List") (eq .GoType "types.Set") }}
+		if apiResp.{{ .Name | title }} != nil {
+			val{{ .Name | title }}, diags{{ .Name | title }} := {{ if eq .GoType "types.List" }}types.ListValueFrom{{ else }}types.SetValueFrom{{ end }}(ctx, {{ if eq .ItemType "object" }}{{ toAttrType .ItemSchema }}{{ else }}{{ .TypeMeta.ElemType }}{{ end }}, apiResp.{{ .Name | title }})
+			diags.Append(diags{{ .Name | title }}...)
+			model.{{ .Name | title }} = val{{ .Name | title }}
+		} else {
+			model.{{ .Name | title }} = {{ if eq .GoType "types.List" }}types.ListNull{{ else }}types.SetNull{{ end }}({{ if eq .ItemType "object" }}{{ toAttrType .ItemSchema }}{{ else }}{{ .TypeMeta.ElemType }}{{ end }})
+		}
+	{{- else if eq .GoType "types.Map" }}
+		if apiResp.{{ .Name | title }} != nil {
+			val{{ .Name | title }}, diags{{ .Name | title }} := types.MapValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
+			diags.Append(diags{{ .Name | title }}...)
+			model.{{ .Name | title }} = val{{ .Name | title }}
+		} else {
+			model.{{ .Name | title }} = types.MapNull(types.StringType)
+		}
+	{{- else if eq .Type "object" }}
+		if apiResp.{{ .Name | title }} != nil {
+			val{{ .Name | title }}, diags{{ .Name | title }} := types.ObjectValueFrom(ctx, {{ toAttrType . }}.AttrTypes, *apiResp.{{ .Name | title }})
+			diags.Append(diags{{ .Name | title }}...)
+			model.{{ .Name | title }} = val{{ .Name | title }}
+		} else {
+			model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
+		}
+	{{- end }}
+{{- end }}
+ 
+{{- define "map_response_field" }}
+	{{- if not .SchemaSkip }}
+	{{- if .TypeMeta.IsComplex }}
+	{{ template "map_response_complex" . }}
+	{{- else }}
+	{{ template "map_response_scalar" . }}
+	{{- end }}
+	{{- end }}
+{{- end }}
+ 
+{{- define "mapResponseToModel" }}
+	{{- range .ResponseFields }}
+	{{ template "map_response_field" . }}
+	{{- end }}
+{{- end }}
+
+{{- /* Helper: Assign simple field from Terraform data to a target variable */ -}}
+{{- define "fieldAssignment" }}
+{{ .Target }}.{{ .Field.Name | title }} = data.{{ .Field.Name | title }}.{{ .Field.TypeMeta.ToAPIMethod }}()
+{{- end }}

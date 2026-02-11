@@ -1,0 +1,111 @@
+{{- /* Shared Read Logic (Base) */ -}}
+{{- define "resource_read_base" }}
+	{{- if .CompositeKeys }}
+	// If UUID is unknown or contains slashes (composite key), try to look it up using composite keys
+	if data.UUID.IsNull() || data.UUID.IsUnknown() || strings.Contains(data.UUID.ValueString(), "/") {
+		filters := map[string]string{}
+		{{- range $key := .CompositeKeys }}
+		if !data.{{ $key | title }}.IsNull() {
+			if v := data.{{ $key | title }}.ValueString(); v != "" {
+				filters["{{ $key }}"] = v
+			}
+		}
+		{{- end }}
+
+		expectedCount := 0
+		{{- range .CompositeKeys }}
+		expectedCount++
+		{{- end }}
+
+		if len(filters) == expectedCount {
+			listResult, err := r.client.List(ctx, filters)
+			if err != nil {
+				resp.Diagnostics.AddError("Failed to lookup resource by composite keys", err.Error())
+				return
+			}
+			
+			if len(listResult) == 1 {
+				data.UUID = types.StringPointerValue(listResult[0].UUID)
+			} else if len(listResult) > 1 {
+				resp.Diagnostics.AddError("Ambiguous resource", fmt.Sprintf("Found %d resources matching composite keys", len(listResult)))
+				return
+			} else {
+				resp.Diagnostics.AddError("Resource not found", "No resource found matching composite keys")
+				return
+			}
+		}
+	}
+	{{- end }}
+
+	apiResp, err := r.client.Get(ctx, data.UUID.ValueString())
+	if err != nil {
+		if IsNotFoundError(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
+		resp.Diagnostics.AddError(
+			"Unable to Read {{ .Name | humanize }}",
+			"An error occurred while reading the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+	
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
+{{- end }}
+
+{{- /* Shared Import Logic (Base) */ -}}
+{{- define "resource_import_base" }}
+	{{- if .CompositeKeys }}
+	// Parse composite ID: key1/key2/...
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != {{ len .CompositeKeys }} {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Expected format: {{ range $i, $key := .CompositeKeys }}{{ if $i }}/{{ end }}<{{ $key }}>{{ end }}",
+		)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	{{- range $i, $key := .CompositeKeys }}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{ $key }}"), parts[{{ $i }}])...)
+	{{- end }}
+	{{- else }}
+	uuid := req.ID
+	if uuid == "" {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Import ID cannot be empty. Please provide the UUID of the {{ .Name | humanize }}.",
+		)
+		return
+	}
+
+	tflog.Info(ctx, "Importing {{ .Name | humanize }}", map[string]interface{}{
+		"uuid": uuid,
+	})
+
+	apiResp, err := r.client.Get(ctx, uuid)
+	if err != nil {
+		if IsNotFoundError(err) {
+			resp.Diagnostics.AddError(
+				"Resource Not Found",
+				fmt.Sprintf("{{ .Name | humanize }} with UUID '%s' does not exist or is not accessible.", uuid),
+			)
+			return
+		}
+		resp.Diagnostics.AddError(
+			"Unable to Import {{ .Name | humanize }}",
+			fmt.Sprintf("An error occurred while fetching the {{ .Name | humanize }}: %s", err.Error()),
+		)
+		return
+	}
+
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	{{- end }}
+{{- end }}

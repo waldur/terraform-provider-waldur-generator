@@ -72,10 +72,10 @@ func AssignMissingAttrTypeRefs(cfg SchemaConfig, fields []FieldInfo, prefix stri
 
 		// Recursively process children first (Bottom-Up)
 		if f.GoType == TFTypeObject {
-			AssignMissingAttrTypeRefs(cfg, f.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+			AssignMissingAttrTypeRefs(cfg, f.Properties, prefix+ToTitle(f.Name), seenHashes, seenNames)
 		} else if (f.GoType == TFTypeList || f.GoType == TFTypeSet) && f.ItemSchema != nil {
 			if f.ItemSchema.GoType == TFTypeObject {
-				AssignMissingAttrTypeRefs(cfg, f.ItemSchema.Properties, prefix+toTitle(f.Name), seenHashes, seenNames)
+				AssignMissingAttrTypeRefs(cfg, f.ItemSchema.Properties, prefix+ToTitle(f.Name), seenHashes, seenNames)
 
 				// Also assign ref to ItemSchema itself
 				hash := computeStructHash(*f.ItemSchema)
@@ -84,7 +84,7 @@ func AssignMissingAttrTypeRefs(cfg SchemaConfig, fields []FieldInfo, prefix stri
 				} else {
 					candidate := f.ItemSchema.RefName
 					if candidate == "" {
-						candidate = prefix + toTitle(f.Name)
+						candidate = prefix + ToTitle(f.Name)
 					}
 					finalName := resolveUniqueName(candidate, hash, seenNames)
 					seenHashes[hash] = finalName
@@ -102,7 +102,7 @@ func AssignMissingAttrTypeRefs(cfg SchemaConfig, fields []FieldInfo, prefix stri
 			} else {
 				candidate := f.RefName
 				if candidate == "" {
-					candidate = prefix + toTitle(f.Name)
+					candidate = prefix + ToTitle(f.Name)
 				}
 				finalName := resolveUniqueName(candidate, hash, seenNames)
 				seenHashes[hash] = finalName
@@ -137,14 +137,4 @@ func computeStructHash(f FieldInfo) string {
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, "|")
-}
-
-func toTitle(s string) string {
-	parts := strings.Split(s, "_")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[:1]) + part[1:]
-		}
-	}
-	return strings.Join(parts, "")
 }

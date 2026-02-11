@@ -4,18 +4,19 @@ package common
 // Fields from the first list take precedence for shared properties,
 // but ReadOnly status is taken from either.
 func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
-	fieldMap := make(map[string]FieldInfo)
+	fieldIdx := make(map[string]int)
 	var merged []FieldInfo
 
 	// Add primary fields first
 	for _, f := range primary {
-		fieldMap[f.Name] = f
+		fieldIdx[f.Name] = len(merged)
 		merged = append(merged, f)
 	}
 
 	// Add secondary fields if not present
 	for _, f := range secondary {
-		if existing, ok := fieldMap[f.Name]; ok {
+		if idx, ok := fieldIdx[f.Name]; ok {
+			existing := merged[idx]
 			// Preserve IsPathParam from primary - path params should keep their Required state
 			if existing.IsPathParam {
 				existing.ReadOnly = false // Path params are always writable
@@ -35,14 +36,9 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 			}
 
 			// Update in slice
-			for i, mf := range merged {
-				if mf.Name == existing.Name {
-					merged[i] = existing
-					break
-				}
-			}
+			merged[idx] = existing
 		} else {
-			fieldMap[f.Name] = f
+			fieldIdx[f.Name] = len(merged)
 			merged = append(merged, f)
 		}
 	}
@@ -63,67 +59,46 @@ func MergeOrderFields(input, output []FieldInfo) []FieldInfo {
 		fieldMap[f.Name] = i
 	}
 
-	// Ensure project field exists and is configured correctly
-	if idx, ok := fieldMap["project"]; ok {
-		merged[idx].Required = true
-		merged[idx].ReadOnly = false
-	} else {
-		merged = append(merged, FieldInfo{
-			Name:        "project",
-			Type:        OpenAPITypeString,
-			Required:    true,
-			ReadOnly:    false,
-			Description: "Project URL",
-			GoType:      TFTypeString,
-			SDKType:     GoTypeString,
-			IsPointer:   true,
-		})
-		fieldMap["project"] = len(merged) - 1
-	}
-
-	// Ensure offering field exists and is configured correctly
-	if idx, ok := fieldMap["offering"]; ok {
-		merged[idx].Required = true
-		merged[idx].ReadOnly = false
-	} else {
-		merged = append(merged, FieldInfo{
-			Name:        "offering",
-			Type:        OpenAPITypeString,
-			Required:    true,
-			ReadOnly:    false,
-			Description: "Offering URL",
-			GoType:      TFTypeString,
-			SDKType:     GoTypeString,
-			IsPointer:   true,
-		})
-		fieldMap["offering"] = len(merged) - 1
-	}
+	// Ensure project and offering fields exist and are configured correctly
+	ensureOrderField(fieldMap, &merged, "project", "Project URL")
+	ensureOrderField(fieldMap, &merged, "offering", "Offering URL")
 
 	return merged
 }
 
+func ensureOrderField(fieldMap map[string]int, merged *[]FieldInfo, name, description string) {
+	if idx, ok := fieldMap[name]; ok {
+		(*merged)[idx].Required = true
+		(*merged)[idx].ReadOnly = false
+	} else {
+		*merged = append(*merged, FieldInfo{
+			Name:        name,
+			Type:        OpenAPITypeString,
+			Required:    true,
+			ReadOnly:    false,
+			Description: description,
+			GoType:      TFTypeString,
+			SDKType:     GoTypeString,
+			IsPointer:   true,
+		})
+		fieldMap[name] = len(*merged) - 1
+	}
+}
+
 func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
-	inputMap := make(map[string]bool)
 	fieldIdx := make(map[string]int)
 	var merged []FieldInfo
 
 	// Add input fields first
 	for _, f := range input {
-		inputMap[f.Name] = true
 		merged = append(merged, f)
 		fieldIdx[f.Name] = len(merged) - 1
 	}
 
 	// Add output fields if not present in input, or merge if present
 	for _, f := range output {
-		if !inputMap[f.Name] {
-			// Output-only fields are ReadOnly (Computed)
-			f.ReadOnly = true
-			f.Required = false
-			merged = append(merged, f)
-		} else {
+		if idx, ok := fieldIdx[f.Name]; ok {
 			// Merge nested properties
-			idx := fieldIdx[f.Name]
 			existing := merged[idx]
 			updated := false
 
@@ -131,12 +106,13 @@ func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
 			// BUT if it's required in input, it should stay required (not computed+optional)
 			if !existing.Required { // Check the 'input' field's Required status
 				existing.ServerComputed = true
+				updated = true
 			}
-			updated = true
 
 			// Update description if output has one and input doesn't
 			if existing.Description == "" && f.Description != "" {
 				existing.Description = f.Description
+				updated = true
 			}
 
 			// Merge nested lists of objects
@@ -152,6 +128,12 @@ func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
 			if updated {
 				merged[idx] = existing
 			}
+		} else {
+			// Output-only fields are ReadOnly (Computed)
+			f.ReadOnly = true
+			f.Required = false
+			merged = append(merged, f)
+			fieldIdx[f.Name] = len(merged) - 1
 		}
 	}
 

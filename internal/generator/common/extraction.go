@@ -213,7 +213,7 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 
 		case OpenAPITypeObject:
 			// Special case: generic map fields
-			if propName == "attributes" || propName == "limits" || propName == "options" {
+			if propName == "attributes" || propName == "limits" {
 				field.GoType = TFTypeMap
 				field.ItemType = OpenAPITypeString
 				CalculateSDKType(&field)

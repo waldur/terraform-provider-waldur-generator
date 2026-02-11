@@ -26,6 +26,7 @@ generator:
     - "created"
     - "modified"
     - "error_traceback"
+    - "marketplace_offering_plugin_options"
   set_fields:
     - "security_groups"
     - "floating_ips"

@@ -16,11 +16,13 @@ type {{ .RefName }} struct {
 
 {{ range .Resources }}
 type {{ .Name | title }}CreateRequest struct {
+	{{- $createPrefix := printf "%sCreate" (.Name | title) }}
 	{{- if .IsOrder }}
-	Project  *string `json:"project"`
-	Offering *string `json:"offering"`
-	Plan     *string `json:"plan,omitempty"`
-	Limits   map[string]float64 `json:"limits,omitempty"`
+	{{- range .CreateFields }}
+	{{- if not (isOrderAttribute .Name) }}
+	{{ .Name | title }} {{ renderGoType . $.Package $createPrefix "Request" }} `json:"{{ .Name }}{{ if not .Required }},omitempty{{ end }}"`
+	{{- end }}
+	{{- end }}
 	Attributes {{ .Name | title }}CreateAttributes `json:"attributes"`
 	{{- else }}
 	{{ template "sdkStructFields" dict "Fields" .CreateFields "Prefix" (printf "%sCreate" (.Name | title)) "Package" $.Package }}

@@ -135,6 +135,14 @@ func GetFuncMap() template.FuncMap {
 			}
 			return false
 		},
+		"isOrderAttribute": func(name string) bool {
+			for _, field := range common.OrderCommonFields {
+				if field.Name == name {
+					return false
+				}
+			}
+			return true
+		},
 		"dict": func(values ...interface{}) (map[string]interface{}, error) {
 			if len(values)%2 != 0 {
 				return nil, nil
@@ -216,7 +224,15 @@ func GetFuncMap() template.FuncMap {
 					typeName = "[]" + elemType
 				}
 			} else if f.GoType == "types.Map" {
-				typeName = "map[string]interface{}"
+				valType := "interface{}"
+				if f.ItemType == "number" {
+					valType = "float64"
+				} else if f.ItemType == "integer" {
+					valType = "int64"
+				} else if f.ItemType == "string" {
+					valType = "string"
+				}
+				typeName = "map[string]" + valType
 				isPointer = false
 			} else if f.Type == "object" {
 				if f.RefName != "" {

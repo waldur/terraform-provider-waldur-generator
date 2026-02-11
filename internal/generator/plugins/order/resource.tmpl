@@ -14,8 +14,7 @@
 	// We map the Terraform schema fields to the 'attributes' map required by the Marketplace Order API.
 	attributes := {{ .Name | title }}CreateAttributes{}
 	{{- range .CreateFields }}
-	{{- /* Skip project and offering as they are top-level order fields, not attributes */ -}}
-	{{- if and (ne .Name "project") (ne .Name "offering") }}
+	{{- if isOrderAttribute .Name }}
 	{{- if or (eq .Type "string") (eq .Type "integer") (eq .Type "boolean") (eq .Type "number") }}
 	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
 		{{- template "fieldAssignment" dict "Field" . "Target" "attributes" }}
@@ -25,7 +24,7 @@
 	{{- end }}
 
 	{{- range .CreateFields }}
-	{{- if and (ne .Name "project") (ne .Name "offering") }}
+	{{- if isOrderAttribute .Name }}
 	{{- if eq .Type "array" }}
 	{{- if .Required }}
 	resp.Diagnostics.Append(common.{{ if eq .GoType "types.Set" }}PopulateSetField{{ else }}PopulateSliceField{{ end }}(ctx, data.{{ .Name | title }}, &attributes.{{ .Name | title }})...)
@@ -49,24 +48,32 @@
 
 	// Construct the Create Order Request
 	payload := {{ .Name | title }}CreateRequest{
-		Project:    data.Project.ValueStringPointer(),
-		Offering:   data.Offering.ValueStringPointer(),
 		Attributes: attributes,
 	}
 
-	if !data.Plan.IsNull() && !data.Plan.IsUnknown() {
-		payload.Plan = data.Plan.ValueStringPointer()
-	}
-
-	if !data.Limits.IsNull() && !data.Limits.IsUnknown() {
-		limits := make(map[string]float64)
-		diags := data.Limits.ElementsAs(ctx, &limits, false)
+	{{- range .CreateFields }}
+	{{- if not (isOrderAttribute .Name) }}
+	{{- if eq .GoType "types.Map" }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		{{ .Name }} := make(map[string]{{ if eq .ItemType "number" }}float64{{ else if eq .ItemType "integer" }}int64{{ else }}string{{ end }})
+		diags := data.{{ .Name | title }}.ElementsAs(ctx, &{{ .Name }}, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		payload.Limits = limits
+		payload.{{ .Name | title }} = {{ .Name }}
 	}
+	{{- else }}
+	{{- if .Required }}
+	payload.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
+	{{- else }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		payload.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+	{{- end }}
 
 	// Phase 2: Submit Order
 	orderRes, err := r.client.CreateOrder(ctx, &payload)

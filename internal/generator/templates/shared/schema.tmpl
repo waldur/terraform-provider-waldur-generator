@@ -1,4 +1,4 @@
-{{- define "attr_lifecycle" }}
+{{- define "attr_lifecycle" -}}
     {{- if .ReadOnly }}
     Computed: true,
     {{- else if .Required }}
@@ -7,46 +7,46 @@
     Optional: true,
     {{- if or .ServerComputed .ReadOnly }}
     Computed: true,
-    {{- end }}
-    {{- end }}
-{{- end }}
+    {{- end -}}
+    {{- end -}}
+{{- end -}}
  
-{{- define "plan_modifier_list" }}
+{{- define "plan_modifier_list" -}}
     {{- if .ForceNew }}
     {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
-    {{- end }}
+    {{- end -}}
     {{- if .UseStateForUnknown }}
     {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
-    {{- end }}
+    {{- end -}}
     {{- if .UnknownIfNull }}
     common.UnknownIfNullModifier{},
-    {{- end }}
-{{- end }}
+    {{- end -}}
+{{- end -}}
  
-{{- define "attr_plan_modifiers" }}
-    {{- if not .IsDataSource }}
+{{- define "attr_plan_modifiers" -}}
+    {{- if not .IsDataSource -}}
     {{- if or .ForceNew .ServerComputed .ReadOnly }}
     PlanModifiers: []{{ .TypeMeta.PlanModType }}{
         {{ template "plan_modifier_list" . }}
     },
-    {{- end }}
-    {{- end }}
-{{- end }}
+    {{- end -}}
+    {{- end -}}
+{{- end -}}
  
-{{- define "attr_description" }}
+{{- define "attr_description" -}}
     MarkdownDescription: "{{ .Description }}",
     {{- if contains (lower .Name) "password" }}
     Sensitive: true,
-    {{- end }}
-{{- end }}
+    {{- end -}}
+{{- end -}}
  
-{{- define "renderValidators" }}
-{{- $type := .Type }}
-{{- $enum := .Enum }}
-{{- $min := .Minimum }}
-{{- $max := .Maximum }}
-{{- $pattern := .Pattern }}
-{{- $goType := .GoType }}
+{{- define "renderValidators" -}}
+{{- $type := .Type -}}
+{{- $enum := .Enum -}}
+{{- $min := .Minimum -}}
+{{- $max := .Maximum -}}
+{{- $pattern := .Pattern -}}
+{{- $goType := .GoType -}}
 {{- if or $enum $min $max $pattern }}
         Validators: []validator.{{ $type }}{
             {{- if $enum }}
@@ -74,11 +74,11 @@
             {{- end }}
             {{- end }}
         },
-{{- end }}
-{{- end }}
+{{- end -}}
+{{- end -}}
 
 
-{{- define "schemaNestedAttribute" }}
+{{- define "schemaNestedAttribute" -}}
 {{ .TypeMeta.SchemaAttrType }}{
     {{- if or (eq .GoType "types.List") (eq .GoType "types.Set") }}
     NestedObject: schema.NestedAttributeObject{
@@ -95,42 +95,42 @@
         {{- end }}
     },
     {{- end }}
-    {{ template "attr_lifecycle" . }}
-    {{ template "attr_plan_modifiers" . }}
-    {{ template "attr_description" . }}
+    {{- template "attr_lifecycle" . }}
+    {{- template "attr_plan_modifiers" . }}
+    {{- template "attr_description" . }}
 },
-{{- end }}
+{{- end -}}
 
-{{- define "schemaAttribute" }}
+{{- define "schemaAttribute" -}}
 {{- if or (eq .GoType "types.List") (eq .GoType "types.Object") (eq .GoType "types.Set") }}
     {{- if or (and (or (eq .GoType "types.List") (eq .GoType "types.Set")) (eq .ItemType "object")) (eq .GoType "types.Object") }}
-        {{ template "schemaNestedAttribute" . }}
+        {{- template "schemaNestedAttribute" . -}}
     {{- else }}
         {{- /* List/Set of primitives */ -}}
         {{ .TypeMeta.SchemaAttrType }}{
             ElementType: {{ .TypeMeta.ElemType }},
-            {{ template "attr_lifecycle" . }}
-            {{ template "attr_plan_modifiers" . }}
-            {{ template "attr_description" . }}
+            {{- template "attr_lifecycle" . }}
+            {{- template "attr_plan_modifiers" . }}
+            {{- template "attr_description" . -}}
         },
     {{- end }}
 {{- else if eq .GoType "types.Map" }}
     {{ .TypeMeta.SchemaAttrType }}{
         ElementType: {{ .TypeMeta.ElemType }},
-        {{ template "attr_lifecycle" . }}
-        {{ template "attr_plan_modifiers" . }}
-        {{ template "attr_description" . }}
+        {{- template "attr_lifecycle" . }}
+        {{- template "attr_plan_modifiers" . }}
+        {{- template "attr_description" . -}}
     },
 {{- else }}
     {{- /* Primitive Type */ -}}
     {{ .TypeMeta.SchemaAttrType }}{
         {{- if .TypeMeta.IsDateTime }}
         CustomType: timetypes.RFC3339Type{},
-        {{- end }}
-        {{ template "attr_lifecycle" . }}
-        {{ template "attr_plan_modifiers" . }}
-        {{ template "attr_description" . }}
-        {{ template "renderValidators" dict "Field" . "Type" .TypeMeta.ValidatorType "Enum" .Enum "Minimum" .Minimum "Maximum" .Maximum "Pattern" .Pattern "GoType" .GoType }}
+        {{- end -}}
+        {{- template "attr_lifecycle" . }}
+        {{- template "attr_plan_modifiers" . }}
+        {{- template "attr_description" . }}
+        {{- template "renderValidators" dict "Field" . "Type" .TypeMeta.ValidatorType "Enum" .Enum "Minimum" .Minimum "Maximum" .Maximum "Pattern" .Pattern "GoType" .GoType -}}
     },
-{{- end }}
-{{- end }}
+{{- end -}}
+{{- end -}}

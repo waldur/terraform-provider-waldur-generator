@@ -26,11 +26,11 @@
 		}
 	{{- else if eq .GoType "types.Map" }}
 		if apiResp.{{ .Name | title }} != nil {
-			val{{ .Name | title }}, diags{{ .Name | title }} := types.MapValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
+			val{{ .Name | title }}, diags{{ .Name | title }} := types.MapValueFrom(ctx, {{ .TypeMeta.ElemType }}, apiResp.{{ .Name | title }})
 			diags.Append(diags{{ .Name | title }}...)
 			model.{{ .Name | title }} = val{{ .Name | title }}
 		} else {
-			model.{{ .Name | title }} = types.MapNull(types.StringType)
+			model.{{ .Name | title }} = types.MapNull({{ .TypeMeta.ElemType }})
 		}
 	{{- else if eq .Type "object" }}
 		if apiResp.{{ .Name | title }} != nil {

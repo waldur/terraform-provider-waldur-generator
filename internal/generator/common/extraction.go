@@ -212,10 +212,40 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 			}
 
 		case OpenAPITypeObject:
+			// Special case: generic map fields
+			if propName == "attributes" || propName == "limits" || propName == "options" {
+				field.GoType = TFTypeMap
+				field.ItemType = OpenAPITypeString
+				CalculateSDKType(&field)
+				fields = append(fields, field)
+				continue
+			}
+
 			// Nested object - extract properties
 			if nestedFields, err := extractFieldsRecursive(cfg, propSchema, fullPath, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields
 				field.GoType = TFTypeObject
+				CalculateSDKType(&field)
+				fields = append(fields, field)
+			} else if prop.AdditionalProperties.Schema != nil && prop.AdditionalProperties.Schema.Value != nil {
+				// Handle maps with typed values (e.g., map[string]int)
+				field.GoType = TFTypeMap
+				itemType := GetSchemaType(prop.AdditionalProperties.Schema.Value)
+
+				// Special case: 'prices' and 'switch_price' are defined as numbers but returned as strings
+				// 'quotas' and 'marketplace_resource_count' are numbers and returned as numbers
+				if itemType == OpenAPITypeNumber && (propName == "prices" || propName == "switch_price") {
+					field.ItemType = OpenAPITypeString
+				} else {
+					field.ItemType = itemType
+				}
+
+				CalculateSDKType(&field)
+				fields = append(fields, field)
+			} else if err == nil {
+				// Handle generic/dynamic objects (like attributes) as maps
+				field.GoType = TFTypeMap
+				field.ItemType = OpenAPITypeString // Default to Map[String]String
 				CalculateSDKType(&field)
 				fields = append(fields, field)
 			}

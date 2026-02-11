@@ -4,8 +4,8 @@
 {{- /* Helper template for complex field assignment (Post-Init) */ -}}
 {{- define "complexFieldAssignment" -}}
 	{{- if eq .GoType "types.Map" }}
-	{
-		var mapItems map[string]interface{}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		var mapItems {{ .SDKType }}
 		diags := data.{{ .Name | title }}.ElementsAs(ctx, &mapItems, false)
 		resp.Diagnostics.Append(diags...)
 		if !diags.HasError() && len(mapItems) > 0 {
@@ -40,10 +40,10 @@
 {{- if or (eq .Type "array") (eq .Type "object") (eq .GoType "types.Map") }}
 {{- if $.Operation }}
 {{- if not (isPathParam $.Operation .Name) }}
-{{- template "complexFieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" $.Operation "ItemSchema" .ItemSchema "RefName" .RefName }}
+{{- template "complexFieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" $.Operation "ItemSchema" .ItemSchema "RefName" .RefName "SDKType" .SDKType }}
 {{- end }}
 {{- else }}
-{{- template "complexFieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" nil "ItemSchema" .ItemSchema "RefName" .RefName }}
+{{- template "complexFieldAssignment" dict "Name" .Name "Type" .Type "GoType" .GoType "ItemType" .ItemType "Required" .Required "Prefix" $.Prefix "Operation" nil "ItemSchema" .ItemSchema "RefName" .RefName "SDKType" .SDKType }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -117,9 +117,22 @@
 		return
 	}
 
+	{{- if eq .Name "marketplace_order" }}
+	_, err = common.WaitForOrder(ctx, r.client.Client, data.UUID.ValueString(), createTimeout)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
+		return
+	}
+	newResp, err := r.client.Get(ctx, data.UUID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
+		return
+	}
+	{{- else }}
 	newResp, err := common.WaitForResource(ctx, func(ctx context.Context) (*{{ .Name | title }}Response, error) {
 		return r.client.Get(ctx, data.UUID.ValueString())
 	}, createTimeout)
+	{{- end }}
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
 		return
@@ -236,6 +249,10 @@
 		var objVal {{ if $field.RefName }}common.{{ $field.RefName }}{{ else }}{{ $.Name | title }}Create{{ $action.Param | title }}Request{{ end }}
 		resp.Diagnostics.Append(data.{{ $action.Param | title }}.As(ctx, &objVal, basetypes.ObjectAsOptions{})...)
 		req.{{ $action.Param | title }} = &objVal
+		{{- else if eq $field.GoType "types.Map" }}
+		var mapItems map[string]interface{}
+		resp.Diagnostics.Append(data.{{ $action.Param | title }}.ElementsAs(ctx, &mapItems, false)...)
+		req.{{ $action.Param | title }} = mapItems
 		{{- else }}
 		{{- template "fieldAssignment" dict "Field" $field "Target" "req" }}
 		{{- end }}
@@ -286,6 +303,12 @@
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() { return }
 
+	{{- if eq .Name "marketplace_order" }}
+	// Marketplace Orders are immutable history records and cannot be deleted.
+	// We just remove them from state.
+	resp.State.RemoveResource(ctx)
+	return
+	{{- else }}
 	err := r.client.Delete(ctx, data.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -309,6 +332,7 @@
 		resp.Diagnostics.AddError("Failed to wait for resource deletion", err.Error())
 		return
 	}
+	{{- end }}
 	{{- end }}
 	{{- else }}
 	resp.Diagnostics.AddError("Deletion Not Supported", "This resource cannot be deleted via the API.")

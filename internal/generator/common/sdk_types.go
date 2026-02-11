@@ -80,6 +80,7 @@ func CalculateSDKType(f *FieldInfo) {
 				valType = GoTypeString
 			}
 			f.SDKType = "map[string]" + valType
+			CalculateTypeMeta(f)
 			return
 		}
 

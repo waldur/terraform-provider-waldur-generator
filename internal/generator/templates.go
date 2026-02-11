@@ -168,8 +168,8 @@ func GetFuncMap() template.FuncMap {
 				}
 			}
 
-			// Handle FlexibleNumber for responses
-			if f.Type == common.OpenAPITypeNumber && suffix == "Response" {
+			// Handle FlexibleNumber for responses and common types (like OrderDetails)
+			if f.Type == common.OpenAPITypeNumber && (suffix == "Response" || pkgName == "common") {
 				if pkgName != "common" {
 					sdkType = "common.FlexibleNumber"
 				} else {

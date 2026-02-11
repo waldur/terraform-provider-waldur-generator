@@ -161,97 +161,40 @@ func GetFuncMap() template.FuncMap {
 			return items
 		},
 		"renderGoType": func(f common.FieldInfo, pkgName string, prefix string, suffix string) string {
-			typeName := ""
-			isPointer := true
-			if f.JsonTag == "-" {
-				switch f.GoType {
-				case "types.String":
-					typeName = "types.String"
-					isPointer = false
-				case "types.Int64":
-					typeName = "types.Int64"
-					isPointer = false
-				case "types.Bool":
-					typeName = "types.Bool"
-					isPointer = false
-				case "types.Float64":
-					typeName = "types.Float64"
-					isPointer = false
-				case "types.List":
-					typeName = "types.List"
-					isPointer = false
-				case "types.Set":
-					typeName = "types.Set"
-					isPointer = false
+			sdkType := f.SDKType
+			isPointer := f.IsPointer
+
+			// Handle context-dependent anonymous types
+			if f.Type == common.OpenAPITypeObject && sdkType == "" {
+				sdkType = prefix + common.ToTitle(f.Name) + suffix
+			} else if f.Type == common.OpenAPITypeArray && f.ItemType == common.OpenAPITypeObject && sdkType == "[]" {
+				elemType := prefix + common.ToTitle(f.Name) + suffix
+				sdkType = "[]" + elemType
+			}
+
+			// Handle package prefixes for references
+			if pkgName != "common" {
+				if f.Type == common.OpenAPITypeObject && f.RefName != "" {
+					sdkType = "common." + f.RefName
+				} else if f.Type == common.OpenAPITypeArray && f.ItemRefName != "" {
+					sdkType = "[]common." + f.ItemRefName
 				}
 			}
-			if typeName == "" {
-				if f.Type == "string" {
-					typeName = "string"
-				} else if f.Type == "integer" {
-					typeName = "int64"
-				} else if f.Type == "boolean" {
-					typeName = "bool"
-				} else if f.Type == "number" {
-					typeName = "float64"
-					if suffix == "Response" {
-						if pkgName != "common" {
-							typeName = "common.FlexibleNumber"
-						} else {
-							typeName = "FlexibleNumber"
-						}
-					}
-				}
-			}
-			if typeName != "" {
-			} else if f.Type == "array" {
-				isPointer = !f.Required
-				if f.ItemType == "string" {
-					typeName = "[]string"
-				} else if f.ItemType == "integer" {
-					typeName = "[]int64"
+
+			// Handle FlexibleNumber for responses
+			if f.Type == common.OpenAPITypeNumber && suffix == "Response" {
+				if pkgName != "common" {
+					sdkType = "common.FlexibleNumber"
 				} else {
-					elemType := ""
-					if f.ItemSchema != nil && f.ItemSchema.RefName != "" {
-						if pkgName != "common" {
-							elemType = "common." + f.ItemSchema.RefName
-						} else {
-							elemType = f.ItemSchema.RefName
-						}
-					} else {
-						elemType = prefix + common.ToTitle(f.Name) + suffix
-					}
-					typeName = "[]" + elemType
+					sdkType = "FlexibleNumber"
 				}
-			} else if f.GoType == "types.Map" {
-				valType := "interface{}"
-				if f.ItemType == "number" {
-					valType = "float64"
-				} else if f.ItemType == "integer" {
-					valType = "int64"
-				} else if f.ItemType == "string" {
-					valType = "string"
-				}
-				typeName = "map[string]" + valType
 				isPointer = false
-			} else if f.Type == "object" {
-				if f.RefName != "" {
-					if pkgName != "common" {
-						typeName = "common." + f.RefName
-					} else {
-						typeName = f.RefName
-					}
-				} else {
-					typeName = prefix + common.ToTitle(f.Name) + suffix
-				}
 			}
-			if typeName == "" {
-				typeName = "string"
-			}
+
 			if isPointer {
-				return "*" + typeName
+				return "*" + sdkType
 			}
-			return typeName
+			return sdkType
 		},
 	}
 }

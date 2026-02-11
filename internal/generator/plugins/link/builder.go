@@ -29,9 +29,11 @@ func (b *LinkBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
 			}
 		}
 		if !found {
-			fields = append(fields, common.FieldInfo{
-				Name: b.Resource.Source.Param, Type: "string", Description: "Source resource UUID", GoType: "types.String", Required: true,
-			})
+			f := common.FieldInfo{
+				Name: b.Resource.Source.Param, Type: common.OpenAPITypeString, Description: "Source resource UUID", GoType: common.TFTypeString, Required: true,
+			}
+			common.CalculateSDKType(&f)
+			fields = append(fields, f)
 		}
 	}
 	if b.Resource.Target != nil && b.Resource.Target.Param != "" {
@@ -43,9 +45,11 @@ func (b *LinkBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
 			}
 		}
 		if !found {
-			fields = append(fields, common.FieldInfo{
-				Name: b.Resource.Target.Param, Type: "string", Description: "Target resource UUID", GoType: "types.String", Required: true,
-			})
+			f := common.FieldInfo{
+				Name: b.Resource.Target.Param, Type: common.OpenAPITypeString, Description: "Target resource UUID", GoType: common.TFTypeString, Required: true,
+			}
+			common.CalculateSDKType(&f)
+			fields = append(fields, f)
 		}
 	}
 	// LinkParams
@@ -58,18 +62,11 @@ func (b *LinkBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
 			}
 		}
 		if !found {
-			goType := "types.String"
-			switch param.Type {
-			case "boolean":
-				goType = "types.Bool"
-			case "integer":
-				goType = "types.Int64"
-			case "number":
-				goType = "types.Float64"
+			f := common.FieldInfo{
+				Name: param.Name, Type: param.Type, Description: "Link parameter", GoType: common.GetGoType(param.Type), Required: false,
 			}
-			fields = append(fields, common.FieldInfo{
-				Name: param.Name, Type: param.Type, Description: "Link parameter", GoType: goType, Required: false,
-			})
+			common.CalculateSDKType(&f)
+			fields = append(fields, f)
 		}
 	}
 	return fields, nil

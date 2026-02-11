@@ -153,8 +153,11 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 		// Handle different types
 		field.GoType = GetGoType(typeStr)
 
+		// Calculate SDK specific types
+		CalculateSDKType(&field)
+
 		switch typeStr {
-		case "string":
+		case OpenAPITypeString:
 			// Check for enum
 			if len(prop.Enum) > 0 {
 				field.Enum = make([]string, 0, len(prop.Enum))
@@ -166,10 +169,10 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 			}
 			fields = append(fields, field)
 
-		case "integer", "boolean", "number":
+		case OpenAPITypeInteger, OpenAPITypeBoolean, OpenAPITypeNumber:
 			fields = append(fields, field)
 
-		case "array":
+		case OpenAPITypeArray:
 			// Extract array item type
 			if prop.Items != nil && prop.Items.Value != nil {
 				itemType := GetSchemaType(prop.Items.Value)
@@ -181,47 +184,153 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 					field.ItemRefName = parts[len(parts)-1]
 				}
 
-				if itemType == "string" {
+				if itemType == OpenAPITypeString {
 					if IsSetField(cfg, propName) {
-						field.GoType = "types.Set"
+						field.GoType = TFTypeSet
 					} else {
-						field.GoType = "types.List"
+						field.GoType = TFTypeList
 					}
+					// Recalculate SDK type after setting ItemType
+					CalculateSDKType(&field)
 					fields = append(fields, field)
-				} else if itemType == "object" {
+				} else if itemType == OpenAPITypeObject {
 					// Array of objects - extract nested schema
 					if nestedFields, err := extractFieldsRecursive(cfg, prop.Items, fullPath, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 						// Store first nested field as representative schema
 						if len(nestedFields) > 0 {
 							field.ItemSchema = &FieldInfo{
-								Type:       "object",
-								GoType:     "types.Object",
+								Type:       OpenAPITypeObject,
+								GoType:     TFTypeObject,
 								Properties: nestedFields,
 								RefName:    field.ItemRefName, // Propagate ref name to item schema
 							}
+							CalculateSDKType(field.ItemSchema)
 						}
 
 						if IsSetField(cfg, propName) {
-							field.GoType = "types.Set"
+							field.GoType = TFTypeSet
 						} else {
-							field.GoType = "types.List"
+							field.GoType = TFTypeList
 						}
+						CalculateSDKType(&field)
 						fields = append(fields, field)
 					}
+				} else {
+					// Other primitive arrays (integer, etc)
+					if IsSetField(cfg, propName) {
+						field.GoType = TFTypeSet
+					} else {
+						field.GoType = TFTypeList
+					}
+					CalculateSDKType(&field)
+					fields = append(fields, field)
 				}
 			}
 
-		case "object":
+		case OpenAPITypeObject:
 			// Nested object - extract properties
 			if nestedFields, err := extractFieldsRecursive(cfg, propSchema, fullPath, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 				field.Properties = nestedFields
-				field.GoType = "types.Object"
+				field.GoType = TFTypeObject
+				CalculateSDKType(&field)
 				fields = append(fields, field)
 			}
 		}
 	}
 
 	return fields, nil
+}
+
+// CalculateSDKType determines the Go SDK type and pointer status for a field
+func CalculateSDKType(f *FieldInfo) {
+	// Default pointer status: optional fields are pointers
+	f.IsPointer = !f.Required
+
+	// 1. Types that are explicitly ignored/internal use Terraform types
+	if f.JsonTag == "-" {
+		f.IsPointer = false
+		switch f.GoType {
+		case TFTypeString:
+			f.SDKType = TFTypeString
+		case TFTypeInt64:
+			f.SDKType = TFTypeInt64
+		case TFTypeBool:
+			f.SDKType = TFTypeBool
+		case TFTypeFloat64:
+			f.SDKType = TFTypeFloat64
+		case TFTypeList:
+			f.SDKType = TFTypeList
+		case TFTypeSet:
+			f.SDKType = TFTypeSet
+		case TFTypeMap:
+			f.SDKType = TFTypeMap
+		default:
+			f.SDKType = TFTypeString
+		}
+		return
+	}
+
+	// 2. Standard Go Types
+	switch f.Type {
+	case OpenAPITypeString:
+		f.SDKType = GoTypeString
+		f.IsPointer = true // Strings are almost always pointers in SDK
+
+	case OpenAPITypeInteger:
+		f.SDKType = GoTypeInt64
+		f.IsPointer = true // All primitives are always pointers in SDK structs
+
+	case OpenAPITypeBoolean:
+		f.SDKType = GoTypeBool
+		f.IsPointer = true
+
+	case OpenAPITypeNumber:
+		f.SDKType = GoTypeFloat64
+		f.IsPointer = true
+
+	case OpenAPITypeArray:
+		f.IsPointer = !f.Required // Slices are pointers if optional in this SDK convention
+		if f.ItemType == OpenAPITypeString {
+			f.SDKType = "[]string"
+		} else if f.ItemType == OpenAPITypeInteger {
+			f.SDKType = "[]int64"
+		} else if f.ItemType == OpenAPITypeNumber {
+			f.SDKType = "[]float64"
+		} else if f.ItemType == OpenAPITypeObject {
+			// Array of objects
+			// If ItemSchema has RefName, use it
+			if f.ItemSchema != nil && f.ItemSchema.RefName != "" {
+				f.SDKType = "[]" + f.ItemSchema.RefName
+			} else {
+				// Anonymous struct, templates will handle prefix naming
+				f.SDKType = "[]"
+			}
+		}
+
+	case OpenAPITypeObject:
+		// Map detection (Terraform types.Map logic)
+		if f.GoType == TFTypeMap {
+			f.IsPointer = false // Maps are reference types
+			valType := GoTypeAny
+			switch f.ItemType {
+			case OpenAPITypeNumber:
+				valType = GoTypeFloat64
+			case OpenAPITypeInteger:
+				valType = GoTypeInt64
+			case OpenAPITypeString:
+				valType = GoTypeString
+			}
+			f.SDKType = "map[string]" + valType
+			return
+		}
+
+		f.IsPointer = true
+		if f.RefName != "" {
+			f.SDKType = f.RefName
+		} else {
+			f.SDKType = "" // Anonymous
+		}
+	}
 }
 
 // MergeFields combines two lists of fields, deduplicating by name.
@@ -726,20 +835,20 @@ func ExtractFilterParams(op *openapi3.Operation, resourceName string) []FilterPa
 // GetGoType maps OpenAPI types to Terraform Plugin Framework types
 func GetGoType(openAPIType string) string {
 	switch openAPIType {
-	case "string":
-		return "types.String"
-	case "integer":
-		return "types.Int64"
-	case "boolean":
-		return "types.Bool"
-	case "number":
-		return "types.Float64"
-	case "array":
-		return "types.List"
-	case "object":
-		return "types.Object"
+	case OpenAPITypeString:
+		return TFTypeString
+	case OpenAPITypeInteger:
+		return TFTypeInt64
+	case OpenAPITypeBoolean:
+		return TFTypeBool
+	case OpenAPITypeNumber:
+		return TFTypeFloat64
+	case OpenAPITypeArray:
+		return TFTypeList
+	case OpenAPITypeObject:
+		return TFTypeObject
 	default:
-		return "types.String" // Fallback
+		return TFTypeString // Fallback
 	}
 }
 

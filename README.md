@@ -15,6 +15,33 @@ This generator reads a Waldur OpenAPI schema and a YAML configuration file to au
 - ✅ **Multi-platform builds**: Generates providers for Linux, macOS, and Windows
 - ✅ **Registry-ready**: Includes GoReleaser config and GitHub Actions for automated publishing
 - ✅ **Modular resource naming**: Supports module-prefixed resources (e.g., `structure_project`, `openstack_instance`)
+- ✅ **E2E Testing with go-VCR**: Full CRUD lifecycle testing with recorded API interactions
+
+## Architecture
+
+The generator follows a modular component-based architecture designed for extensibility and determinism.
+
+```mermaid
+graph TD
+    Config[config.yaml] --> Generator
+    OpenAPI[waldur-api.yaml] --> Generator
+    
+    subgraph Generator
+        Parser[OpenAPI Parser]
+        Common[Common Logic: Schema Extraction, Type Mapping]
+        Components[Component Builders: Resource, DataSource, Action]
+        Plugins[Plugin Layer: Standard, Order, Link]
+        Templates[Go Templates]
+    end
+    
+    Parser --> Common
+    Common --> Components
+    Components --> Plugins
+    Plugins --> Templates
+    Templates --> Output[Generated Provider Code]
+```
+
+For more details on the design principles and architecture, see the **[Developer Guide](docs/DEVELOPER_GUIDE.md)**.
 
 ## Installation
 
@@ -224,14 +251,18 @@ output/
 ├── main.go                          # Provider entry point
 ├── go.mod                           # Go module
 ├── internal/
-│   ├── provider/                   # Provider configuration
-│   ├── resources/                  # Generated resources
-│   ├── datasources/                # Generated data sources
-│   └── client/                     # Waldur API client
-├── .goreleaser.yml                 # Multi-platform build config
-├── terraform-registry-manifest.json # Registry metadata
-└── .github/workflows/
-    └── release.yml                 # Automated release workflow
+│   ├── provider/                    # Provider implementation
+│   ├── client/                      # API client logic
+│   ├── sdk/                         # Generated Go SDK for Waldur
+│   └── testhelpers/                 # Test utilities
+├── services/                        # Service-specific resources
+│   ├── core/                        # Core resources/datasources
+│   ├── marketplace/                 # Marketplace resources/datasources
+│   └── ...                          # Other Waldur services
+├── e2e_test/                        # End-to-end acceptance tests
+├── examples/                        # HCL examples for the Registry
+├── .goreleaser.yml                  # Release configuration
+└── terraform-registry-manifest.json  # Metadata for Terraform Registry
 ```
 
 ## Publishing to Terraform Registry
@@ -284,7 +315,7 @@ The GitHub Actions workflow will automatically:
 ### Generator Section
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| :--- | :--- | :--- | :--- |
 | `openapi_schema` | string | Yes | Path to Waldur OpenAPI schema file |
 | `output_dir` | string | No | Output directory (default: `output`) |
 | `provider_name` | string | Yes | Provider name (e.g., `waldur`) |
@@ -292,7 +323,7 @@ The GitHub Actions workflow will automatically:
 ### Resources and Data Sources
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| :--- | :--- | :--- | :--- |
 | `name` | string | Yes | Resource/data source name (with module prefix) |
 | `base_operation_id` | string | Yes | Base operation ID for convention-based inference |
 
@@ -304,13 +335,17 @@ The GitHub Actions workflow will automatically:
 terraform-provider-waldur-generator/
 ├── main.go                      # CLI entry point
 ├── internal/
-│   ├── config/                 # Configuration parsing
-│   ├── openapi/                # OpenAPI schema parsing
-│   └── generator/              # Code generation logic
-│       └── templates/          # Template files
-├── output/                     # Generated provider
-├── examples/                   # Example configurations
-└── config.yaml                 # Example config
+│   ├── config/                  # Configuration parsing
+│   ├── openapi/                 # OpenAPI schema parsing
+│   └── generator/               # Code generation logic
+│       ├── common/              # Shared logic (schema, logic, utils)
+│       ├── components/          # Template data prep (resource, datasource, list, action)
+│       ├── plugins/             # Resource flavors (standard, order, link)
+│       ├── templates/           # Go template files (.tmpl)
+│       └── ...                  # Generator modules (sdk, client, scaffold)
+├── output/                      # Generated provider (git-ignored)
+├── config.yaml                  # Generator configuration
+└── waldur_api.yaml              # Waldur OpenAPI specification
 ```
 
 ### Running Tests

@@ -60,3 +60,9 @@ var OrderCommonFields = []FieldInfo{
 		IsPointer:   true,
 	},
 }
+
+func init() {
+	for i := range OrderCommonFields {
+		CalculateTypeMeta(&OrderCommonFields[i])
+	}
+}

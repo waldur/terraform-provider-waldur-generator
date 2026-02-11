@@ -31,15 +31,11 @@ func ToAttrType(f common.FieldInfo) string {
 
 // ToAttrTypeDefinition converts FieldInfo to proper attr.Type expression used in Terraform schema
 func ToAttrTypeDefinition(f common.FieldInfo) string {
+	if !f.TypeMeta.IsComplex {
+		return f.TypeMeta.AttrValueType
+	}
+
 	switch f.GoType {
-	case common.TFTypeString:
-		return "types.StringType"
-	case common.TFTypeInt64:
-		return "types.Int64Type"
-	case common.TFTypeBool:
-		return "types.BoolType"
-	case common.TFTypeFloat64:
-		return "types.Float64Type"
 	case common.TFTypeList:
 		if f.ItemType == common.OpenAPITypeObject && f.ItemSchema != nil {
 			var attrTypes []string
@@ -54,15 +50,8 @@ func ToAttrTypeDefinition(f common.FieldInfo) string {
 			objType := "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
 			return "types.ListType{ElemType: " + objType + "}"
 		}
-		elemType := "types.StringType"
-		if f.ItemType == common.OpenAPITypeInteger {
-			elemType = "types.Int64Type"
-		} else if f.ItemType == common.OpenAPITypeBoolean {
-			elemType = "types.BoolType"
-		} else if f.ItemType == common.OpenAPITypeNumber {
-			elemType = "types.Float64Type"
-		}
-		return "types.ListType{ElemType: " + elemType + "}"
+		return "types.ListType{ElemType: " + f.TypeMeta.ElemType + "}"
+
 	case common.TFTypeSet:
 		if f.ItemType == common.OpenAPITypeObject && f.ItemSchema != nil {
 			var attrTypes []string
@@ -77,15 +66,11 @@ func ToAttrTypeDefinition(f common.FieldInfo) string {
 			objType := "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
 			return "types.SetType{ElemType: " + objType + "}"
 		}
-		elemType := "types.StringType"
-		if f.ItemType == common.OpenAPITypeInteger {
-			elemType = "types.Int64Type"
-		} else if f.ItemType == common.OpenAPITypeBoolean {
-			elemType = "types.BoolType"
-		} else if f.ItemType == common.OpenAPITypeNumber {
-			elemType = "types.Float64Type"
-		}
-		return "types.SetType{ElemType: " + elemType + "}"
+		return "types.SetType{ElemType: " + f.TypeMeta.ElemType + "}"
+
+	case common.TFTypeMap:
+		return "types.MapType{ElemType: " + f.TypeMeta.ElemType + "}"
+
 	case common.TFTypeObject:
 		var attrTypes []string
 		for _, prop := range f.Properties {
@@ -96,6 +81,7 @@ func ToAttrTypeDefinition(f common.FieldInfo) string {
 			content += ","
 		}
 		return "types.ObjectType{AttrTypes: map[string]attr.Type{\n" + content + "\n}}"
+
 	default:
 		return "types.StringType"
 	}

@@ -35,8 +35,9 @@ type FieldInfo struct {
 	Pattern string   // Regex pattern for string fields
 
 	// Type Information
-	SDKType   string // Pre-calculated Go SDK type string (e.g., "*string", "[]common.Tag")
-	IsPointer bool   // Whether the SDK type is a pointer
+	SDKType   string   // Pre-calculated Go SDK type string (e.g., "*string", "[]common.Tag")
+	IsPointer bool     // Whether the SDK type is a pointer
+	TypeMeta  TypeMeta // Pre-calculated type-specific strings for templates
 
 	// Ref support
 	RefName       string // Ref name for object type

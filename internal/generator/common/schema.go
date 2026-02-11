@@ -331,6 +331,9 @@ func CalculateSDKType(f *FieldInfo) {
 			f.SDKType = "" // Anonymous
 		}
 	}
+
+	// Always calculate TypeMeta after SDK type is determined
+	CalculateTypeMeta(f)
 }
 
 // MergeFields combines two lists of fields, deduplicating by name.
@@ -858,14 +861,5 @@ func GetGoType(openAPIType string) string {
 
 // GetFilterParamType maps OpenAPI/Go types to string identifiers used in FilterParam
 func GetFilterParamType(goTypeStr string) string {
-	switch goTypeStr {
-	case TFTypeInt64:
-		return "Int64"
-	case TFTypeBool:
-		return "Bool"
-	case TFTypeFloat64:
-		return "Float64"
-	default:
-		return "String"
-	}
+	return GoTypeToValidatorType(goTypeStr)
 }

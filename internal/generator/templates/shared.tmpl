@@ -42,17 +42,17 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	{{- if not .SchemaSkip }}
 	{{- /* Handle basic types */ -}}
 	{{- if eq .Type "string" }}
-	{{- if eq .Format "date-time" }}
+	{{- if .TypeMeta.IsDateTime }}
 	val{{ .Name | title }}, diags{{ .Name | title }} := timetypes.NewRFC3339PointerValue(apiResp.{{ .Name | title }})
 	diags.Append(diags{{ .Name | title }}...)
 	model.{{ .Name | title }} = val{{ .Name | title }}
 	{{- else }}
-	model.{{ .Name | title }} = common.StringPointerValue(apiResp.{{ .Name | title }})
+	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
 	{{- end }}
 	{{- else if eq .Type "integer" }}
-	model.{{ .Name | title }} = types.Int64PointerValue(apiResp.{{ .Name | title }})
+	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "boolean" }}
-	model.{{ .Name | title }} = types.BoolPointerValue(apiResp.{{ .Name | title }})
+	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "number" }}
 	model.{{ .Name | title }} = types.Float64PointerValue(apiResp.{{ .Name | title }}.Float64Ptr())
 	{{- else if eq .Type "array" }}
@@ -167,8 +167,8 @@ type {{ $prefix }}{{ .Name | title }} struct {
 
 
 {{- define "schemaNestedAttribute" }}
-{{- if eq .GoType "types.List" }}
-schema.ListNestedAttribute{
+{{ .TypeMeta.SchemaAttrType }}{
+    {{- if or (eq .GoType "types.List") (eq .GoType "types.Set") }}
     NestedObject: schema.NestedAttributeObject{
         Attributes: map[string]schema.Attribute{
             {{- range .ItemSchema.Properties }}
@@ -176,72 +176,13 @@ schema.ListNestedAttribute{
             {{- end }}
         },
     },
-    {{- if .ReadOnly }}
-    Computed: true,
-    {{- else if .Required }}
-    Required: true,
     {{- else }}
-    Optional: true,
-    {{- if or .ServerComputed .ReadOnly }}
-    Computed: true,
-    {{- end }}
-    {{- end }}
-    {{- if not .IsDataSource }}
-    {{- if or .ForceNew .ServerComputed .ReadOnly }}
-    PlanModifiers: []planmodifier.List{
-        {{- if .ForceNew }}
-        listplanmodifier.RequiresReplace(),
-        {{- end }}
-        {{- if .UseStateForUnknown }}
-        listplanmodifier.UseStateForUnknown(),
-        {{- end }}
-    },
-    {{- end }}
-    {{- end }}
-    MarkdownDescription: "{{ .Description }}",
-},
-{{- else if eq .GoType "types.Set" }}
-schema.SetNestedAttribute{
-    NestedObject: schema.NestedAttributeObject{
-        Attributes: map[string]schema.Attribute{
-            {{- range .ItemSchema.Properties }}
-                "{{ .Name }}": {{ template "schemaAttribute" . }}
-            {{- end }}
-        },
-    },
-    {{- if .ReadOnly }}
-    Computed: true,
-    {{- else if .Required }}
-    Required: true,
-    {{- else }}
-    Optional: true,
-    {{- if or .ServerComputed .ReadOnly }}
-    Computed: true,
-    {{- end }}
-    {{- end }}
-    {{- if not .IsDataSource }}
-    {{- if or .ForceNew .ServerComputed .ReadOnly }}
-    PlanModifiers: []planmodifier.Set{
-        {{- if .ForceNew }}
-        // Set plan modifiers would go here if needed, but not standard in v1 yet for Sets in same way? 
-        // Actually setplanmodifier exists
-        setplanmodifier.RequiresReplace(),
-        {{- end }}
-        {{- if .UseStateForUnknown }}
-        setplanmodifier.UseStateForUnknown(),
-        {{- end }}
-    },
-    {{- end }}
-    {{- end }}
-    MarkdownDescription: "{{ .Description }}",
-},
-{{- else if eq .GoType "types.Object" }}
-schema.SingleNestedAttribute{
     Attributes: map[string]schema.Attribute{
         {{- range .Properties }}
             "{{ .Name }}": {{ template "schemaAttribute" . }}
         {{- end }}
     },
+    {{- end }}
     {{- if .ReadOnly }}
     Computed: true,
     {{- else if .Required }}
@@ -254,19 +195,18 @@ schema.SingleNestedAttribute{
     {{- end }}
     {{- if not .IsDataSource }}
     {{- if or .ForceNew .ServerComputed .ReadOnly }}
-    PlanModifiers: []planmodifier.Object{
+    PlanModifiers: []{{ .TypeMeta.PlanModType }}{
         {{- if .ForceNew }}
-        objectplanmodifier.RequiresReplace(),
+        {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
         {{- end }}
         {{- if .UseStateForUnknown }}
-        objectplanmodifier.UseStateForUnknown(),
+        {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
         {{- end }}
     },
     {{- end }}
     {{- end }}
     MarkdownDescription: "{{ .Description }}",
 },
-{{- end }}
 {{- end }}
 
 {{- define "schemaAttribute" }}
@@ -275,8 +215,8 @@ schema.SingleNestedAttribute{
         {{ template "schemaNestedAttribute" . }}
     {{- else }}
         {{- /* List/Set of primitives */ -}}
-        schema.{{ if eq .GoType "types.List" }}List{{ else }}Set{{ end }}Attribute{
-            ElementType: {{ if eq .ItemType "integer" }}types.Int64Type{{ else if eq .ItemType "boolean" }}types.BoolType{{ else if eq .ItemType "number" }}types.Float64Type{{ else }}types.StringType{{ end }},
+        {{ .TypeMeta.SchemaAttrType }}{
+            ElementType: {{ .TypeMeta.ElemType }},
             {{- if .ReadOnly }}
             Computed: true,
             {{- else if .Required }}
@@ -289,12 +229,12 @@ schema.SingleNestedAttribute{
             {{- end }}
             {{- if not .IsDataSource }}
             {{- if or .ForceNew .ServerComputed .ReadOnly }}
-            PlanModifiers: []planmodifier.{{ if eq .GoType "types.List" }}List{{ else }}Set{{ end }}{
+            PlanModifiers: []{{ .TypeMeta.PlanModType }}{
                 {{- if .ForceNew }}
-                {{ if eq .GoType "types.List" }}listplanmodifier{{ else }}setplanmodifier{{ end }}.RequiresReplace(),
+                {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
                 {{- end }}
                 {{- if .UseStateForUnknown }}
-                {{ if eq .GoType "types.List" }}listplanmodifier{{ else }}setplanmodifier{{ end }}.UseStateForUnknown(),
+                {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
                 {{- end }}
             },
             {{- end }}
@@ -303,8 +243,8 @@ schema.SingleNestedAttribute{
         },
     {{- end }}
 {{- else if eq .GoType "types.Map" }}
-    schema.MapAttribute{
-        ElementType: {{ if eq .ItemType "integer" }}types.Int64Type{{ else if eq .ItemType "boolean" }}types.BoolType{{ else if eq .ItemType "number" }}types.Float64Type{{ else }}types.StringType{{ end }},
+    {{ .TypeMeta.SchemaAttrType }}{
+        ElementType: {{ .TypeMeta.ElemType }},
         {{- if .ReadOnly }}
         Computed: true,
         {{- else if .Required }}
@@ -317,12 +257,12 @@ schema.SingleNestedAttribute{
         {{- end }}
         {{- if not .IsDataSource }}
         {{- if or .ForceNew .ServerComputed .ReadOnly }}
-        PlanModifiers: []planmodifier.Map{
+        PlanModifiers: []{{ .TypeMeta.PlanModType }}{
             {{- if .ForceNew }}
-            mapplanmodifier.RequiresReplace(),
+            {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
             {{- end }}
             {{- if .UseStateForUnknown }}
-            mapplanmodifier.UseStateForUnknown(),
+            {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
             {{- end }}
         },
         {{- end }}
@@ -331,8 +271,8 @@ schema.SingleNestedAttribute{
     },
 {{- else }}
     {{- /* Primitive Type */ -}}
-    schema.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}Attribute{
-        {{- if and (eq .Type "string") (eq .Format "date-time") }}
+    {{ .TypeMeta.SchemaAttrType }}{
+        {{- if .TypeMeta.IsDateTime }}
         CustomType: timetypes.RFC3339Type{},
         {{- end }}
         {{- if .ReadOnly }}
@@ -347,12 +287,12 @@ schema.SingleNestedAttribute{
         {{- end }}
         {{- if not .IsDataSource }}
         {{- if or .ForceNew .ServerComputed .ReadOnly }}
-            PlanModifiers: []planmodifier.{{ if eq .Type "string" }}String{{ else if eq .Type "integer" }}Int64{{ else if eq .Type "boolean" }}Bool{{ else if eq .Type "number" }}Float64{{ end }}{
+            PlanModifiers: []{{ .TypeMeta.PlanModType }}{
                 {{- if .ForceNew }}
-                {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.RequiresReplace(),
+                {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
                 {{- end }}
                 {{- if .UseStateForUnknown }}
-                {{ if eq .Type "string" }}stringplanmodifier{{ else if eq .Type "integer" }}int64planmodifier{{ else if eq .Type "boolean" }}boolplanmodifier{{ else if eq .Type "number" }}float64planmodifier{{ end }}.UseStateForUnknown(),
+                {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
                 {{- end }}
                 {{- if .UnknownIfNull }}
                 common.UnknownIfNullModifier{},
@@ -364,12 +304,7 @@ schema.SingleNestedAttribute{
         {{- if contains .Name "password" }}
         Sensitive: true,
         {{- end }}
-        {{- $vType := "" -}}
-        {{- if eq .Type "string" }}{{ $vType = "String" -}}
-        {{- else if eq .Type "integer" }}{{ $vType = "Int64" -}}
-        {{- else if eq .Type "number" }}{{ $vType = "Float64" -}}
-        {{- end -}}
-        {{ template "renderValidators" dict "Field" . "Type" $vType "Enum" .Enum "Minimum" .Minimum "Maximum" .Maximum "Pattern" .Pattern "GoType" .GoType }}
+        {{ template "renderValidators" dict "Field" . "Type" .TypeMeta.ValidatorType "Enum" .Enum "Minimum" .Minimum "Maximum" .Maximum "Pattern" .Pattern "GoType" .GoType }}
     },
 {{- end }}
 {{- end }}
@@ -451,7 +386,7 @@ type {{ $prefix }}{{ .Name | title }}Response struct {
 
 {{- /* Helper: Assign simple field from Terraform data to a target variable */ -}}
 {{- define "fieldAssignment" }}
-{{ .Target }}.{{ .Field.Name | title }} = data.{{ .Field.Name | title }}.Value{{ if or (eq .Field.Type "string") (eq .Field.GoType "types.String") }}String{{ else if or (eq .Field.Type "integer") (eq .Field.GoType "types.Int64") }}Int64{{ else if or (eq .Field.Type "boolean") (eq .Field.GoType "types.Bool") }}Bool{{ else if or (eq .Field.Type "number") (eq .Field.GoType "types.Float64") }}Float64{{ end }}Pointer()
+{{ .Target }}.{{ .Field.Name | title }} = data.{{ .Field.Name | title }}.{{ .Field.TypeMeta.ToAPIMethod }}()
 {{- end }}
 
 {{- /* Shared Read Logic (Base) */ -}}

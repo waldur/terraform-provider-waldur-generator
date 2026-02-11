@@ -348,8 +348,16 @@ func mergeOrderedFieldsRecursive(input, output []FieldInfo) []FieldInfo {
 			updated := false
 
 			// If it appears in both input and output, it's server-computed
-			existing.ServerComputed = true
+			// BUT if it's required in input, it should stay required (not computed+optional)
+			if !existing.Required { // Check the 'input' field's Required status
+				existing.ServerComputed = true
+			}
 			updated = true
+
+			// Update description if output has one and input doesn't
+			if existing.Description == "" && f.Description != "" {
+				existing.Description = f.Description
+			}
 
 			// Merge nested lists of objects
 			if existing.ItemType == "object" && f.ItemType == "object" && existing.ItemSchema != nil && f.ItemSchema != nil {

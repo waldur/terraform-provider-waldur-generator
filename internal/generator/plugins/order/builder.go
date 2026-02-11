@@ -23,9 +23,6 @@ func (b *OrderBuilder) BuildCreateFields() ([]common.FieldInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := range fields {
-		fields[i].Required = false
-	}
 	// Add required offering and project fields
 	fields = append(fields, common.FieldInfo{
 		Name: "offering", Type: "string", Description: "Offering URL", GoType: "types.String", Required: true,
@@ -57,6 +54,8 @@ func (b *OrderBuilder) BuildModelFields(createFields, responseFields []common.Fi
 	modelFields = common.MergeFields(modelFields, []common.FieldInfo{
 		{Name: "plan", Type: "string", Description: "Plan URL", GoType: "types.String", Required: false},
 		{Name: "limits", Type: "object", Description: "Resource limits", GoType: "types.Map", ItemType: "number", Required: false},
+		{Name: "start_date", Type: "string", Format: "date-time", Description: "Order start date", GoType: "types.String", Required: false},
+		{Name: "end_date", Type: "string", Format: "date-time", Description: "Order end date", GoType: "types.String", Required: false},
 	})
 	// Add Termination Attributes
 	for _, term := range b.Resource.TerminationAttributes {

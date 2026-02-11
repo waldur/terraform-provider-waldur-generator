@@ -35,12 +35,7 @@ type {{ $prefix }}{{ .Name | title }} struct {
 
 
 {{- /* Helper: Map Response Struct to Terraform Model */ -}}
-{{- define "mapResponseToModel" }}
-	{{- $prefix := .Name | title }}
-	{{- $fields := .ResponseFields }}
-	{{- range $fields }}
-	{{- if not .SchemaSkip }}
-	{{- /* Handle basic types */ -}}
+{{- define "map_response_scalar" }}
 	{{- if eq .Type "string" }}
 	{{- if .TypeMeta.IsDateTime }}
 	val{{ .Name | title }}, diags{{ .Name | title }} := timetypes.NewRFC3339PointerValue(apiResp.{{ .Name | title }})
@@ -49,85 +44,99 @@ type {{ $prefix }}{{ .Name | title }} struct {
 	{{- else }}
 	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
 	{{- end }}
-	{{- else if eq .Type "integer" }}
-	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
-	{{- else if eq .Type "boolean" }}
-	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
 	{{- else if eq .Type "number" }}
 	model.{{ .Name | title }} = types.Float64PointerValue(apiResp.{{ .Name | title }}.Float64Ptr())
-	{{- else if eq .Type "array" }}
-	{{- if eq .GoType "types.Set" }}
-	{{- if eq .ItemType "string" }}
-	setVal{{ .Name | title }}, setDiags{{ .Name | title }} := types.SetValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
-	model.{{ .Name | title }} = setVal{{ .Name | title }}
-	diags.Append(setDiags{{ .Name | title }}...)
-	{{- else if eq .ItemType "object" }}
-	if apiResp.{{ .Name | title }} != nil && len(*apiResp.{{ .Name | title }}) > 0 {
-		setVal{{ .Name | title }}, setDiags{{ .Name | title }} := types.SetValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
-		diags.Append(setDiags{{ .Name | title }}...)
-		model.{{ .Name | title }} = setVal{{ .Name | title }}
-	} else {
-		model.{{ .Name | title }} = types.SetNull({{ toAttrType .ItemSchema }})
-	}
-	{{- end }}
 	{{- else }}
-	{{- /* Default to List */ -}}
-	{{- if eq .ItemType "string" }}
-	listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
-	model.{{ .Name | title }} = listVal{{ .Name | title }}
-	diags.Append(listDiags{{ .Name | title }}...)
-	{{- else if eq .ItemType "object" }}
-	{{/* For list of objects, convert each item to Terraform object */}}
-	{{- if .Required }}
-	listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
-	diags.Append(listDiags{{ .Name | title }}...)
-	model.{{ .Name | title }} = listVal{{ .Name | title }}
-	{{- else }}
-	if apiResp.{{ .Name | title }} != nil {
-		listVal{{ .Name | title }}, listDiags{{ .Name | title }} := types.ListValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
-		diags.Append(listDiags{{ .Name | title }}...)
-		model.{{ .Name | title }} = listVal{{ .Name | title }}
-	} else {
-		model.{{ .Name | title }} = types.ListNull({{ toAttrType .ItemSchema }})
-	}
+	model.{{ .Name | title }} = {{ .TypeMeta.FromAPIFunc }}(apiResp.{{ .Name | title }})
 	{{- end }}
-	{{- end }}
-	{{- end }}
-	{{- else if eq .GoType "types.Set" }}
-	{{- if eq .ItemType "string" }}
-	setVal{{ .Name | title }}, setDiags{{ .Name | title }} := types.SetValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
-	model.{{ .Name | title }} = setVal{{ .Name | title }}
-	diags.Append(setDiags{{ .Name | title }}...)
-	{{- else if eq .ItemType "object" }}
-	if apiResp.{{ .Name | title }} != nil && len(*apiResp.{{ .Name | title }}) > 0 {
-		setVal{{ .Name | title }}, setDiags{{ .Name | title }} := types.SetValueFrom(ctx, {{ toAttrType .ItemSchema }}, apiResp.{{ .Name | title }})
-		diags.Append(setDiags{{ .Name | title }}...)
-		model.{{ .Name | title }} = setVal{{ .Name | title }}
-	} else {
-		model.{{ .Name | title }} = types.SetNull({{ toAttrType .ItemSchema }})
-	}
-	{{- end }}
+{{- end }}
+ 
+{{- define "map_response_complex" }}
+	{{- if or (eq .GoType "types.List") (eq .GoType "types.Set") }}
+		if apiResp.{{ .Name | title }} != nil {
+			val{{ .Name | title }}, diags{{ .Name | title }} := {{ if eq .GoType "types.List" }}types.ListValueFrom{{ else }}types.SetValueFrom{{ end }}(ctx, {{ if eq .ItemType "object" }}{{ toAttrType .ItemSchema }}{{ else }}{{ .TypeMeta.ElemType }}{{ end }}, apiResp.{{ .Name | title }})
+			diags.Append(diags{{ .Name | title }}...)
+			model.{{ .Name | title }} = val{{ .Name | title }}
+		} else {
+			model.{{ .Name | title }} = {{ if eq .GoType "types.List" }}types.ListNull{{ else }}types.SetNull{{ end }}({{ if eq .ItemType "object" }}{{ toAttrType .ItemSchema }}{{ else }}{{ .TypeMeta.ElemType }}{{ end }})
+		}
 	{{- else if eq .GoType "types.Map" }}
-	if apiResp.{{ .Name | title }} != nil {
-		mapVal{{ .Name | title }}, mapDiags{{ .Name | title }} := types.MapValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
-		diags.Append(mapDiags{{ .Name | title }}...)
-		model.{{ .Name | title }} = mapVal{{ .Name | title }}
-	} else {
-		model.{{ .Name | title }} = types.MapNull(types.StringType)
-	}
+		if apiResp.{{ .Name | title }} != nil {
+			val{{ .Name | title }}, diags{{ .Name | title }} := types.MapValueFrom(ctx, types.StringType, apiResp.{{ .Name | title }})
+			diags.Append(diags{{ .Name | title }}...)
+			model.{{ .Name | title }} = val{{ .Name | title }}
+		} else {
+			model.{{ .Name | title }} = types.MapNull(types.StringType)
+		}
 	{{- else if eq .Type "object" }}
-	if apiResp.{{ .Name | title }} != nil {
-		objVal{{ .Name | title }}, objDiags{{ .Name | title }} := types.ObjectValueFrom(ctx, {{ toAttrType . }}.AttrTypes, *apiResp.{{ .Name | title }})
-		diags.Append(objDiags{{ .Name | title }}...)
-		model.{{ .Name | title }} = objVal{{ .Name | title }}
-	} else {
-		model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
-	}
+		if apiResp.{{ .Name | title }} != nil {
+			val{{ .Name | title }}, diags{{ .Name | title }} := types.ObjectValueFrom(ctx, {{ toAttrType . }}.AttrTypes, *apiResp.{{ .Name | title }})
+			diags.Append(diags{{ .Name | title }}...)
+			model.{{ .Name | title }} = val{{ .Name | title }}
+		} else {
+			model.{{ .Name | title }} = types.ObjectNull({{ toAttrType . }}.AttrTypes)
+		}
 	{{- end }}
+{{- end }}
+ 
+{{- define "map_response_field" }}
+	{{- if not .SchemaSkip }}
+	{{- if .TypeMeta.IsComplex }}
+	{{ template "map_response_complex" . }}
+	{{- else }}
+	{{ template "map_response_scalar" . }}
 	{{- end }}
 	{{- end }}
 {{- end }}
+ 
+{{- define "mapResponseToModel" }}
+	{{- range .ResponseFields }}
+	{{ template "map_response_field" . }}
+	{{- end }}
+{{- end }}
 
+{{- define "attr_lifecycle" }}
+    {{- if .ReadOnly }}
+    Computed: true,
+    {{- else if .Required }}
+    Required: true,
+    {{- else }}
+    Optional: true,
+    {{- if or .ServerComputed .ReadOnly }}
+    Computed: true,
+    {{- end }}
+    {{- end }}
+{{- end }}
+ 
+{{- define "plan_modifier_list" }}
+    {{- if .ForceNew }}
+    {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
+    {{- end }}
+    {{- if .UseStateForUnknown }}
+    {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
+    {{- end }}
+    {{- if .UnknownIfNull }}
+    common.UnknownIfNullModifier{},
+    {{- end }}
+{{- end }}
+ 
+{{- define "attr_plan_modifiers" }}
+    {{- if not .IsDataSource }}
+    {{- if or .ForceNew .ServerComputed .ReadOnly }}
+    PlanModifiers: []{{ .TypeMeta.PlanModType }}{
+        {{ template "plan_modifier_list" . }}
+    },
+    {{- end }}
+    {{- end }}
+{{- end }}
+ 
+{{- define "attr_description" }}
+    MarkdownDescription: "{{ .Description }}",
+    {{- if contains (lower .Name) "password" }}
+    Sensitive: true,
+    {{- end }}
+{{- end }}
+ 
 {{- define "renderValidators" }}
 {{- $type := .Type }}
 {{- $enum := .Enum }}
@@ -183,29 +192,9 @@ type {{ $prefix }}{{ .Name | title }} struct {
         {{- end }}
     },
     {{- end }}
-    {{- if .ReadOnly }}
-    Computed: true,
-    {{- else if .Required }}
-    Required: true,
-    {{- else }}
-    Optional: true,
-    {{- if or .ServerComputed .ReadOnly }}
-    Computed: true,
-    {{- end }}
-    {{- end }}
-    {{- if not .IsDataSource }}
-    {{- if or .ForceNew .ServerComputed .ReadOnly }}
-    PlanModifiers: []{{ .TypeMeta.PlanModType }}{
-        {{- if .ForceNew }}
-        {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
-        {{- end }}
-        {{- if .UseStateForUnknown }}
-        {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
-        {{- end }}
-    },
-    {{- end }}
-    {{- end }}
-    MarkdownDescription: "{{ .Description }}",
+    {{ template "attr_lifecycle" . }}
+    {{ template "attr_plan_modifiers" . }}
+    {{ template "attr_description" . }}
 },
 {{- end }}
 
@@ -217,57 +206,17 @@ type {{ $prefix }}{{ .Name | title }} struct {
         {{- /* List/Set of primitives */ -}}
         {{ .TypeMeta.SchemaAttrType }}{
             ElementType: {{ .TypeMeta.ElemType }},
-            {{- if .ReadOnly }}
-            Computed: true,
-            {{- else if .Required }}
-            Required: true,
-            {{- else }}
-            Optional: true,
-            {{- if or .ServerComputed .ReadOnly }}
-            Computed: true,
-            {{- end }}
-            {{- end }}
-            {{- if not .IsDataSource }}
-            {{- if or .ForceNew .ServerComputed .ReadOnly }}
-            PlanModifiers: []{{ .TypeMeta.PlanModType }}{
-                {{- if .ForceNew }}
-                {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
-                {{- end }}
-                {{- if .UseStateForUnknown }}
-                {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
-                {{- end }}
-            },
-            {{- end }}
-            {{- end }}
-            MarkdownDescription: "{{ .Description }}",
+            {{ template "attr_lifecycle" . }}
+            {{ template "attr_plan_modifiers" . }}
+            {{ template "attr_description" . }}
         },
     {{- end }}
 {{- else if eq .GoType "types.Map" }}
     {{ .TypeMeta.SchemaAttrType }}{
         ElementType: {{ .TypeMeta.ElemType }},
-        {{- if .ReadOnly }}
-        Computed: true,
-        {{- else if .Required }}
-        Required: true,
-        {{- else }}
-        Optional: true,
-        {{- if or .ServerComputed .ReadOnly }}
-        Computed: true,
-        {{- end }}
-        {{- end }}
-        {{- if not .IsDataSource }}
-        {{- if or .ForceNew .ServerComputed .ReadOnly }}
-        PlanModifiers: []{{ .TypeMeta.PlanModType }}{
-            {{- if .ForceNew }}
-            {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
-            {{- end }}
-            {{- if .UseStateForUnknown }}
-            {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
-            {{- end }}
-        },
-        {{- end }}
-        {{- end }}
-        MarkdownDescription: "{{ .Description }}",
+        {{ template "attr_lifecycle" . }}
+        {{ template "attr_plan_modifiers" . }}
+        {{ template "attr_description" . }}
     },
 {{- else }}
     {{- /* Primitive Type */ -}}
@@ -275,35 +224,9 @@ type {{ $prefix }}{{ .Name | title }} struct {
         {{- if .TypeMeta.IsDateTime }}
         CustomType: timetypes.RFC3339Type{},
         {{- end }}
-        {{- if .ReadOnly }}
-        Computed: true,
-        {{- else if .Required }}
-        Required: true,
-        {{- else }}
-        Optional: true,
-        {{- if or .ServerComputed .ReadOnly }}
-        Computed: true,
-        {{- end }}
-        {{- end }}
-        {{- if not .IsDataSource }}
-        {{- if or .ForceNew .ServerComputed .ReadOnly }}
-            PlanModifiers: []{{ .TypeMeta.PlanModType }}{
-                {{- if .ForceNew }}
-                {{ .TypeMeta.PlanModImport }}.RequiresReplace(),
-                {{- end }}
-                {{- if .UseStateForUnknown }}
-                {{ .TypeMeta.PlanModImport }}.UseStateForUnknown(),
-                {{- end }}
-                {{- if .UnknownIfNull }}
-                common.UnknownIfNullModifier{},
-                {{- end }}
-            },
-        {{- end }}
-        {{- end }}
-        MarkdownDescription: "{{ .Description }}",
-        {{- if contains .Name "password" }}
-        Sensitive: true,
-        {{- end }}
+        {{ template "attr_lifecycle" . }}
+        {{ template "attr_plan_modifiers" . }}
+        {{ template "attr_description" . }}
         {{ template "renderValidators" dict "Field" . "Type" .TypeMeta.ValidatorType "Enum" .Enum "Minimum" .Minimum "Maximum" .Maximum "Pattern" .Pattern "GoType" .GoType }}
     },
 {{- end }}

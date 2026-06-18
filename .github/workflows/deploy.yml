@@ -5,6 +5,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+  # Triggered by the waldur-docs release flow with a Waldur version, so the
+  # provider is regenerated from that release's schema and tagged in lockstep.
+  repository_dispatch:
+    types: [waldur-release]
 
 jobs:
   deploy:
@@ -17,6 +21,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+
+      # On a Waldur release dispatch, regenerate from that release's published
+      # schema (info.version = the Waldur version) so the provider matches it.
+      - name: Fetch released schema for dispatched version
+        if: github.event_name == 'repository_dispatch'
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          echo "Fetching api-docs schema for Waldur $VERSION"
+          curl -sfL -o waldur_api.yaml \
+            "https://raw.githubusercontent.com/waldur/api-docs/main/docs/API/waldur-openapi-schema-$VERSION.yaml"
 
       - name: Generate Provider
         run: go run main.go -config config.yaml
@@ -112,3 +126,16 @@ jobs:
 
           git commit -m "$(cat /tmp/commit-subject.txt)"
           git push
+
+      # On a Waldur release dispatch, tag the provider with the Waldur version so
+      # it follows Waldur numbering: bare X.Y.Z for the ecosystem/changelog, and
+      # vX.Y.Z which the provider's release.yml consumes to publish to the Registry.
+      - name: Tag provider with Waldur version
+        if: github.event_name == 'repository_dispatch'
+        working-directory: target_repo
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          git tag -a "$VERSION" -m "Release $VERSION" || echo "Tag $VERSION already exists"
+          git push origin "$VERSION" || echo "Tag $VERSION already pushed"
+          git tag -a "v$VERSION" -m "Release v$VERSION" || echo "Tag v$VERSION already exists"
+          git push origin "v$VERSION" || echo "Tag v$VERSION already pushed"

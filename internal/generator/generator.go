@@ -179,6 +179,11 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to cleanup imports: %w", err)
 	}
 
+	// 12. Emit the provider manifest (entity/attribute set) for changelog diffing
+	if err := g.WriteManifest(); err != nil {
+		return fmt.Errorf("failed to write provider manifest: %w", err)
+	}
+
 	return nil
 }
 

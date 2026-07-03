@@ -54,6 +54,13 @@ resources:
   - name: "structure_customer"
     base_operation_id: "customers"
 
+  # Core
+
+  - name: "core_ssh_public_key"
+    base_operation_id: "keys"
+    skip_operations:
+      - "partial_update"
+
   # Marketplace
 
   - name: "marketplace_order"

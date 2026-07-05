@@ -10,6 +10,7 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/identity_bridge"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/link"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/order"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/standard"
@@ -51,6 +52,8 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 	base := plugins.BaseBuilder{Parser: parser, Resource: resource, Ops: ops, SchemaConfig: schemaCfg}
 	if resource.Plugin == "order" {
 		builder = &order.OrderBuilder{BaseBuilder: base}
+	} else if resource.Plugin == "identity_bridge" {
+		builder = &identity_bridge.IdentityBridgeBuilder{BaseBuilder: base}
 	} else if resource.Plugin == "link" || resource.LinkOp != "" {
 		builder = &link.LinkBuilder{BaseBuilder: base}
 	} else {

@@ -263,6 +263,9 @@ resources:
       - "pull"
       - "unlink"
 
+  - name: "identity_bridge_link"
+    plugin: "identity_bridge"
+
 data_sources:
 
   # Structure

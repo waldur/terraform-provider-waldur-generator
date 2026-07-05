@@ -7,6 +7,9 @@ import (
 // validateOperations checks that all referenced operations exist in the OpenAPI schema
 func (g *Generator) validateOperations() error {
 	for _, resource := range g.config.Resources {
+		if resource.Plugin == "identity_bridge" {
+			continue
+		}
 		ops := resource.OperationIDs()
 
 		// Build a set of operations to skip

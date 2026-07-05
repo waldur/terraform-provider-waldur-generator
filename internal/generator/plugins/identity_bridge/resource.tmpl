@@ -1,0 +1,186 @@
+{{- define "resource_extra_definitions" }}
+type IdentityBridgeLinkDeleteRequest struct {
+	Username string `json:"username"`
+	Source   string `json:"source"`
+}
+
+func (c *IdentityBridgeLinkClient) Delete(ctx context.Context, req *IdentityBridgeLinkDeleteRequest) error {
+	return c.Client.Post(ctx, "/api/identity-bridge/remove/", req, nil)
+}
+
+type IdentityBridgeUser struct {
+	UUID       string   `json:"uuid"`
+	ActiveIsds []string `json:"active_isds"`
+	IsActive   bool     `json:"is_active"`
+}
+{{- end }}
+
+{{- define "resource_create" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	requestBody := {{ .Name | title }}CreateRequest{
+		Username: data.Username.ValueStringPointer(),
+		Source:   data.Source.ValueStringPointer(),
+	}
+	{{- range .CreateFields }}
+	{{- if and (ne .Name "username") (ne .Name "source") }}
+	{{- if eq .Type "array" }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		resp.Diagnostics.Append(common.PopulateOptionalSliceField(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
+	}
+	{{- else }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
+	_, err := r.client.Create(ctx, &requestBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create {{ .Name | humanize }}",
+			"An error occurred while creating/pushing the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	data.UUID = types.StringValue(data.Source.ValueString() + "/" + data.Username.ValueString())
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+{{- end }}
+
+{{- define "resource_read" }}
+	// The UUID/ID of the resource is source/username
+	idParts := strings.Split(data.UUID.ValueString(), "/")
+	if len(idParts) != 2 {
+		resp.Diagnostics.AddError("Invalid Resource ID", "Resource ID must be in format source/username")
+		return
+	}
+	source := idParts[0]
+	username := idParts[1]
+
+	// 1. Fetch user by username
+	var users []IdentityBridgeUser
+	err := r.client.Client.GetURL(ctx, "/api/users/?username="+username, &users)
+	if err != nil {
+		if IsNotFoundError(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Failed to query user", err.Error())
+		return
+	}
+
+	if len(users) == 0 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	user := users[0]
+
+	// 2. Check if the source is active for this user
+	sourceActive := false
+	if user.ActiveIsds != nil {
+		for _, isd := range user.ActiveIsds {
+			if isd == source {
+				sourceActive = true
+				break
+			}
+		}
+	} else {
+		// If caller is not staff, they might not see active_isds.
+		// We fallback to checking if the user is active at all.
+		sourceActive = user.IsActive
+	}
+
+	if !sourceActive {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	// Read fields from prior state as Waldur doesn't expose bridge-specific pushed attributes directly on GET /api/users/ in a writable way
+	// Keep the existing attributes in state
+{{- end }}
+
+{{- define "resource_update" }}
+	// Pushing attributes is idempotent, so update does the same push as Create
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	requestBody := {{ .Name | title }}CreateRequest{
+		Username: data.Username.ValueStringPointer(),
+		Source:   data.Source.ValueStringPointer(),
+	}
+	{{- range .CreateFields }}
+	{{- if and (ne .Name "username") (ne .Name "source") }}
+	{{- if eq .Type "array" }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		resp.Diagnostics.Append(common.PopulateOptionalSliceField(ctx, data.{{ .Name | title }}, &requestBody.{{ .Name | title }})...)
+	}
+	{{- else }}
+	if !data.{{ .Name | title }}.IsNull() && !data.{{ .Name | title }}.IsUnknown() {
+		requestBody.{{ .Name | title }} = data.{{ .Name | title }}.ValueStringPointer()
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
+	_, err := r.client.Create(ctx, &requestBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Update {{ .Name | humanize }}",
+			"An error occurred while updating/pushing the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+{{- end }}
+
+{{- define "resource_delete" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	idParts := strings.Split(data.UUID.ValueString(), "/")
+	if len(idParts) != 2 {
+		resp.Diagnostics.AddError("Invalid Resource ID", "Resource ID must be in format source/username")
+		return
+	}
+	source := idParts[0]
+	username := idParts[1]
+
+	reqBody := IdentityBridgeLinkDeleteRequest{
+		Username: username,
+		Source:   source,
+	}
+
+	err := r.client.Delete(ctx, &reqBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Delete {{ .Name | humanize }}",
+			"An error occurred while deleting/removing the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	resp.State.RemoveResource(ctx)
+{{- end }}
+
+{{- define "resource_import" }}
+	var data {{ .Name | title }}ResourceModel
+	data.UUID = types.StringValue(req.ID)
+	
+	idParts := strings.Split(req.ID, "/")
+	if len(idParts) != 2 {
+		resp.Diagnostics.AddError("Invalid Resource ID", "Import ID must be in format source/username")
+		return
+	}
+	data.Source = types.StringValue(idParts[0])
+	data.Username = types.StringValue(idParts[1])
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+{{- end }}

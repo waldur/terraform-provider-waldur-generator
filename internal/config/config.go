@@ -150,7 +150,7 @@ func (c *Config) Validate() error {
 		if r.Name == "" {
 			return fmt.Errorf("resource name cannot be empty")
 		}
-		if r.BaseOperationID == "" {
+		if r.BaseOperationID == "" && r.Plugin != "identity_bridge" {
 			return fmt.Errorf("resource %s: base_operation_id cannot be empty", r.Name)
 		}
 		if resourceNames[r.Name] {

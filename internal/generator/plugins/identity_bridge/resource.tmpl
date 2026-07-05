@@ -48,6 +48,22 @@ type IdentityBridgeUser struct {
 	}
 
 	data.UUID = types.StringValue(data.Source.ValueString() + "/" + data.Username.ValueString())
+
+	// Nullify any unknown computed fields before saving to state
+	{{- range .CreateFields }}
+	{{- if and (ne .Name "username") (ne .Name "source") }}
+	{{- if eq .Type "array" }}
+	if data.{{ .Name | title }}.IsUnknown() {
+		data.{{ .Name | title }} = types.ListNull(types.StringType)
+	}
+	{{- else }}
+	if data.{{ .Name | title }}.IsUnknown() {
+		data.{{ .Name | title }} = types.StringNull()
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}
 
@@ -136,6 +152,21 @@ type IdentityBridgeUser struct {
 		)
 		return
 	}
+
+	// Nullify any unknown computed fields before saving to state
+	{{- range .CreateFields }}
+	{{- if and (ne .Name "username") (ne .Name "source") }}
+	{{- if eq .Type "array" }}
+	if data.{{ .Name | title }}.IsUnknown() {
+		data.{{ .Name | title }} = types.ListNull(types.StringType)
+	}
+	{{- else }}
+	if data.{{ .Name | title }}.IsUnknown() {
+		data.{{ .Name | title }} = types.StringNull()
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}

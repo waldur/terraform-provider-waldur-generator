@@ -1,0 +1,174 @@
+{{- define "resource_extra_definitions" }}
+type ProjectPermissionMutateRequest struct {
+	User           string  `json:"user"`
+	Role           string  `json:"role"`
+	ExpirationTime *string `json:"expiration_time,omitempty"`
+}
+
+type ProjectPermissionDeleteRequest struct {
+	User string `json:"user"`
+	Role string `json:"role"`
+}
+
+func (c *ProjectPermissionClient) AddUser(ctx context.Context, projectUUID string, req *ProjectPermissionMutateRequest) (*ProjectPermissionResponse, error) {
+	var resp ProjectPermissionResponse
+	err := c.Client.Post(ctx, fmt.Sprintf("/api/projects/%s/add_user/", projectUUID), req, &resp)
+	return &resp, err
+}
+
+func (c *ProjectPermissionClient) UpdateUser(ctx context.Context, projectUUID string, req *ProjectPermissionMutateRequest) (*ProjectPermissionResponse, error) {
+	var resp ProjectPermissionResponse
+	err := c.Client.Post(ctx, fmt.Sprintf("/api/projects/%s/update_user/", projectUUID), req, &resp)
+	return &resp, err
+}
+
+func (c *ProjectPermissionClient) DeleteUser(ctx context.Context, projectUUID string, req *ProjectPermissionDeleteRequest) error {
+	return c.Client.Post(ctx, fmt.Sprintf("/api/projects/%s/delete_user/", projectUUID), req, nil)
+}
+
+func (c *ProjectPermissionClient) GetUserPermission(ctx context.Context, id string) (*ProjectPermissionResponse, error) {
+	var apiResp ProjectPermissionResponse
+	err := c.Client.Get(ctx, "/api/user-permissions/{uuid}/", id, &apiResp)
+	if err != nil {
+		return nil, err
+	}
+	return &apiResp, nil
+}
+
+func (c *ProjectPermissionClient) ListUsers(ctx context.Context, projectUUID string, filter map[string]string) ([]ProjectPermissionResponse, error) {
+	var listResult []ProjectPermissionResponse
+	err := c.Client.List(ctx, fmt.Sprintf("/api/projects/%s/list_users/", projectUUID), filter, &listResult)
+	if err != nil {
+		return nil, err
+	}
+	return listResult, nil
+}
+
+// normalizeUTCTime converts +00:00 timezone suffix to Z for consistent comparison.
+func normalizeUTCTime(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	v := strings.Replace(*s, "+00:00", "Z", 1)
+	return &v
+}
+{{- end }}
+
+{{- define "resource_create" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	reqBody := ProjectPermissionMutateRequest{
+		User: data.User.ValueString(),
+		Role: data.Role.ValueString(),
+	}
+	if !data.ExpirationTime.IsNull() && !data.ExpirationTime.IsUnknown() {
+		reqBody.ExpirationTime = data.ExpirationTime.ValueStringPointer()
+	}
+
+	_, err := r.client.AddUser(ctx, data.Project.ValueString(), &reqBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create {{ .Name | humanize }}",
+			"An error occurred while creating the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	// Fetch permission UUID via list_users
+	filter := map[string]string{
+		"user": data.User.ValueString(),
+		"role": data.Role.ValueString(),
+	}
+	usersList, err := r.client.ListUsers(ctx, data.Project.ValueString(), filter)
+	if err != nil || len(usersList) == 0 {
+		errMsg := "unknown error"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		resp.Diagnostics.AddError(
+			"Unable to Find Permission UUID",
+			"The permission was successfully created but could not be located via list_users: "+errMsg,
+		)
+		return
+	}
+
+	data.UUID = types.StringPointerValue(usersList[0].UUID)
+	if data.ExpirationTime.IsUnknown() {
+		data.ExpirationTime = types.StringNull()
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+{{- end }}
+
+{{- define "resource_read" }}
+	apiResp, err := r.client.GetUserPermission(ctx, data.UUID.ValueString())
+	if err != nil {
+		if IsNotFoundError(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError(
+			"Unable to Read {{ .Name | humanize }}",
+			"An error occurred while reading the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	// project, user, role are ForceNew and set by config — only refresh expiration_time
+	// Normalize +00:00 -> Z so Terraform doesn't see a spurious diff
+	data.ExpirationTime = common.StringPointerValue(normalizeUTCTime(apiResp.ExpirationTime))
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+{{- end }}
+
+{{- define "resource_update" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	reqBody := ProjectPermissionMutateRequest{
+		User: data.User.ValueString(),
+		Role: data.Role.ValueString(),
+	}
+	if !data.ExpirationTime.IsNull() && !data.ExpirationTime.IsUnknown() {
+		reqBody.ExpirationTime = data.ExpirationTime.ValueStringPointer()
+	}
+
+	_, err := r.client.UpdateUser(ctx, data.Project.ValueString(), &reqBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Update {{ .Name | humanize }}",
+			"An error occurred while updating the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	if data.ExpirationTime.IsUnknown() {
+		data.ExpirationTime = types.StringNull()
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+{{- end }}
+
+{{- define "resource_delete" }}
+	var data {{ .Name | title }}ResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() { return }
+
+	reqBody := ProjectPermissionDeleteRequest{
+		User: data.User.ValueString(),
+		Role: data.Role.ValueString(),
+	}
+	err := r.client.DeleteUser(ctx, data.Project.ValueString(), &reqBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Delete {{ .Name | humanize }}",
+			"An error occurred while deleting the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+{{- end }}
+
+{{- define "resource_import" }}
+	resp.Diagnostics.AddError("Import Not Supported", "Importing project permissions is not supported via this resource.")
+{{- end }}

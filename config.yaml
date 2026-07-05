@@ -266,6 +266,9 @@ resources:
   - name: "identity_bridge_link"
     plugin: "identity_bridge"
 
+  - name: "project_permission"
+    plugin: "project_permission"
+
 data_sources:
 
   # Structure

@@ -12,6 +12,7 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/identity_bridge"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/link"
+	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/project_permission"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/order"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins/standard"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
@@ -54,6 +55,8 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 		builder = &order.OrderBuilder{BaseBuilder: base}
 	} else if resource.Plugin == "identity_bridge" {
 		builder = &identity_bridge.IdentityBridgeBuilder{BaseBuilder: base}
+	} else if resource.Plugin == "project_permission" {
+		builder = &project_permission.ProjectPermissionBuilder{BaseBuilder: base}
 	} else if resource.Plugin == "link" || resource.LinkOp != "" {
 		builder = &link.LinkBuilder{BaseBuilder: base}
 	} else {

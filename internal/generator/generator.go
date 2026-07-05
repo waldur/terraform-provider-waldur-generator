@@ -13,7 +13,7 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
 )
 
-//go:embed templates/* plugins/* components/*
+//go:embed templates plugins components
 var templates embed.FS
 
 // Generator orchestrates the provider code generation

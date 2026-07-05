@@ -9,6 +9,9 @@ import (
 
 // GenerateImplementation generates a list resource file
 func GenerateImplementation(cfg *config.Config, renderer common.Renderer, rd *common.ResourceData) error {
+	if rd.Plugin == "identity_bridge" {
+		return nil
+	}
 	// data for template - list resource template expects some specific flags
 	data := ListResourceData{
 		Name:              rd.Name,

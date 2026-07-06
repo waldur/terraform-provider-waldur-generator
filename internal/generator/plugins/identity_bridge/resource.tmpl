@@ -65,7 +65,9 @@ type IdentityBridgeUser struct {
 	{{- end }}
 
 	if apiResp != nil {
-		data.UserUuid = types.StringPointerValue(apiResp.UserUuid)
+		if apiResp.UUID != nil {
+			data.UserUuid = types.StringPointerValue(apiResp.UUID)
+		}
 		data.IsCreated = types.BoolPointerValue(apiResp.IsCreated)
 		if apiResp.UpdatedFields != nil {
 			val, d := types.ListValueFrom(ctx, types.StringType, *apiResp.UpdatedFields)
@@ -181,16 +183,8 @@ type IdentityBridgeUser struct {
 	{{- end }}
 	{{- end }}
 
-	if apiResp != nil {
-		data.UserUuid = types.StringPointerValue(apiResp.UserUuid)
-		data.IsCreated = types.BoolPointerValue(apiResp.IsCreated)
-		if apiResp.UpdatedFields != nil {
-			val, d := types.ListValueFrom(ctx, types.StringType, *apiResp.UpdatedFields)
-			resp.Diagnostics.Append(d...)
-			data.UpdatedFields = val
-		} else {
-			data.UpdatedFields = types.ListNull(types.StringType)
-		}
+	if apiResp != nil && apiResp.UUID != nil {
+		data.UserUuid = types.StringPointerValue(apiResp.UUID)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

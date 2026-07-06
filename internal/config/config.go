@@ -44,6 +44,9 @@ type Resource struct {
 	Actions        []string               `yaml:"actions"`        // List of actions to generate (for "actions" plugin)
 	SetFields      map[string]FieldConfig `yaml:"set_fields"`
 	ExcludedFields []string               `yaml:"excluded_fields"`
+	// Scoped Permission Plugin Fields
+	ScopeType  string `yaml:"scope_type"`  // API collection prefix, e.g. "projects", "customers"
+	ScopeField string `yaml:"scope_field"` // Terraform attribute name for the scope UUID, e.g. "project", "customer"
 }
 
 // FieldConfig defines overrides for a field
@@ -150,7 +153,7 @@ func (c *Config) Validate() error {
 		if r.Name == "" {
 			return fmt.Errorf("resource name cannot be empty")
 		}
-		if r.BaseOperationID == "" && r.Plugin != "identity_bridge" && r.Plugin != "project_permission" {
+		if r.BaseOperationID == "" && r.Plugin != "identity_bridge" && r.Plugin != "project_permission" && r.Plugin != "scoped_permission" {
 			return fmt.Errorf("resource %s: base_operation_id cannot be empty", r.Name)
 		}
 		if resourceNames[r.Name] {

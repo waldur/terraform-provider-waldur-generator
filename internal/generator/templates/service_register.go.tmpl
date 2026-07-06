@@ -46,7 +46,7 @@ func GetActions() []func() action.Action {
 func GetListResources() []func() list.ListResource {
 	return []func() list.ListResource{
 		{{- range .Resources }}
-		{{- if and (not .IsDatasourceOnly) (ne .Plugin "identity_bridge") (ne .Plugin "project_permission") }}
+		{{- if and (not .IsDatasourceOnly) (ne .Plugin "identity_bridge") (ne .Plugin "project_permission") (ne .Plugin "scoped_permission") }}
 		pkg_{{ .CleanName }}.New{{ .Name | title }}List,
 		{{- end }}
 		{{- end }}

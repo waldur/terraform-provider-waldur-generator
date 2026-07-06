@@ -267,7 +267,14 @@ resources:
     plugin: "identity_bridge"
 
   - name: "project_permission"
-    plugin: "project_permission"
+    plugin: "scoped_permission"
+    scope_type: "projects"
+    scope_field: "project"
+
+  - name: "customer_permission"
+    plugin: "scoped_permission"
+    scope_type: "customers"
+    scope_field: "customer"
 
 data_sources:
 

@@ -44,7 +44,15 @@ func (b *IdentityBridgeBuilder) BuildUpdateFields() ([]common.FieldInfo, error) 
 }
 
 func (b *IdentityBridgeBuilder) BuildResponseFields() ([]common.FieldInfo, error) {
-	return b.BuildCreateFields()
+	fields := []common.FieldInfo{
+		{Name: "user_uuid", JsonTag: "uuid", Type: common.OpenAPITypeString, GoType: common.TFTypeString, Required: false, ServerComputed: true, ReadOnly: true, Description: "UUID of the created or updated user"},
+		{Name: "is_created", JsonTag: "created", Type: common.OpenAPITypeBoolean, GoType: common.TFTypeBool, Required: false, ServerComputed: true, ReadOnly: true, Description: "True if the user was created, false if updated"},
+		{Name: "updated_fields", Type: common.OpenAPITypeArray, ItemType: common.OpenAPITypeString, GoType: common.TFTypeList, Required: false, ServerComputed: true, ReadOnly: true, Description: "List of fields that were updated"},
+	}
+	for i := range fields {
+		common.CalculateSDKType(&fields[i])
+	}
+	return fields, nil
 }
 
 func (b *IdentityBridgeBuilder) GetAPIPaths() map[string]string {

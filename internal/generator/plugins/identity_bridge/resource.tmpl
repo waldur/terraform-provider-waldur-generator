@@ -38,7 +38,7 @@ type IdentityBridgeUser struct {
 	{{- end }}
 	{{- end }}
 
-	_, err := r.client.Create(ctx, &requestBody)
+	apiResp, err := r.client.Create(ctx, &requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create {{ .Name | humanize }}",
@@ -63,6 +63,18 @@ type IdentityBridgeUser struct {
 	{{- end }}
 	{{- end }}
 	{{- end }}
+
+	if apiResp != nil {
+		data.UserUuid = types.StringPointerValue(apiResp.UserUuid)
+		data.IsCreated = types.BoolPointerValue(apiResp.IsCreated)
+		if apiResp.UpdatedFields != nil {
+			val, d := types.ListValueFrom(ctx, types.StringType, *apiResp.UpdatedFields)
+			resp.Diagnostics.Append(d...)
+			data.UpdatedFields = val
+		} else {
+			data.UpdatedFields = types.ListNull(types.StringType)
+		}
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}
@@ -118,6 +130,7 @@ type IdentityBridgeUser struct {
 
 	// Read fields from prior state as Waldur doesn't expose bridge-specific pushed attributes directly on GET /api/users/ in a writable way
 	// Keep the existing attributes in state
+	data.UserUuid = types.StringValue(user.UUID)
 {{- end }}
 
 {{- define "resource_update" }}
@@ -144,7 +157,7 @@ type IdentityBridgeUser struct {
 	{{- end }}
 	{{- end }}
 
-	_, err := r.client.Create(ctx, &requestBody)
+	apiResp, err := r.client.Create(ctx, &requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Update {{ .Name | humanize }}",
@@ -167,6 +180,18 @@ type IdentityBridgeUser struct {
 	{{- end }}
 	{{- end }}
 	{{- end }}
+
+	if apiResp != nil {
+		data.UserUuid = types.StringPointerValue(apiResp.UserUuid)
+		data.IsCreated = types.BoolPointerValue(apiResp.IsCreated)
+		if apiResp.UpdatedFields != nil {
+			val, d := types.ListValueFrom(ctx, types.StringType, *apiResp.UpdatedFields)
+			resp.Diagnostics.Append(d...)
+			data.UpdatedFields = val
+		} else {
+			data.UpdatedFields = types.ListNull(types.StringType)
+		}
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}

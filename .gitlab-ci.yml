@@ -71,7 +71,7 @@ deploy:
   stage: deploy
   script:
     # Checkout Target Repo
-    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_NAMESPACE}/terraform-provider-waldur.git $CI_PROJECT_DIR/../target_repo
+    - git clone https://gitlab-ci-token:$GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_NAMESPACE}/terraform-provider-waldur.git $CI_PROJECT_DIR/../target_repo
 
     # Sync Files
     - |

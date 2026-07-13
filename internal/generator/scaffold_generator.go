@@ -142,8 +142,8 @@ func (g *Generator) generateSupportingFiles() error {
 		return err
 	}
 
-	// Generate GitHub Actions workflow
-	if err := g.generateGitHubWorkflow(); err != nil {
+	// Generate GitLab CI release pipeline
+	if err := g.generateGitLabCI(); err != nil {
 		return err
 	}
 
@@ -242,8 +242,8 @@ func (g *Generator) generateLicense() error {
 	return os.WriteFile(path, content, 0644)
 }
 
-// generateGitHubWorkflow creates the GitHub Actions release workflow
-func (g *Generator) generateGitHubWorkflow() error {
+// generateGitLabCI creates the GitLab CI release pipeline
+func (g *Generator) generateGitLabCI() error {
 	data := map[string]interface{}{
 		"ProviderName": g.config.Generator.ProviderName,
 	}
@@ -252,8 +252,8 @@ func (g *Generator) generateGitHubWorkflow() error {
 		"release.yml.tmpl",
 		[]string{"templates/release.yml.tmpl"},
 		data,
-		filepath.Join(g.config.Generator.OutputDir, ".github", "workflows"),
-		"release.yml",
+		g.config.Generator.OutputDir,
+		".gitlab-ci.yml",
 	)
 }
 

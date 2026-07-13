@@ -80,7 +80,7 @@ deploy:
       find $CI_PROJECT_DIR/../target_repo -maxdepth 1 -not -name '.git' -not -name 'target_repo' -not -name '.' -exec rm -rf {} +
       
       # Copy generated files to target repo using rsync with exclusions
-      rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' $CI_PROJECT_DIR/output/ $CI_PROJECT_DIR/../target_repo/
+      rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' --exclude='.github' $CI_PROJECT_DIR/output/ $CI_PROJECT_DIR/../target_repo/
       
       # Verification
       ls -la $CI_PROJECT_DIR/../target_repo/

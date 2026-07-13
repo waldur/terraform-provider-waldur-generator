@@ -71,23 +71,22 @@ deploy:
   stage: deploy
   script:
     # Checkout Target Repo
-    - cd ..
-    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_NAMESPACE}/terraform-provider-waldur.git target_repo
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_NAMESPACE}/terraform-provider-waldur.git $CI_PROJECT_DIR/../target_repo
 
     # Sync Files
     - |
       # Clean target repo but keep .git and .github (if we want to preserve target workflows)
       # Assuming we want to overwrite everything in target with generated output
-      find target_repo -maxdepth 1 -not -name '.git' -not -name 'target_repo' -not -name '.' -exec rm -rf {} +
+      find $CI_PROJECT_DIR/../target_repo -maxdepth 1 -not -name '.git' -not -name 'target_repo' -not -name '.' -exec rm -rf {} +
       
       # Copy generated files to target repo using rsync with exclusions
-      rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' output/ target_repo/
+      rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' $CI_PROJECT_DIR/output/ $CI_PROJECT_DIR/../target_repo/
       
       # Verification
-      ls -la target_repo/
+      ls -la $CI_PROJECT_DIR/../target_repo/
 
     # Commit and Push
-    - cd target_repo
+    - cd $CI_PROJECT_DIR/../target_repo
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
     - git add .

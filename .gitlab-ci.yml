@@ -4,7 +4,7 @@ stages:
 
 # Hidden template job containing shared environment configurations
 .go-env:
-  image: registry.hpc.ut.ee/mirror/library/golang:1.24
+  image: registry.hpc.ut.ee/mirror/library/golang:1.25
   variables:
     GOPATH: $CI_PROJECT_DIR/.go
     GOCACHE: $CI_PROJECT_DIR/.go-build

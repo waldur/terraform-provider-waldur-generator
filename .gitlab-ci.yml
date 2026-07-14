@@ -32,10 +32,10 @@ test:
     # If WALDUR_DOCS_VERSION is not set, auto-discover the latest available version
     - |
       if [ -z "$WALDUR_DOCS_VERSION" ]; then
-        echo "WALDUR_DOCS_VERSION not set — discovering latest schema from waldur-docs..."
+        echo "WALDUR_DOCS_VERSION not set — discovering latest schema from waldur-docs on GitHub..."
         API_RESPONSE=$(curl --show-error --silent \
-          --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-          "https://code.opennodecloud.com/api/v4/projects/waldur%2Fwaldur-docs/repository/tree?path=docs%2FAPI&ref=master&per_page=100") || true
+          --header "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/waldur/waldur-docs/contents/docs/API") || true
         WALDUR_DOCS_VERSION=$(echo "$API_RESPONSE" \
           | grep -oE '"waldur-openapi-schema-[0-9]+\.[0-9]+\.[0-9]+\.yaml"' \
           | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
@@ -48,10 +48,9 @@ test:
         fi
         echo "Latest schema version resolved: $WALDUR_DOCS_VERSION"
       fi
-      SCHEMA_URL="https://code.opennodecloud.com/waldur/waldur-docs/-/raw/master/docs/API/waldur-openapi-schema-${WALDUR_DOCS_VERSION}.yaml"
+      SCHEMA_URL="https://raw.githubusercontent.com/waldur/waldur-docs/master/docs/API/waldur-openapi-schema-${WALDUR_DOCS_VERSION}.yaml"
       echo "Fetching OpenAPI schema: $SCHEMA_URL"
       curl --fail --show-error --silent \
-        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
         "$SCHEMA_URL" \
         -o waldur_api.yaml
       echo "✅ Schema downloaded (v${WALDUR_DOCS_VERSION}): $(wc -l < waldur_api.yaml) lines"

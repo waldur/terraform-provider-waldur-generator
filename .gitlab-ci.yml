@@ -36,6 +36,11 @@ test:
     GOCACHE: $CI_PROJECT_DIR/.go-build
     SCHEMA_OUTPUT_PATH: "waldur_api.yaml"
     WALDUR_DOCS_VERSION: ""
+  cache:
+    key: go-cache
+    paths:
+      - .go/pkg/mod/
+      - .go-build/
   before_script:
     - !reference [.download-openapi-schema, before_script]
     - !reference [.go-env, before_script]

@@ -23,6 +23,17 @@ test:
   extends: .go-env
   stage: test
   script:
+    # Fetch OpenAPI schema from waldur-docs (required — pipeline must be triggered with WALDUR_DOCS_VERSION)
+    - |
+      : "${WALDUR_DOCS_VERSION:?WALDUR_DOCS_VERSION is required. Trigger this pipeline from waldur-docs.}"
+      SCHEMA_URL="https://code.opennodecloud.com/waldur/waldur-docs/-/raw/master/docs/API/waldur-openapi-schema-${WALDUR_DOCS_VERSION}.yaml"
+      echo "Fetching OpenAPI schema: $SCHEMA_URL"
+      curl --fail --silent \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$SCHEMA_URL" \
+        -o waldur_api.yaml
+      echo "✅ Schema downloaded: $(wc -l < waldur_api.yaml) lines"
+
     # Generate Provider
     - go run main.go -config config.yaml
 
@@ -64,6 +75,8 @@ test:
     # Also run on main branch pushes and manual triggers
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "web"
+    # Run when triggered from waldur-docs pipeline
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
 
 # Deploy/Push generated code to target repo (Only on main/web)
 deploy:
@@ -101,6 +114,7 @@ deploy:
       git commit -m "Update generated provider code"
       git push
   rules:
-    # Deploy ONLY on main branch or manual triggers
+    # Deploy ONLY on main branch, manual triggers, or when triggered from waldur-docs
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"

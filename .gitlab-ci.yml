@@ -100,6 +100,18 @@ deploy:
 
     # Sync Files
     - |
+      # Copy the old manifest and CHANGELOG.md to tmp to serve as baseline
+      cp $CI_PROJECT_DIR/../target_repo/provider-manifest.json /tmp/old-manifest.json 2>/dev/null || true
+      cp $CI_PROJECT_DIR/../target_repo/CHANGELOG.md /tmp/CHANGELOG.md 2>/dev/null || true
+
+      # Generate provider changelog
+      SUBJECT=$(go run ./cmd/changelog \
+        -old /tmp/old-manifest.json \
+        -new $CI_PROJECT_DIR/output/provider-manifest.json \
+        -changelog /tmp/CHANGELOG.md)
+      echo "Commit subject: $SUBJECT"
+      printf '%s' "$SUBJECT" > /tmp/commit-subject.txt
+
       # Clean target repo but keep .git and .github (if we want to preserve target workflows)
       # Assuming we want to overwrite everything in target with generated output
       find $CI_PROJECT_DIR/../target_repo -maxdepth 1 -not -name '.git' -not -name 'target_repo' -not -name '.' -exec rm -rf {} +
@@ -107,6 +119,9 @@ deploy:
       # Copy generated files to target repo using rsync with exclusions
       rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' --exclude='.github' $CI_PROJECT_DIR/output/ $CI_PROJECT_DIR/../target_repo/
       
+      # Restore the accumulated CHANGELOG.md
+      cp /tmp/CHANGELOG.md $CI_PROJECT_DIR/../target_repo/CHANGELOG.md 2>/dev/null || true
+
       # Verification
       ls -la $CI_PROJECT_DIR/../target_repo/
 
@@ -125,11 +140,7 @@ deploy:
 
       # Commit and push code changes if they exist
       if ! git diff --staged --quiet; then
-        if [ -n "$VERSION" ]; then
-          git commit -m "Release: update provider code for version $VERSION"
-        else
-          git commit -m "Update generated provider code"
-        fi
+        git commit -m "$(cat /tmp/commit-subject.txt)"
         git push origin main
       else
         echo "No code changes to commit."

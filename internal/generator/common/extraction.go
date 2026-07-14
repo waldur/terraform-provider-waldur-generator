@@ -236,7 +236,7 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 			} else if err == nil {
 				// Handle generic/dynamic objects (like attributes) as maps
 				field.GoType = TFTypeMap
-				field.ItemType = OpenAPITypeString // Default to Map[String]String
+				field.ItemType = "" // Default to Map[String]interface{} to handle mixed JSON types (strings, numbers, booleans)
 				CalculateSDKType(&field)
 				fields = append(fields, field)
 			}

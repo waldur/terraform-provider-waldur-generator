@@ -38,7 +38,10 @@ generator:
     - "longitude"
     - "current_usages"
     - "user_email_patterns"    # Type changed in v8.0.9: API returns array, schema says object
+    - "user_affiliations"      # Type changed in v8.0.9: API returns array, schema says object
+    - "user_identity_sources"  # Type changed in v8.0.9: API returns array, schema says object
     - "minimal_price"          # Type changed in v8.0.9: API returns number, schema says string
+    - "metadata"               # Type mismatch: API returns string, schema says object (OpenStack volume)
   set_fields:
     - "security_groups"
     - "floating_ips"
@@ -52,9 +55,15 @@ resources:
 
   - name: "structure_project"
     base_operation_id: "projects"
+    excluded_fields:
+      - "state"
+      - "status"
 
   - name: "structure_customer"
     base_operation_id: "customers"
+    excluded_fields:
+      - "state"
+      - "status"
 
   # Core
 

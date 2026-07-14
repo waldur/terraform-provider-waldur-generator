@@ -94,6 +94,14 @@ deploy:
   extends: .go-env
   stage: deploy
   script:
+    # Determine release version for tagging (ensure "v" prefix format)
+    - |
+      if [ -n "$WALDUR_DOCS_VERSION" ]; then
+        export VERSION="v${WALDUR_DOCS_VERSION#v}"
+      else
+        export VERSION=""
+      fi
+
     # Checkout Target Repo
     - rm -rf $CI_PROJECT_DIR/../target_repo
     - git clone https://gitlab-ci-token:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_NAMESPACE}/terraform-provider-waldur.git $CI_PROJECT_DIR/../target_repo
@@ -108,7 +116,8 @@ deploy:
       SUBJECT=$(go run ./cmd/changelog \
         -old /tmp/old-manifest.json \
         -new $CI_PROJECT_DIR/output/provider-manifest.json \
-        -changelog /tmp/CHANGELOG.md)
+        -changelog /tmp/CHANGELOG.md \
+        ${VERSION:+-date "$VERSION"})
       echo "Commit subject: $SUBJECT"
       printf '%s' "$SUBJECT" > /tmp/commit-subject.txt
 
@@ -131,13 +140,6 @@ deploy:
     - git config user.email "ci@gitlab.com"
     - git add .
     - |
-      # Determine release version for tagging (ensure "v" prefix format)
-      if [ -n "$WALDUR_DOCS_VERSION" ]; then
-        VERSION="v${WALDUR_DOCS_VERSION#v}"
-      else
-        VERSION=""
-      fi
-
       # Commit and push code changes if they exist
       if ! git diff --staged --quiet; then
         git commit -m "$(cat /tmp/commit-subject.txt)"

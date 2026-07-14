@@ -21,15 +21,15 @@ func NewParser(schemaPath string) (*Parser, error) {
 		return nil, fmt.Errorf("failed to load OpenAPI schema: %w", err)
 	}
 
-	// Validate the document
-	// - DisableExamplesValidation: allow upstream schema issues in examples
-	// - DisableSchemaDefaultsValidation: allow fields where default value violates constraints
-	//   (e.g. default:"" with minLength:1 — a known upstream schema bug)
+	// Validate the document.
+	// The Waldur API schema contains known quality issues (e.g. default values that violate
+	// minLength, $ref sibling keywords) which don't affect code generation but cause strict
+	// validators to fail. Log a warning instead of fatally rejecting the schema.
 	if err := doc.Validate(loader.Context,
 		openapi3.DisableExamplesValidation(),
 		openapi3.DisableSchemaDefaultsValidation(),
 	); err != nil {
-		return nil, fmt.Errorf("invalid OpenAPI schema: %w", err)
+		fmt.Printf("Warning: OpenAPI schema validation issues detected (generation will continue): %v\n", err)
 	}
 
 	return &Parser{doc: doc}, nil

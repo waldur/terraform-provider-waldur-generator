@@ -26,6 +26,8 @@ test:
   #   CI/CD → Run pipeline → add WALDUR_DOCS_VERSION = <version, e.g. 8.0.9>
   # Set automatically when triggered from waldur-docs on tag release.
   variables:
+    GOPATH: $CI_PROJECT_DIR/.go
+    GOCACHE: $CI_PROJECT_DIR/.go-build
     WALDUR_DOCS_VERSION: ""
   script:
     # Fetch OpenAPI schema from waldur-docs

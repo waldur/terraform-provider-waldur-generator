@@ -1,3 +1,7 @@
+include:
+  - project: "waldur/waldur-pipelines"
+    file: "/templates/openapi-schema.yml"
+
 stages:
   - test
   - deploy
@@ -20,7 +24,9 @@ stages:
 
 # Run verification checks (compiles generator, generates provider, builds provider, runs tests)
 test:
-  extends: .go-env
+  extends:
+    - .go-env
+    - .download-openapi-schema
   stage: test
   # Required when triggering manually via web:
   #   CI/CD → Run pipeline → add WALDUR_DOCS_VERSION = <version, e.g. 8.0.9>
@@ -28,35 +34,12 @@ test:
   variables:
     GOPATH: $CI_PROJECT_DIR/.go
     GOCACHE: $CI_PROJECT_DIR/.go-build
+    SCHEMA_OUTPUT_PATH: "waldur_api.yaml"
     WALDUR_DOCS_VERSION: ""
+  before_script:
+    - !reference [.download-openapi-schema, before_script]
+    - !reference [.go-env, before_script]
   script:
-    # Fetch OpenAPI schema from waldur-docs
-    # If WALDUR_DOCS_VERSION is not set, auto-discover the latest available version
-    - |
-      if [ -z "$WALDUR_DOCS_VERSION" ]; then
-        echo "WALDUR_DOCS_VERSION not set — discovering latest schema from waldur-docs on GitHub..."
-        API_RESPONSE=$(curl --show-error --silent \
-          --header "Accept: application/vnd.github+json" \
-          "https://api.github.com/repos/waldur/waldur-docs/contents/docs/API") || true
-        WALDUR_DOCS_VERSION=$(echo "$API_RESPONSE" \
-          | grep -oE '"waldur-openapi-schema-[0-9]+\.[0-9]+\.[0-9]+\.yaml"' \
-          | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
-          | sort -V \
-          | tail -1) || true
-        if [ -z "$WALDUR_DOCS_VERSION" ]; then
-          echo "❌ Failed to resolve latest schema version. API response:"
-          echo "$API_RESPONSE"
-          exit 1
-        fi
-        echo "Latest schema version resolved: $WALDUR_DOCS_VERSION"
-      fi
-      SCHEMA_URL="https://raw.githubusercontent.com/waldur/waldur-docs/master/docs/API/waldur-openapi-schema-${WALDUR_DOCS_VERSION}.yaml"
-      echo "Fetching OpenAPI schema: $SCHEMA_URL"
-      curl --fail --show-error --silent \
-        "$SCHEMA_URL" \
-        -o waldur_api.yaml
-      echo "✅ Schema downloaded (v${WALDUR_DOCS_VERSION}): $(wc -l < waldur_api.yaml) lines"
-
     # Generate Provider
     - go run main.go -config config.yaml
 

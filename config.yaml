@@ -210,6 +210,8 @@ resources:
 
   - name: "openstack_server_group"
     base_operation_id: "openstack_server_groups"
+    skip_operations:
+      - "partial_update"  # Removed in newer API versions
     create_operation:
       operation_id: "openstack_tenants_create_server_group"
       path_params:

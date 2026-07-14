@@ -21,8 +21,14 @@ func NewParser(schemaPath string) (*Parser, error) {
 		return nil, fmt.Errorf("failed to load OpenAPI schema: %w", err)
 	}
 
-	// Validate the document (skip example validation to allow upstream schema issues)
-	if err := doc.Validate(loader.Context, openapi3.DisableExamplesValidation()); err != nil {
+	// Validate the document
+	// - DisableExamplesValidation: allow upstream schema issues in examples
+	// - DisableSchemaDefaultsValidation: allow fields where default value violates constraints
+	//   (e.g. default:"" with minLength:1 — a known upstream schema bug)
+	if err := doc.Validate(loader.Context,
+		openapi3.DisableExamplesValidation(),
+		openapi3.DisableSchemaDefaultsValidation(),
+	); err != nil {
 		return nil, fmt.Errorf("invalid OpenAPI schema: %w", err)
 	}
 

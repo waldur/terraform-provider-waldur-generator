@@ -110,20 +110,42 @@ deploy:
       # Verification
       ls -la $CI_PROJECT_DIR/../target_repo/
 
-    # Commit and Push
+    # Commit, Tag, and Push
     - cd $CI_PROJECT_DIR/../target_repo
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
     - git add .
     - |
-      # Check if there are changes
-      if git diff --staged --quiet; then
-        echo "No changes to commit"
-        exit 0
+      # Determine release version for tagging (ensure "v" prefix format)
+      if [ -n "$WALDUR_DOCS_VERSION" ]; then
+        VERSION="v${WALDUR_DOCS_VERSION#v}"
+      else
+        VERSION=""
       fi
-      
-      git commit -m "Update generated provider code"
-      git push
+
+      # Commit and push code changes if they exist
+      if ! git diff --staged --quiet; then
+        if [ -n "$VERSION" ]; then
+          git commit -m "Release: update provider code for version $VERSION"
+        else
+          git commit -m "Update generated provider code"
+        fi
+        git push origin main
+      else
+        echo "No code changes to commit."
+      fi
+
+      # Push release tag to trigger goreleaser pipeline in target repository
+      if [ -n "$VERSION" ]; then
+        git fetch --tags
+        if git rev-parse "$VERSION" >/dev/null 2>&1; then
+          echo "Tag $VERSION already exists in target repo. Skipping tag."
+        else
+          echo "Tagging stable release $VERSION"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+        fi
+      fi
   rules:
     # Deploy ONLY on main branch, manual triggers, or when triggered from waldur-docs
     - if: $CI_COMMIT_BRANCH == "main"

@@ -22,17 +22,34 @@ stages:
 test:
   extends: .go-env
   stage: test
+  # Required when triggering manually via web:
+  #   CI/CD → Run pipeline → add WALDUR_DOCS_VERSION = <version, e.g. 8.0.9>
+  # Set automatically when triggered from waldur-docs on tag release.
+  variables:
+    WALDUR_DOCS_VERSION: ""
   script:
-    # Fetch OpenAPI schema from waldur-docs (required — pipeline must be triggered with WALDUR_DOCS_VERSION)
+    # Fetch OpenAPI schema from waldur-docs
+    # If WALDUR_DOCS_VERSION is not set, auto-discover the latest available version
     - |
-      : "${WALDUR_DOCS_VERSION:?WALDUR_DOCS_VERSION is required. Trigger this pipeline from waldur-docs.}"
+      if [ -z "$WALDUR_DOCS_VERSION" ]; then
+        echo "WALDUR_DOCS_VERSION not set — discovering latest schema from waldur-docs..."
+        API_RESPONSE=$(curl --fail --silent \
+          --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+          "https://code.opennodecloud.com/api/v4/projects/waldur%2Fwaldur-docs/repository/tree?path=docs%2FAPI&ref=master&per_page=100")
+        WALDUR_DOCS_VERSION=$(echo "$API_RESPONSE" \
+          | grep -oE '"waldur-openapi-schema-[0-9]+\.[0-9]+\.[0-9]+\.yaml"' \
+          | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
+          | sort -V \
+          | tail -1)
+        echo "Latest schema version resolved: $WALDUR_DOCS_VERSION"
+      fi
       SCHEMA_URL="https://code.opennodecloud.com/waldur/waldur-docs/-/raw/master/docs/API/waldur-openapi-schema-${WALDUR_DOCS_VERSION}.yaml"
       echo "Fetching OpenAPI schema: $SCHEMA_URL"
       curl --fail --silent \
         --header "JOB-TOKEN: $CI_JOB_TOKEN" \
         "$SCHEMA_URL" \
         -o waldur_api.yaml
-      echo "✅ Schema downloaded: $(wc -l < waldur_api.yaml) lines"
+      echo "✅ Schema downloaded (v${WALDUR_DOCS_VERSION}): $(wc -l < waldur_api.yaml) lines"
 
     # Generate Provider
     - go run main.go -config config.yaml

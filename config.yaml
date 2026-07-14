@@ -37,6 +37,8 @@ generator:
     - "latitude"
     - "longitude"
     - "current_usages"
+    - "user_email_patterns"    # Type changed in v8.0.9: API returns array, schema says object
+    - "minimal_price"          # Type changed in v8.0.9: API returns number, schema says string
   set_fields:
     - "security_groups"
     - "floating_ips"

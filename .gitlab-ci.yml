@@ -1,6 +1,12 @@
-include:
-  - project: "waldur/waldur-pipelines"
-    file: "/templates/openapi-schema.yml"
+variables:
+  GOPATH: $CI_PROJECT_DIR/.go
+  GOCACHE: $CI_PROJECT_DIR/.go-build
+
+cache:
+  key: go-cache
+  paths:
+    - .go/pkg/mod/
+    - .go-build/
 
 stages:
   - test
@@ -9,41 +15,28 @@ stages:
 # Hidden template job containing shared environment configurations
 .go-env:
   image: registry.hpc.ut.ee/mirror/library/golang:1.25
-  variables:
-    GOPATH: $CI_PROJECT_DIR/.go
-    GOCACHE: $CI_PROJECT_DIR/.go-build
-  cache:
-    key: go-cache
-    paths:
-      - .go/pkg/mod/
-      - .go-build/
   before_script:
     - mkdir -p .go
     - export PATH=$PATH:$GOPATH/bin
-    - apt-get update && apt-get install -y --no-install-recommends rsync git && rm -rf /var/lib/apt/lists/*
+    - apt-get update && apt-get install -y --no-install-recommends rsync git curl && rm -rf /var/lib/apt/lists/*
 
 # Run verification checks (compiles generator, generates provider, builds provider, runs tests)
 test:
   extends:
     - .go-env
-    - .download-openapi-schema
   stage: test
   # Required when triggering manually via web:
-  #   CI/CD → Run pipeline → add WALDUR_DOCS_VERSION = <version, e.g. 8.0.9>
+  #   CI/CD → Run pipeline → add RELEASE_VERSION = <version, e.g. 8.0.9>
   # Set automatically when triggered from waldur-docs on tag release.
   variables:
-    GOPATH: $CI_PROJECT_DIR/.go
-    GOCACHE: $CI_PROJECT_DIR/.go-build
-    SCHEMA_OUTPUT_PATH: "waldur_api.yaml"
-    WALDUR_DOCS_VERSION: ""
-  cache:
-    key: go-cache
-    paths:
-      - .go/pkg/mod/
-      - .go-build/
+    RELEASE_VERSION: ""
+  needs:
+    - pipeline: $CI_PARENT_PIPELINE_ID
+      job: Generate OpenAPI schema
   before_script:
-    - !reference [.download-openapi-schema, before_script]
     - !reference [.go-env, before_script]
+    - export OPENAPI_SCHEMA_DEST="waldur_api.yaml"
+    - !reference [.release-utils, fetch_openapi_schema]
   script:
     # Generate Provider
     - go run main.go -config config.yaml
@@ -96,8 +89,8 @@ deploy:
   script:
     # Determine release version for tagging (ensure "v" prefix format)
     - |
-      if [ -n "$WALDUR_DOCS_VERSION" ]; then
-        export VERSION="v${WALDUR_DOCS_VERSION#v}"
+      if [ -n "$RELEASE_VERSION" ]; then
+        export VERSION="v${RELEASE_VERSION#v}"
       else
         export VERSION=""
       fi

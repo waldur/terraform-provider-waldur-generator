@@ -22,7 +22,6 @@ stages:
   before_script:
     - mkdir -p .go
     - export PATH=$PATH:$GOPATH/bin
-    - apt-get update && apt-get install -y --no-install-recommends rsync git curl && rm -rf /var/lib/apt/lists/*
 
 Fetch schema (pipeline):
   extends: .fetch-schema-pipeline
@@ -100,6 +99,9 @@ test:
 deploy:
   extends: .go-env
   stage: deploy
+  before_script:
+    - !reference [.go-env, before_script]
+    - apt-get update && apt-get install -y --no-install-recommends rsync && rm -rf /var/lib/apt/lists/*
   script:
     # Determine release version for tagging (ensure "v" prefix format)
     - |

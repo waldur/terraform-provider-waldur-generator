@@ -20,7 +20,6 @@ stages:
 .go-env:
   image: registry.hpc.ut.ee/mirror/library/golang:1.25
   before_script:
-    - mkdir -p .go
     - export PATH=$PATH:$GOPATH/bin
 
 Fetch schema (pipeline):

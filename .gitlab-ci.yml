@@ -16,12 +16,6 @@ stages:
   - test
   - deploy
 
-# Hidden template job containing shared environment configurations
-.go-env:
-  image: registry.hpc.ut.ee/mirror/library/golang:1.25
-  before_script:
-    - export PATH=$PATH:$GOPATH/bin
-
 Fetch schema (pipeline):
   extends: .fetch-schema-pipeline
   variables:
@@ -34,8 +28,7 @@ Fetch schema (independent):
 
 # Run verification checks (compiles generator, generates provider, builds provider, runs tests)
 test:
-  extends:
-    - .go-env
+  image: registry.hpc.ut.ee/mirror/library/golang:1.25
   stage: test
   # Required when triggering manually via web:
   #   CI/CD → Run pipeline → add RELEASE_VERSION = <version, e.g. 8.0.9>
@@ -47,8 +40,6 @@ test:
       optional: true
     - job: Fetch schema (independent)
       optional: true
-  before_script:
-    - !reference [.go-env, before_script]
   script:
     # Generate Provider
     - go run main.go -config config.yaml
@@ -59,7 +50,7 @@ test:
 
     # Format and Clean Imports
     - cd output
-    - goimports -w .
+    - $GOPATH/bin/goimports -w .
     - echo "✅ Imports cleaned with goimports"
 
     # Verify Build
@@ -79,7 +70,7 @@ test:
     - rm -f terraform-provider-waldur
 
     # Verify Documentation
-    - tfplugindocs generate --provider-name waldur
+    - $GOPATH/bin/tfplugindocs generate --provider-name waldur
     - echo "✅ Documentation verification passed"
   artifacts:
     paths:
@@ -96,10 +87,9 @@ test:
 
 # Deploy/Push generated code to target repo (Only on main/web)
 deploy:
-  extends: .go-env
+  image: registry.hpc.ut.ee/mirror/library/golang:1.25
   stage: deploy
   before_script:
-    - !reference [.go-env, before_script]
     - apt-get update && apt-get install -y --no-install-recommends rsync && rm -rf /var/lib/apt/lists/*
   script:
     # Determine release version for tagging (ensure "v" prefix format)

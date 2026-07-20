@@ -16,13 +16,8 @@ stages:
   - test
   - deploy
 
-Fetch schema (pipeline):
-  extends: .fetch-schema-pipeline
-  variables:
-    OPENAPI_SCHEMA_DEST: "waldur_api.yaml"
-
-Fetch schema (independent):
-  extends: .fetch-schema-independent
+Fetch OpenAPI schema:
+  extends: .fetch-openapi-schema
   variables:
     OPENAPI_SCHEMA_DEST: "waldur_api.yaml"
 
@@ -36,10 +31,8 @@ test:
   variables:
     RELEASE_VERSION: ""
   needs:
-    - job: Fetch schema (pipeline)
-      optional: true
-    - job: Fetch schema (independent)
-      optional: true
+    - job: Fetch OpenAPI schema
+      artifacts: true
   script:
     # Generate Provider
     - go run main.go -config config.yaml

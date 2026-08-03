@@ -102,6 +102,11 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 		if _, actionPath, _, err := parser.GetOperation(actionConfig.Operation); err == nil {
 			action.Path = actionPath
 		}
+		if reqSchema, err := parser.GetOperationRequestSchema(actionConfig.Operation); err == nil {
+			if reqSchema.Value != nil && reqSchema.Value.Type != nil {
+				action.BodyIsArray = (*reqSchema.Value.Type)[0] == "array"
+			}
+		}
 		updateActions = append(updateActions, action)
 	}
 

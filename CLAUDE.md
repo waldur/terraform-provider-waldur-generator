@@ -85,7 +85,11 @@ move them back into the generator:
 
 ## Conventions & pitfalls
 
-- **Branch / remote**: default branch `main`, GitHub (`github.com/waldur/terraform-provider-waldur-generator`).
+- **Branch / remote**: default branch `main`, GitLab
+  (`code.opennodecloud.com/waldur/terraform-provider-waldur-generator`) — that is where MRs go.
+  `github.com/waldur/terraform-provider-waldur-generator` is a mirror; the Go module path still
+  points at it, so `go install` and the import paths under `internal/` keep the `github.com/...`
+  prefix. Don't "fix" those to the GitLab host without also renaming the module.
 - **Auth**: use `WALDUR_ACCESS_TOKEN` (not `WALDUR_AUTH_TOKEN` — that yields `401`).
 - **Empty `output/`**: if `output/go.mod` is missing, `go run main.go` failed — fix that first.
 - **`map has no entry for key`** template errors: ensure data passed to `RenderTemplate` is

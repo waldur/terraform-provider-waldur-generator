@@ -90,6 +90,14 @@ type UpdateAction struct {
 	Param      string // Parameter name for payload
 	CompareKey string // Field to compare for changes
 	Path       string // Resolved API path from OpenAPI
+	// BodyIsArray reports whether the operation's request body is a bare JSON
+	// array rather than an object wrapping the param. Both shapes exist in the
+	// Waldur API: openstack_security_groups_set_rules takes a bare array, while
+	// openstack_instances_update_floating_ips takes {"floating_ips": [...]}.
+	// This has to come from the request schema — the param's own type is an
+	// array in both cases, so keying off that sends a bare array to endpoints
+	// that expect a wrapper.
+	BodyIsArray bool
 }
 
 // FilterParam describes a query parameter for filtering

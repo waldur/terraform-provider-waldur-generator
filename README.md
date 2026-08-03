@@ -53,12 +53,13 @@ For more details on the design principles and architecture, see the **[Developer
 ### Install from source
 
 ```bash
-git clone https://github.com/waldur/terraform-provider-waldur-generator.git
+git clone https://code.opennodecloud.com/waldur/terraform-provider-waldur-generator.git
 cd terraform-provider-waldur-generator
 go install
 ```
 
-Or install directly:
+Or install directly via the GitHub mirror, which is what the Go module path
+resolves to:
 
 ```bash
 go install github.com/waldur/terraform-provider-waldur-generator@latest

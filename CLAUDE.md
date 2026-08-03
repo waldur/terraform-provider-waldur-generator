@@ -22,13 +22,11 @@ the downstream repo `waldur/terraform-provider-waldur` for publication to the Te
 | `output/`, `dist/` | Generated provider — **gitignored**, ephemeral |
 
 Because `output/` is gitignored and content is schema-driven, changes to the generated provider
-leave **no git diff and no changelog entry** here. The deploy workflow
-(`.github/workflows/deploy.yml`) generates into `output/`, then **wipes the downstream
-`waldur/terraform-provider-waldur` repo and rsyncs the output in, committing with a single flat
-message `"Update generated provider code"`** — so the published history carries no record of *what*
-changed. There is no changelog tooling in either repo. See `../CLAUDE.md` for the workspace-level
-discussion; the fix that captures these changes is to diff the generated resource/field set between
-schema revisions and write a real commit message / changelog into the downstream repo.
+leave **no git diff** here. The `deploy` stage of `.gitlab-ci.yml` generates into `output/`, then
+**wipes the downstream `waldur/terraform-provider-waldur` repo** (also on GitLab) and rsyncs the
+output in. The commit subject and `CHANGELOG.md` are derived by diffing the previous
+`provider-manifest.json` against the new one (`cmd/changelog`, `internal/changelog/manifest.go`),
+so the published history does record what changed.
 
 ## Architecture (Component + Plugin)
 
@@ -61,6 +59,8 @@ type resolution); `internal/generator/templates.go` (template helper funcs like 
 ## Commands
 
 ```bash
+go install golang.org/x/tools/cmd/goimports@latest   # REQUIRED, see below
+
 go test ./internal/...                       # unit tests
 go run main.go -config config.yaml           # generate provider into output/
 
@@ -85,8 +85,20 @@ move them back into the generator:
 
 ## Conventions & pitfalls
 
-- **Branch / remote**: default branch `main`, GitHub (`github.com/waldur/terraform-provider-waldur-generator`).
+- **Branch / remote**: default branch `main`, GitLab
+  (`code.opennodecloud.com/waldur/terraform-provider-waldur-generator`) — that is where MRs go.
+  `github.com/waldur/terraform-provider-waldur-generator` is a mirror; the Go module path still
+  points at it, so `go install` and the import paths under `internal/` keep the `github.com/...`
+  prefix. Don't "fix" those to the GitLab host without also renaming the module.
 - **Auth**: use `WALDUR_ACCESS_TOKEN` (not `WALDUR_AUTH_TOKEN` — that yields `401`).
+- **`goimports` is required, not optional.** Templates import
+  `terraform-plugin-framework/types` unconditionally and let the post-generation pass drop it where
+  it is unused — that is how templates stay structural. `cleanupImports` prefers `goimports` and
+  falls back to `gofmt`, which formats but does **not** remove unused imports, so without
+  `goimports` on `PATH` the generated code does not compile:
+  `internal/sdk/common/types.go: "…/types" imported and not used` (plus every `list.go` /
+  `datasource.go`). CI installs it explicitly. Nothing is wrong with the repo or the schema if you
+  see this — install `goimports` and regenerate.
 - **Empty `output/`**: if `output/go.mod` is missing, `go run main.go` failed — fix that first.
 - **`map has no entry for key`** template errors: ensure data passed to `RenderTemplate` is
   initialized and exported (capitalized).

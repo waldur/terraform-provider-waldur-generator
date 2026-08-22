@@ -48,6 +48,13 @@ type FieldInfo struct {
 	JsonTag       string // Custom JSON tag (optional)
 	HasDefault    bool   // Whether field has a default value in OpenAPI schema
 	UnknownIfNull bool   // Whether to use UnknownIfNull plan modifier
+
+	// LenientStringMap marks a map that Terraform presents as map(string) even
+	// though the API does not constrain its value type. The Terraform schema and
+	// the request struct stay map[string]string; only the response struct decodes
+	// through JSONStringMap, so object, array and scalar values do not fail JSON
+	// decoding. See the marketplace_order override in components/resource.
+	LenientStringMap bool
 }
 
 // ResourceData holds all data required to generate resource/sdk code

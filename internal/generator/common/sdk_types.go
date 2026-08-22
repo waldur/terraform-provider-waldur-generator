@@ -95,3 +95,11 @@ func CalculateSDKType(f *FieldInfo) {
 	// Always calculate TypeMeta after SDK type is determined
 	CalculateTypeMeta(f)
 }
+
+// IsAnyMap reports whether a field is an API map whose values are not primitives.
+// Such maps are represented as map[string]interface{} in the SDK structs, which the
+// Terraform Plugin Framework cannot reflect into the generated map(string) attribute.
+// Response structs use JSONStringMap for these instead.
+func IsAnyMap(f FieldInfo) bool {
+	return f.GoType == TFTypeMap && f.SDKType == GoTypeMap+GoTypeAny
+}

@@ -168,6 +168,18 @@ func GetFuncMap() template.FuncMap {
 				}
 			}
 
+			// Handle JSONStringMap for responses and common types: maps whose values are
+			// objects or arrays decode into map[string]interface{}, which cannot be
+			// reflected into the generated map(string) attribute. See JSONStringMap.
+			if common.IsAnyMap(f) && (suffix == "Response" || pkgName == "common") {
+				if pkgName != "common" {
+					sdkType = "common.JSONStringMap"
+				} else {
+					sdkType = "JSONStringMap"
+				}
+				isPointer = false
+			}
+
 			// Handle FlexibleNumber for responses and common types (like OrderDetails)
 			if f.Type == common.OpenAPITypeNumber && (suffix == "Response" || pkgName == "common") {
 				if pkgName != "common" {

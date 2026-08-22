@@ -83,3 +83,38 @@ func TestRenderGoType_AnyMap(t *testing.T) {
 		})
 	}
 }
+
+// marketplace_order flattens `attributes` to map(string) for the Terraform
+// schema and the create request, but the API leaves the field unconstrained and
+// real orders carry numbers, booleans and lists. The response struct therefore
+// has to decode leniently even though its ItemType now says "string".
+func TestRenderGoType_LenientStringMap(t *testing.T) {
+	renderGoType := renderGoTypeFunc(t)
+
+	flattened := common.FieldInfo{
+		Name:     "attributes",
+		Type:     common.OpenAPITypeObject,
+		GoType:   common.TFTypeMap,
+		ItemType: common.OpenAPITypeString,
+	}
+	common.CalculateSDKType(&flattened)
+
+	// Sanity: without the marker this is an ordinary string map.
+	if common.IsAnyMap(flattened) {
+		t.Fatal("a string map must not be treated as an any-map")
+	}
+	if got := renderGoType(flattened, "order", "MarketplaceOrder", "Response"); got != "map[string]string" {
+		t.Fatalf("unmarked string map = %q, want map[string]string", got)
+	}
+
+	lenient := flattened
+	lenient.LenientStringMap = true
+
+	if got := renderGoType(lenient, "order", "MarketplaceOrder", "Response"); got != "common.JSONStringMap" {
+		t.Errorf("response = %q, want common.JSONStringMap", got)
+	}
+	// The write path must keep taking a plain string map.
+	if got := renderGoType(lenient, "order", "MarketplaceOrder", "Request"); got != "map[string]string" {
+		t.Errorf("request = %q, want map[string]string", got)
+	}
+}

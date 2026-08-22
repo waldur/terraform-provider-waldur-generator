@@ -138,6 +138,20 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 
 	// 5. Special Overrides (Marketplace Attributes, Path Params)
 	if resource.Name == "marketplace_order" {
+		// The response schema leaves attributes unconstrained
+		// (additionalProperties: true) and real orders carry numbers, booleans and
+		// lists in there. Flattening the field to map(string) below is what we want
+		// for the Terraform schema and the create request, but the merged
+		// definition is copied back onto responseFields further down, which would
+		// otherwise leave the SDK decoding those values into map[string]string and
+		// failing outright. Remember that the response has to decode leniently.
+		lenientAttributes := false
+		for i := range responseFields {
+			if responseFields[i].Name == "attributes" && common.IsAnyMap(responseFields[i]) {
+				lenientAttributes = true
+			}
+		}
+
 		for i := range modelFields {
 			if modelFields[i].Name == "attributes" {
 				modelFields[i].GoType = common.TFTypeMap
@@ -145,6 +159,7 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 				modelFields[i].Type = common.OpenAPITypeObject
 				modelFields[i].Properties = nil
 				common.CalculateSDKType(&modelFields[i])
+				modelFields[i].LenientStringMap = lenientAttributes
 			}
 		}
 		for i := range createFields {

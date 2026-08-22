@@ -12,6 +12,7 @@ func (g *Generator) generateSharedUtils() error {
 	}{
 		{"modifiers.go.tmpl", "modifiers.go"},
 		{"waldur.go.tmpl", "waldur.go"},
+		{"waldur_test.go.tmpl", "waldur_test.go"},
 		{"filters.go.tmpl", "filters.go"},
 		{"population.go.tmpl", "population.go"},
 		{"polling.go.tmpl", "polling.go"},

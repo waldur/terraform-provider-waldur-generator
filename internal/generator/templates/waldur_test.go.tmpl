@@ -1,0 +1,114 @@
+package common
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+// JSONStringMap backs API maps whose values are not guaranteed to be strings,
+// such as an offering's `options.options` or a resource's `attributes`.
+type jsonStringMapHolder struct {
+	Options JSONStringMap `json:"options,omitempty"`
+}
+
+func TestJSONStringMapUnmarshal(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  map[string]string
+		isNil bool
+	}{
+		{
+			name:  "object values are stored as compact JSON",
+			input: `{"options": {"is_industry": {"type": "boolean", "label": "Industry"}}}`,
+			want:  map[string]string{"is_industry": `{"type":"boolean","label":"Industry"}`},
+		},
+		{
+			name:  "array values are stored as compact JSON",
+			input: `{"options": {"ports": [{"subnet": "a"}]}}`,
+			want:  map[string]string{"ports": `[{"subnet":"a"}]`},
+		},
+		{
+			name:  "string values pass through verbatim",
+			input: `{"options": {"vendor": "acme"}}`,
+			want:  map[string]string{"vendor": "acme"},
+		},
+		{
+			name:  "a string that looks like JSON is not re-encoded",
+			input: `{"options": {"raw": "{\"a\":1}"}}`,
+			want:  map[string]string{"raw": `{"a":1}`},
+		},
+		{
+			name:  "scalars are stringified",
+			input: `{"options": {"count": 42, "enabled": true}}`,
+			want:  map[string]string{"count": "42", "enabled": "true"},
+		},
+		{
+			name:  "interior whitespace is compacted away",
+			input: `{"options": {"a": {"x":    1,   "y": 2}}}`,
+			want:  map[string]string{"a": `{"x":1,"y":2}`},
+		},
+		{
+			// json.Unmarshal of a JSON null into a string is a no-op, so a null
+			// value lands as "". map[string]string cannot express a null element,
+			// so this matches how the other primitive maps (plan prices, quotas)
+			// already behave.
+			name:  "null values become empty strings",
+			input: `{"options": {"cpu": null}}`,
+			want:  map[string]string{"cpu": ""},
+		},
+		{
+			name:  "empty object",
+			input: `{"options": {}}`,
+			want:  map[string]string{},
+		},
+		{
+			// The generated mappers branch on `if apiResp.X != nil` to choose
+			// between a value and types.MapNull. Decoding null into an empty map
+			// would turn a null attribute into {} in state.
+			name:  "a null map stays nil",
+			input: `{"options": null}`,
+			isNil: true,
+		},
+		{
+			name:  "an absent map stays nil",
+			input: `{}`,
+			isNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var h jsonStringMapHolder
+			if err := json.Unmarshal([]byte(tt.input), &h); err != nil {
+				t.Fatalf("unmarshal failed: %v", err)
+			}
+
+			if tt.isNil {
+				if h.Options != nil {
+					t.Fatalf("expected nil map, got %#v", h.Options)
+				}
+				return
+			}
+
+			if h.Options == nil {
+				t.Fatal("expected a non-nil map")
+			}
+			if len(h.Options) != len(tt.want) {
+				t.Fatalf("got %d entries, want %d: %#v", len(h.Options), len(tt.want), h.Options)
+			}
+			for k, want := range tt.want {
+				if got := h.Options[k]; got != want {
+					t.Errorf("key %q: got %q, want %q", k, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestJSONStringMapRejectsNonObject(t *testing.T) {
+	var h jsonStringMapHolder
+	if err := json.Unmarshal([]byte(`{"options": ["a"]}`), &h); err == nil {
+		t.Fatal("expected an error when the map is not a JSON object")
+	}
+}

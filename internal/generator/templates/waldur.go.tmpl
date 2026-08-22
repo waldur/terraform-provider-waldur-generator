@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -106,13 +107,18 @@ func (f *FlexibleNumber) Float64Ptr() *float64 {
 // StringType element, so decoding into a plain map[string]interface{} fails with
 // "cannot use type map[string]interface {} as schema type basetypes.StringType".
 //
-// Values that are already JSON strings are kept verbatim; everything else keeps its
-// compact JSON form, which practitioners can decode with jsondecode().
+// Values that are already JSON strings are kept verbatim; everything else is stored
+// as compact JSON, which practitioners can decode with jsondecode(). Compacting
+// matters because these land in Computed attributes: storing the server's raw bytes
+// would turn a cosmetic whitespace change in the API response into a Terraform diff.
 type JSONStringMap map[string]string
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (m *JSONStringMap) UnmarshalJSON(data []byte) error {
-	if len(data) == 0 {
+	// A JSON null must leave the map nil: the generated mappers key off
+	// `if apiResp.X != nil` to decide between a value and types.MapNull, so
+	// decoding null into an empty map would turn a null attribute into {}.
+	if len(data) == 0 || string(bytes.TrimSpace(data)) == "null" {
 		return nil
 	}
 
@@ -130,7 +136,11 @@ func (m *JSONStringMap) UnmarshalJSON(data []byte) error {
 			out[key] = s
 			continue
 		}
-		out[key] = string(value)
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, value); err != nil {
+			return err
+		}
+		out[key] = compact.String()
 	}
 
 	*m = out

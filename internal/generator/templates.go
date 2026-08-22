@@ -171,7 +171,13 @@ func GetFuncMap() template.FuncMap {
 			// Handle JSONStringMap for responses and common types: maps whose values are
 			// objects or arrays decode into map[string]interface{}, which cannot be
 			// reflected into the generated map(string) attribute. See JSONStringMap.
-			if common.IsAnyMap(f) && (suffix == "Response" || pkgName == "common") {
+			// Response structs only. Shared `common` structs are rendered once with an
+			// empty suffix and are used for both directions, and JSONStringMap has no
+			// MarshalJSON -- applying it there would send object values back to the API
+			// as JSON-encoded strings. The `common` any-maps (OrderDetails) are used
+			// purely for order polling and are never mapped into Terraform state, so
+			// map[string]interface{} remains correct for them.
+			if common.IsAnyMap(f) && suffix == "Response" {
 				if pkgName != "common" {
 					sdkType = "common.JSONStringMap"
 				} else {

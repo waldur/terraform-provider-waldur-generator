@@ -52,11 +52,11 @@ func TestRenderGoType_AnyMap(t *testing.T) {
 			expected: "common.JSONStringMap",
 		},
 		{
-			name:     "any map in the common package",
+			name:     "any map in a shared common struct is left alone",
 			field:    anyMap,
 			pkgName:  "common",
-			suffix:   "Response",
-			expected: "JSONStringMap",
+			suffix:   "",
+			expected: "map[string]interface{}",
 		},
 		{
 			name:     "any map in a request struct is left alone",

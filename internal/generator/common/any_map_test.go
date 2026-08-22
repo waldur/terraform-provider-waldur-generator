@@ -86,6 +86,11 @@ func TestIsAnyMap(t *testing.T) {
 			expected: false,
 		},
 		{
+			name:     "map of booleans",
+			field:    FieldInfo{Type: OpenAPITypeObject, GoType: TFTypeMap, ItemType: OpenAPITypeBoolean},
+			expected: false,
+		},
+		{
 			name:     "map of integers",
 			field:    FieldInfo{Type: OpenAPITypeObject, GoType: TFTypeMap, ItemType: OpenAPITypeInteger},
 			expected: false,

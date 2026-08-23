@@ -22,11 +22,20 @@ release:
       [ -n "$GPG_PASSPHRASE" ] || missing="$missing GPG_PASSPHRASE"
       [ -n "$GITHUB_TOKEN" ]   || missing="$missing GITHUB_TOKEN"
       if [ -n "$missing" ]; then
-        echo "ERROR: missing CI/CD variable(s):$missing" >&2
-        echo "Set them on this project: Settings -> CI/CD -> Variables." >&2
-        echo "GPG_PRIVATE_KEY must NOT be masked -- masking mangles multi-line" >&2
-        echo "values. Use an unmasked variable, a File-type variable, or store" >&2
-        echo "the key base64-encoded (this job accepts either form)." >&2
+        echo "ERROR: no value for CI/CD variable(s):$missing" >&2
+        echo "" >&2
+        echo "The variable may be absent, or present but not exposed to this job." >&2
+        echo "A *protected* variable only reaches pipelines running on a protected" >&2
+        echo "branch or a protected tag. This job runs on tag $CI_COMMIT_TAG, so if" >&2
+        echo "no tag pattern is protected the value arrives empty and gpg later" >&2
+        echo "fails with the misleading 'no valid OpenPGP data found'." >&2
+        echo "Check Settings -> CI/CD -> Variables *and* Settings -> Repository ->" >&2
+        echo "Protected tags (protect v* to match this job's rules)." >&2
+        echo "" >&2
+        echo "GPG_PRIVATE_KEY must also not be masked -- masking requires" >&2
+        echo "single-line values and mangles the armored block. Use an unmasked" >&2
+        echo "variable, a File-type variable, or store the key base64-encoded" >&2
+        echo "(this job accepts either form)." >&2
         echo "GITHUB_TOKEN needs 'contents: write' on $GITHUB_REPO, because the" >&2
         echo "Terraform Registry only ingests GitHub releases." >&2
         exit 1

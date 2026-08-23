@@ -52,7 +52,9 @@ func TestGoReleaserTargetsGitHub(t *testing.T) {
 		"github:",
 		"owner: waldur",
 		"name: terraform-provider-waldur",
-		"prerelease: auto",
+		// Not "auto": the Registry silently refuses to ingest GitHub releases
+		// flagged as prereleases, which stranded v8.1.3-rc.2.
+		"prerelease: false",
 	} {
 		if !strings.Contains(goreleaser, want) {
 			t.Errorf("rendered .goreleaser.yml is missing %q", want)

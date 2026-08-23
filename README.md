@@ -13,7 +13,7 @@ This generator reads a Waldur OpenAPI schema and a YAML configuration file to au
 - ✅ **Standard Timeouts**: Supports customizable `timeouts` for Create, Update, and Delete operations
 - ✅ **OpenAPI schema parsing**: Automatically infers schemas and operations from OpenAPI definitions
 - ✅ **Multi-platform builds**: Generates providers for Linux, macOS, and Windows
-- ✅ **Registry-ready**: Includes GoReleaser config and GitHub Actions for automated publishing
+- ✅ **Registry-ready**: Includes GoReleaser config and a GitLab CI release pipeline for automated publishing
 - ✅ **Modular resource naming**: Supports module-prefixed resources (e.g., `structure_project`, `openstack_instance`)
 - ✅ **E2E Testing with go-VCR**: Full CRUD lifecycle testing with recorded API interactions
 
@@ -262,54 +262,63 @@ output/
 │   └── ...                          # Other Waldur services
 ├── e2e_test/                        # End-to-end acceptance tests
 ├── examples/                        # HCL examples for the Registry
+├── .gitlab-ci.yml                   # Release pipeline (runs on v* tags)
 ├── .goreleaser.yml                  # Release configuration
 └── terraform-registry-manifest.json  # Metadata for Terraform Registry
 ```
 
 ## Publishing to Terraform Registry
 
-The generated provider includes all necessary files for publishing to the Terraform Registry:
+Releases are cut by the **GitLab** pipeline in the downstream repo
+(`waldur/terraform-provider-waldur`), generated from
+`internal/generator/templates/release.yml.tmpl`. It runs on tags matching `v*`.
 
-### 1. Generate GPG Signing Key
+The Terraform Registry only ingests **GitHub** releases, so goreleaser is pointed at the GitHub
+mirror explicitly via `release.github` in `.goreleaser.yml`; the GitLab tag reaches GitHub by
+repository mirroring. This is why the job needs a GitHub token even though it runs on GitLab.
 
-```bash
-gpg --full-generate-key
-# Select: RSA and RSA
-# Key size: 4096
-# Follow prompts
-```
+### 1. Signing key
 
-### 2. Add GPG Key to Terraform Registry
-
-1. Sign in to [Terraform Registry](https://registry.terraform.io/)
-2. Go to User Settings → Signing Keys
-3. Add your public GPG key:
-
-   ```bash
-   gpg --armor --export your.email@example.com
-   ```
-
-### 3. Configure GitHub Secrets
-
-Add these secrets to your GitHub repository:
-
-- `GPG_PRIVATE_KEY`: Your private GPG key (`gpg --armor --export-secret-keys your.email@example.com`)
-- `PASSPHRASE`: Your GPG key passphrase
-
-### 4. Create a Release
+The Registry validates the signature on every release against a public key registered to the
+namespace, so reuse the existing key rather than generating a new one. A new key must first be added
+under Terraform Registry → User Settings → Signing Keys:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+gpg --armor --export <key-id>            # public, for the Registry
+gpg --armor --export-secret-keys <key-id> # private, for CI
 ```
 
-The GitHub Actions workflow will automatically:
+### 2. CI/CD variables
 
-- Build binaries for all platforms
-- Create checksums
-- Sign the release with your GPG key
-- Publish to GitHub Releases
-- Make it available on Terraform Registry
+Set these on **`waldur/terraform-provider-waldur`** (Settings → CI/CD → Variables), not on this
+repo — the release job runs downstream:
+
+| Variable | Notes |
+|----------|-------|
+| `GPG_PRIVATE_KEY` | Private key. Do **not** mask it: masking requires single-line values and mangles the armored block. Use an unmasked variable, a File-type variable, or store it base64-encoded — the job accepts either form. |
+| `GPG_PASSPHRASE` | Passphrase for that key. (Named `PASSPHRASE` under the old GitHub Actions workflow — rename when migrating.) |
+| `GITHUB_TOKEN` | GitHub PAT with `contents: write` on `waldur/terraform-provider-waldur`. Required because the release is published to GitHub. |
+
+`GPG_FINGERPRINT` is derived from the imported key at runtime and is not a variable.
+
+### 3. Cut a release
+
+Run the generator pipeline with the version to release — this is what tags the downstream repo:
+
+```bash
+glab ci run -b main --variables-env RELEASE_VERSION:8.1.3 \
+  --repo waldur/terraform-provider-waldur-generator
+```
+
+Prereleases work too (`RELEASE_VERSION:8.1.3-rc.1`) and are flagged automatically via
+`release.prerelease: auto`. Note that Terraform only ever installs a prerelease from an **exact**
+version pin — a range such as `>= 8.1` silently skips them.
+
+The deploy job **skips tagging if the tag already exists**, so a re-run of the same version syncs
+code and publishes nothing. Bump the version instead of retrying the same one.
+
+The pipeline then builds every platform, checksums and GPG-signs the artifacts, publishes a GitHub
+release, and the Registry picks it up.
 
 ## Configuration Reference
 

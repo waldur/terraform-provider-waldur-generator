@@ -112,12 +112,15 @@ deploy:
       echo "Commit subject: $SUBJECT"
       printf '%s' "$SUBJECT" > /tmp/commit-subject.txt
 
-      # Clean target repo but keep .git and .github (if we want to preserve target workflows)
-      # Assuming we want to overwrite everything in target with generated output
+      # Clean the target repo, keeping only .git. Everything else is a build
+      # artifact and is replaced by the rsync below -- including .gitlab-ci.yml
+      # and .goreleaser.yml, so release-pipeline fixes must be made in the
+      # templates here, never in the downstream repo, or the next deploy
+      # silently reverts them.
       find $CI_PROJECT_DIR/../target_repo -maxdepth 1 -not -name '.git' -not -name 'target_repo' -not -name '.' -exec rm -rf {} +
       
       # Copy generated files to target repo using rsync with exclusions
-      rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' --exclude='.github' $CI_PROJECT_DIR/output/ $CI_PROJECT_DIR/../target_repo/
+      rsync -av --exclude='*_test.go' --exclude='internal/testhelpers' --exclude='e2e_test' --exclude='terraform-provider-waldur' $CI_PROJECT_DIR/output/ $CI_PROJECT_DIR/../target_repo/
       
       # Restore the accumulated CHANGELOG.md
       cp /tmp/CHANGELOG.md $CI_PROJECT_DIR/../target_repo/CHANGELOG.md 2>/dev/null || true

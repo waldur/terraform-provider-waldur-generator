@@ -23,7 +23,6 @@ func (g *Generator) createDirectoryStructure() error {
 		filepath.Join(g.config.Generator.OutputDir, "internal", "testhelpers"),
 		filepath.Join(g.config.Generator.OutputDir, "e2e_test", "testdata"),
 		filepath.Join(g.config.Generator.OutputDir, "examples"),
-		filepath.Join(g.config.Generator.OutputDir, ".github", "workflows"),
 		filepath.Join(g.config.Generator.OutputDir, "e2e_test"),
 	}
 

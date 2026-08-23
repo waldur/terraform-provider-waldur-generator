@@ -95,3 +95,60 @@ func TestReleaseJobPreflight(t *testing.T) {
 		t.Error("release job is not gated on a v* tag")
 	}
 }
+
+// The provider schema's MarkdownDescription is what tfplugindocs renders as the
+// Overview page on the Terraform Registry, and -- stripped of markup -- as the
+// `description:` front matter that registry search results display. It was
+// never set, so the published provider's Overview has been blank since the
+// first release.
+func TestProviderHasRegistryDescription(t *testing.T) {
+	dir := t.TempDir()
+	g := New(&config.Config{}, nil)
+	g.config.Generator.OutputDir = dir
+	g.config.Generator.ProviderName = "waldur"
+
+	if err := g.generateProvider(); err != nil {
+		t.Fatalf("generateProvider: %v", err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "internal", "provider", "provider.go"))
+	if err != nil {
+		// layout differs between generator versions; find it
+		var found string
+		_ = filepath.Walk(dir, func(p string, info os.FileInfo, _ error) error {
+			if info != nil && info.Name() == "provider.go" {
+				found = p
+			}
+			return nil
+		})
+		if found == "" {
+			t.Fatalf("provider.go not generated: %v", err)
+		}
+		if b, err = os.ReadFile(found); err != nil {
+			t.Fatal(err)
+		}
+	}
+	src := string(b)
+
+	// The schema-level description, not the per-attribute ones.
+	idx := strings.Index(src, "resp.Schema = schema.Schema{")
+	if idx < 0 {
+		t.Fatal("provider Schema() not found")
+	}
+	head := src[idx:]
+	if a := strings.Index(head, "Attributes:"); a > 0 {
+		head = head[:a]
+	}
+	if !strings.Contains(head, "MarkdownDescription:") {
+		t.Error("provider schema has no MarkdownDescription; the Registry Overview will render empty")
+	}
+	if !strings.Contains(head, "Waldur") {
+		t.Error("provider description does not mention the product")
+	}
+
+	// tfplugindocs strips markdown for the front matter without preserving item
+	// boundaries, so a bullet list here becomes one run-on sentence in registry
+	// search results. Keep it prose.
+	if strings.Contains(head, `\n- `) {
+		t.Error("provider description contains a bullet list; it will run together in the front matter")
+	}
+}

@@ -177,7 +177,7 @@ func GetFuncMap() template.FuncMap {
 			// as JSON-encoded strings. The `common` any-maps (OrderDetails) are used
 			// purely for order polling and are never mapped into Terraform state, so
 			// map[string]interface{} remains correct for them.
-			if common.IsAnyMap(f) && suffix == "Response" {
+			if suffix == "Response" && (common.IsAnyMap(f) || f.LenientStringMap) {
 				if pkgName != "common" {
 					sdkType = "common.JSONStringMap"
 				} else {

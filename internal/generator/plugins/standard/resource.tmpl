@@ -99,11 +99,13 @@
 	{{- if eq .Name "marketplace_order" }}
 	_, err = common.WaitForOrder(ctx, r.client.Client, data.UUID.ValueString(), createTimeout)
 	if err != nil {
+		{{- template "persist_partial_create_state" . }}
 		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
 		return
 	}
 	newResp, err := r.client.Get(ctx, data.UUID.ValueString())
 	if err != nil {
+		{{- template "persist_partial_create_state" . }}
 		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
 		return
 	}
@@ -113,6 +115,7 @@
 	}, createTimeout)
 	{{- end }}
 	if err != nil {
+		{{- template "persist_partial_create_state" . }}
 		resp.Diagnostics.AddError("Failed to wait for resource creation", err.Error())
 		return
 	}

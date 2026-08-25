@@ -231,6 +231,6 @@ type IdentityBridgeUser struct {
 	}
 	data.Source = types.StringValue(idParts[0])
 	data.Username = types.StringValue(idParts[1])
-
+	{{- template "null_timeouts" . }}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 {{- end }}

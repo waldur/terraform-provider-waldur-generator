@@ -54,6 +54,41 @@
 	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
 {{- end }}
 
+{{- /*
+    persist_partial_create_state saves the resource into Terraform state after the
+    remote object has been created but a subsequent step (a completion wait, or the
+    follow-up read) failed.
+
+    Returning an error diagnostic without setting state makes the framework drop the
+    resource, so the created object is orphaned: it exists remotely, Terraform no
+    longer tracks it, and the next apply creates a duplicate. Setting state alongside
+    the error records it as tainted instead, which is recoverable.
+*/ -}}
+{{- define "persist_partial_create_state" }}
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+{{- end }}
+
+{{- /*
+    null_timeouts initialises the model's Timeouts attribute to a null object whose
+    attribute types match the schema's timeouts block.
+
+    A zero-valued timeouts.Value carries no attribute types, so it converts to
+    tftypes.Object[] while the schema declares
+    Object["create":String,"update":String,"delete":String]. Any code path that
+    builds a fresh model and writes it straight to state -- import in particular --
+    fails the framework's type check with a Value Conversion Error unless this is
+    set. The keys must stay in sync with the timeouts.Opts in the resource schema.
+*/ -}}
+{{- define "null_timeouts" }}
+	data.Timeouts = timeouts.Value{
+		Object: types.ObjectNull(map[string]attr.Type{
+			"create": types.StringType,
+			"update": types.StringType,
+			"delete": types.StringType,
+		}),
+	}
+{{- end }}
+
 {{- /* Shared Import Logic (Base) */ -}}
 {{- define "resource_import_base" }}
 	{{- if .CompositeKeys }}
@@ -105,7 +140,7 @@
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	{{- template "null_timeouts" . }}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	{{- end }}
 {{- end }}

@@ -23,7 +23,7 @@ Fetch OpenAPI schema:
 
 # Run verification checks (compiles generator, generates provider, builds provider, runs tests)
 test:
-  image: registry.hpc.ut.ee/mirror/library/golang:1.25
+  image: registry.hpc.ut.ee/mirror/library/golang:1.27
   stage: test
   # Required when triggering manually via web:
   #   CI/CD → Run pipeline → add RELEASE_VERSION = <version, e.g. 8.0.9>
@@ -37,9 +37,11 @@ test:
     # Generate Provider
     - go run main.go -config config.yaml
 
-    # Install dependencies
-    - go install golang.org/x/tools/cmd/goimports@latest
-    - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
+    # Install dependencies. Pinned, not @latest: x/tools v0.50.0 raised its floor
+    # to go 1.26 and broke this job with no commit of ours behind it. Bump these
+    # deliberately, together with the image above.
+    - go install golang.org/x/tools/cmd/goimports@v0.50.0
+    - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.25.0
 
     # Format and Clean Imports
     - cd output
@@ -80,7 +82,7 @@ test:
 
 # Deploy/Push generated code to target repo (Only on main/web)
 deploy:
-  image: registry.hpc.ut.ee/mirror/library/golang:1.25
+  image: registry.hpc.ut.ee/mirror/library/golang:1.27
   stage: deploy
   before_script:
     - apt-get update && apt-get install -y --no-install-recommends rsync && rm -rf /var/lib/apt/lists/*

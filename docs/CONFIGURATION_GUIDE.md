@@ -100,6 +100,15 @@ set_fields:
     unknown_if_null: true # Forces (Unknown) if API returns null, preventing drift
 ```
 
+To keep a globally excluded field on one resource, list it under `included_fields`:
+
+```yaml
+- name: "structure_customer"
+  base_operation_id: "customers"
+  included_fields:
+    - "latitude"   # excluded globally, settable on customers
+```
+
 ### 7. Termination Attributes
 
 For resources that require extra parameters during deletion:

@@ -47,6 +47,9 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 	for _, f := range resource.ExcludedFields {
 		schemaCfg.ExcludedFields[f] = true
 	}
+	for _, f := range resource.IncludedFields {
+		delete(schemaCfg.ExcludedFields, f)
+	}
 
 	// 1. Choose builder
 	var builder plugins.ResourceBuilder

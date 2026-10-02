@@ -4,6 +4,15 @@ package common
 // Fields from the first list take precedence for shared properties,
 // but ReadOnly status is taken from either.
 func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
+	return mergeFields(primary, secondary, true)
+}
+
+// MergeDataSourceFields adds data source fields to a resource without changing the resource's writability.
+func MergeDataSourceFields(resource, dataSource []FieldInfo) []FieldInfo {
+	return mergeFields(resource, dataSource, false)
+}
+
+func mergeFields(primary, secondary []FieldInfo, inheritReadOnly bool) []FieldInfo {
 	fieldIdx := make(map[string]int)
 	var merged []FieldInfo
 
@@ -20,7 +29,7 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 			// Preserve IsPathParam from primary - path params should keep their Required state
 			if existing.IsPathParam {
 				existing.ReadOnly = false // Path params are always writable
-			} else if f.ReadOnly {
+			} else if inheritReadOnly && f.ReadOnly {
 				existing.ReadOnly = true
 			}
 			if f.ServerComputed {
@@ -29,10 +38,10 @@ func MergeFields(primary, secondary []FieldInfo) []FieldInfo {
 
 			// Recursively merge nested properties if present in both
 			if len(existing.Properties) > 0 && len(f.Properties) > 0 {
-				existing.Properties = MergeFields(existing.Properties, f.Properties)
+				existing.Properties = mergeFields(existing.Properties, f.Properties, inheritReadOnly)
 			}
 			if existing.ItemSchema != nil && f.ItemSchema != nil && len(existing.ItemSchema.Properties) > 0 && len(f.ItemSchema.Properties) > 0 {
-				existing.ItemSchema.Properties = MergeFields(existing.ItemSchema.Properties, f.ItemSchema.Properties)
+				existing.ItemSchema.Properties = mergeFields(existing.ItemSchema.Properties, f.ItemSchema.Properties, inheritReadOnly)
 			}
 
 			// Update in slice

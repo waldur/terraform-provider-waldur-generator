@@ -105,6 +105,8 @@ type UpdateAction struct {
 	// array in both cases, so keying off that sends a bare array to endpoints
 	// that expect a wrapper.
 	BodyIsArray bool
+	// ItemURLField: item property sent as a bare URL when the action takes URL strings (update_security_groups).
+	ItemURLField string
 }
 
 // FilterParam describes a query parameter for filtering

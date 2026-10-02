@@ -108,6 +108,23 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 		if reqSchema, err := parser.GetOperationRequestSchema(actionConfig.Operation); err == nil {
 			if reqSchema.Value != nil && reqSchema.Value.Type != nil {
 				action.BodyIsArray = (*reqSchema.Value.Type)[0] == "array"
+				if p := reqSchema.Value.Properties[action.Param]; p != nil && p.Value != nil && p.Value.Items != nil && p.Value.Items.Value != nil && p.Value.Items.Value.Format == "uri" {
+					// Send the create item's only URI property, e.g. security_groups[].url.
+					for _, f := range createFields {
+						if f.Name != action.Param || f.ItemSchema == nil {
+							continue
+						}
+						var uriProps []string
+						for _, prop := range f.ItemSchema.Properties {
+							if prop.Format == "uri" {
+								uriProps = append(uriProps, prop.Name)
+							}
+						}
+						if len(uriProps) == 1 {
+							action.ItemURLField = uriProps[0]
+						}
+					}
+				}
 			}
 		}
 		updateActions = append(updateActions, action)
@@ -224,6 +241,7 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 	}
 
 	common.CalculateSchemaStatusRecursive(modelFields, createFields, responseFields)
+	common.PrepareSetElementMatching(modelFields)
 
 	// Update responseFields to use merged field definitions
 	modelMap := make(map[string]common.FieldInfo)

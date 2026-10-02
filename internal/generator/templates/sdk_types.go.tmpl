@@ -62,6 +62,14 @@ type {{ $resName | title }}{{ $action.Name | title }}ActionRequest struct {
 func (r {{ $resName | title }}{{ $action.Name | title }}ActionRequest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(r.{{ $actionParamField.Name | title }})
 }
+{{- else if $action.ItemURLField }}
+func (r {{ $resName | title }}{{ $action.Name | title }}ActionRequest) MarshalJSON() ([]byte, error) {
+	urls := make([]*string, len(r.{{ $actionParamField.Name | title }}))
+	for i, item := range r.{{ $actionParamField.Name | title }} {
+		urls[i] = item.{{ $action.ItemURLField | title }}
+	}
+	return json.Marshal(map[string][]*string{"{{ $actionParamField.Name }}": urls})
+}
 {{- end }}
 
 {{ template "sdkNestedStructs" dict "Fields" (makeSlice $actionParamField) "Prefix" (printf "%sCreate" ($resName | title)) "Package" $pkgName }}

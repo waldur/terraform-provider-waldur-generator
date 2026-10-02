@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -110,7 +111,15 @@ func GetFuncMap() template.FuncMap {
 			return strings.ReplaceAll(s, old, new)
 		},
 		"contains": strings.Contains,
-		"lower":    strings.ToLower,
+		// quoteJoin renders []string{"a", "b"} as `"a", "b"` for a Go slice literal.
+		"quoteJoin": func(items []string) string {
+			quoted := make([]string, len(items))
+			for i, item := range items {
+				quoted[i] = strconv.Quote(item)
+			}
+			return strings.Join(quoted, ", ")
+		},
+		"lower": strings.ToLower,
 		"isPathParam": func(op *config.CreateOperationConfig, fieldName string) bool {
 			if op == nil {
 				return false

@@ -65,8 +65,8 @@ func (g *Generator) Generate() error {
 
 		if existing, ok := g.Resources[ds.Name]; ok {
 			// Merge datasource fields into existing resource data
-			existing.ResponseFields = common.MergeFields(existing.ResponseFields, dd.ResponseFields)
-			existing.ModelFields = common.MergeFields(existing.ModelFields, dd.ModelFields)
+			existing.ResponseFields = common.MergeDataSourceFields(existing.ResponseFields, dd.ResponseFields)
+			existing.ModelFields = common.MergeDataSourceFields(existing.ModelFields, dd.ModelFields)
 			existing.HasDataSource = true
 			if dd.APIPaths != nil {
 				if existing.APIPaths == nil {

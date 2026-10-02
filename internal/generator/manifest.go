@@ -14,6 +14,7 @@ import (
 // baseline the next release diffs against to produce a changelog.
 func (g *Generator) WriteManifest() error {
 	m := changelog.Manifest{
+		Format:   changelog.Format,
 		Provider: g.config.Generator.ProviderName,
 		Entities: make(map[string]changelog.Entity, len(g.ResourceOrder)),
 	}
@@ -28,7 +29,7 @@ func (g *Generator) WriteManifest() error {
 		}
 		m.Entities[name] = changelog.Entity{
 			Kind:       kind,
-			Attributes: manifestAttributes(rd.ModelFields),
+			Attributes: manifestAttributes(rd.ModelFields, rd.IsDatasourceOnly),
 		}
 	}
 	data, err := m.Marshal()
@@ -40,28 +41,39 @@ func (g *Generator) WriteManifest() error {
 
 // manifestAttributes converts the generator's FieldInfo model into manifest
 // attributes, recursing into nested objects and arrays of objects.
-func manifestAttributes(fields []common.FieldInfo) []changelog.Attribute {
+// Data source attributes are all computed: the data source component marks
+// every field read-only before rendering (setIsDataSourceRecursive).
+func manifestAttributes(fields []common.FieldInfo, dataSource bool) []changelog.Attribute {
 	out := make([]changelog.Attribute, 0, len(fields))
 	for _, f := range fields {
 		if f.SchemaSkip {
 			continue
 		}
-		a := changelog.Attribute{
-			Name:     f.Name,
-			Type:     manifestType(f),
-			Required: f.Required,
-			Optional: !f.Required && !f.ServerComputed, // Track Optional mutability explicitly
-			Computed: f.ServerComputed,
-		}
+		a := changelog.Attribute{Name: f.Name, Type: manifestType(f)}
+		a.Required, a.Optional, a.Computed = manifestMode(f, dataSource)
 		switch {
 		case len(f.Properties) > 0:
-			a.Attributes = manifestAttributes(f.Properties)
+			a.Attributes = manifestAttributes(f.Properties, dataSource)
 		case f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0:
-			a.Attributes = manifestAttributes(f.ItemSchema.Properties)
+			a.Attributes = manifestAttributes(f.ItemSchema.Properties, dataSource)
 		}
 		out = append(out, a)
 	}
 	return out
+}
+
+// manifestMode mirrors the attr_lifecycle template in templates/shared/schema.tmpl,
+// which decides what the provider schema actually emits. Keep the two in step:
+// a mode the manifest does not record never reaches the changelog.
+func manifestMode(f common.FieldInfo, dataSource bool) (required, optional, computed bool) {
+	switch {
+	case dataSource || f.ReadOnly:
+		return false, false, true
+	case f.Required:
+		return true, false, false
+	default:
+		return false, true, f.ServerComputed
+	}
 }
 
 // manifestType records the Terraform framework type, augmented with the element

@@ -44,8 +44,10 @@ type Report struct {
 }
 
 // Diff compares two manifests and returns only the meaningful changes.
+// Attribute modes are compared only between manifests of the same Format.
 func Diff(oldM, newM *Manifest) Report {
 	var r Report
+	compareModes := oldM.Format == newM.Format
 	for _, name := range sortedKeys(oldM.Entities, newM.Entities) {
 		oldE, inOld := oldM.Entities[name]
 		newE, inNew := newM.Entities[name]
@@ -62,7 +64,7 @@ func Diff(oldM, newM *Manifest) Report {
 					Detail: fmt.Sprintf("changed from %s to %s", oldE.Kind, newE.Kind),
 				})
 			}
-			diffAttrs(oldE.Attributes, newE.Attributes, "", &d)
+			diffAttrs(oldE.Attributes, newE.Attributes, "", compareModes, &d)
 			if d.hasAny() {
 				r.Entities = append(r.Entities, d)
 			}
@@ -71,7 +73,7 @@ func Diff(oldM, newM *Manifest) Report {
 	return r
 }
 
-func diffAttrs(oldA, newA []Attribute, prefix string, d *EntityDiff) {
+func diffAttrs(oldA, newA []Attribute, prefix string, compareModes bool, d *EntityDiff) {
 	oldIdx := indexAttrs(oldA)
 	newIdx := indexAttrs(newA)
 	for _, name := range sortedAttrKeys(oldIdx, newIdx) {
@@ -96,27 +98,29 @@ func diffAttrs(oldA, newA []Attribute, prefix string, d *EntityDiff) {
 				continue // shape changed; deeper comparison is not meaningful
 			}
 
-			// Use robust state transition checks to avoid false positives/negatives
+			if compareModes {
+				// Use robust state transition checks to avoid false positives/negatives
 
-			// 1. Becoming Required (Breaking)
-			if !o.Required && n.Required {
-				d.Changed = append(d.Changed, AttrChange{path, "is now required"})
+				// 1. Becoming Required (Breaking)
+				if !o.Required && n.Required {
+					d.Changed = append(d.Changed, AttrChange{path, "is now required"})
+				}
+
+				// 2. Becoming purely Computed / Read-Only (Breaking)
+				// If it was configurable (Optional or Required) and is now strictly Computed.
+				if (o.Optional || o.Required) && (!n.Optional && !n.Required && n.Computed) {
+					d.Changed = append(d.Changed, AttrChange{path, "is now computed (read-only)"})
+				}
+
+				// 3. Losing Computed (Breaking)
+				// If it was Optional+Computed, and loses Computed, existing configs relying on the
+				// server-side default might now fail or behave differently.
+				if (o.Optional && o.Computed) && (n.Optional && !n.Computed) {
+					d.Changed = append(d.Changed, AttrChange{path, "no longer has a server-side default"})
+				}
 			}
 
-			// 2. Becoming purely Computed / Read-Only (Breaking)
-			// If it was configurable (Optional or Required) and is now strictly Computed.
-			if (o.Optional || o.Required) && (!n.Optional && !n.Required && n.Computed) {
-				d.Changed = append(d.Changed, AttrChange{path, "is now computed (read-only)"})
-			}
-
-			// 3. Losing Computed (Breaking)
-			// If it was Optional+Computed, and loses Computed, existing configs relying on the
-			// server-side default might now fail or behave differently.
-			if (o.Optional && o.Computed) && (n.Optional && !n.Computed) {
-				d.Changed = append(d.Changed, AttrChange{path, "no longer has a server-side default"})
-			}
-
-			diffAttrs(o.Attributes, n.Attributes, path, d)
+			diffAttrs(o.Attributes, n.Attributes, path, compareModes, d)
 		}
 	}
 }

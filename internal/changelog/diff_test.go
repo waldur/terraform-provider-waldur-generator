@@ -118,6 +118,15 @@ func TestSettableToComputedIsBreaking(t *testing.T) {
 	}
 }
 
+func TestOptionalComputedToComputedIsBreaking(t *testing.T) {
+	old := manifest(map[string]Entity{"instance": res(optCompAttr("url", "types.String"))})
+	nw := manifest(map[string]Entity{"instance": res(compAttr("url", "types.String"))})
+	r := Diff(old, nw)
+	if !r.HasBreaking() || len(findEntity(t, r, "instance").Changed) != 1 {
+		t.Fatalf("Optional+Computed -> Computed must be breaking, got %+v", r)
+	}
+}
+
 func TestOptionalToOptionalComputedIsNotBreaking(t *testing.T) {
 	old := manifest(map[string]Entity{"order": res(optAttr("plan", "types.String"))})
 	nw := manifest(map[string]Entity{"order": res(optCompAttr("plan", "types.String"))})
@@ -203,4 +212,18 @@ func contains(s []string, v string) bool {
 		}
 	}
 	return false
+}
+
+func TestOlderFormatBaselineSkipsModeChanges(t *testing.T) {
+	old := manifest(map[string]Entity{"instance": res(optAttr("name", "types.String"), optAttr("gone", "types.String"))})
+	nw := manifest(map[string]Entity{"instance": res(compAttr("name", "types.String"))})
+	nw.Format = Format
+	r := Diff(old, nw)
+	e := findEntity(t, r, "instance")
+	if len(e.Changed) != 0 {
+		t.Fatalf("a format change must not be reported as mode changes, got %+v", e.Changed)
+	}
+	if len(e.Removed) != 1 {
+		t.Fatalf("removed attributes must still be reported across formats, got %+v", e)
+	}
 }

@@ -11,6 +11,7 @@ func (g *Generator) generateSharedUtils() error {
 		fileName string
 	}{
 		{"modifiers.go.tmpl", "modifiers.go"},
+		{"modifiers_test.go.tmpl", "modifiers_test.go"},
 		{"waldur.go.tmpl", "waldur.go"},
 		{"waldur_test.go.tmpl", "waldur_test.go"},
 		{"filters.go.tmpl", "filters.go"},

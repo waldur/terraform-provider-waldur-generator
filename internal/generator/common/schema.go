@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
@@ -148,6 +149,46 @@ func CalculateSchemaStatusRecursive(fields []FieldInfo, createFields, responseFi
 				subResponse = responseMap[f.Name].ItemSchema.Properties
 			}
 			CalculateSchemaStatusRecursive(f.ItemSchema.Properties, subCreate, subResponse)
+		}
+	}
+}
+
+// PrepareSetElementMatching replaces per-attribute UseStateForUnknown inside set
+// elements with element-level matching. Inside a set the framework cannot find
+// the prior element an attribute modifier belongs to, so it pairs elements by
+// position and gives one element another's computed values.
+func PrepareSetElementMatching(fields []FieldInfo) {
+	for i := range fields {
+		f := &fields[i]
+		if f.GoType == TFTypeSet && f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
+			clearUseStateForUnknown(f.ItemSchema.Properties)
+			if !f.ReadOnly {
+				var keys []string
+				for _, prop := range f.ItemSchema.Properties {
+					if !prop.ReadOnly && !prop.SchemaSkip {
+						keys = append(keys, prop.Name)
+					}
+				}
+				sort.Strings(keys)
+				f.SetMatchKeys = keys
+			}
+		}
+		if len(f.Properties) > 0 {
+			PrepareSetElementMatching(f.Properties)
+		}
+		if f.ItemSchema != nil && len(f.ItemSchema.Properties) > 0 {
+			PrepareSetElementMatching(f.ItemSchema.Properties)
+		}
+	}
+}
+
+func clearUseStateForUnknown(fields []FieldInfo) {
+	for i := range fields {
+		fields[i].UseStateForUnknown = false
+		clearUseStateForUnknown(fields[i].Properties)
+		if fields[i].ItemSchema != nil {
+			fields[i].ItemSchema.UseStateForUnknown = false
+			clearUseStateForUnknown(fields[i].ItemSchema.Properties)
 		}
 	}
 }

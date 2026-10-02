@@ -1,0 +1,107 @@
+package common
+
+import (
+	"context"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
+
+var sgAttrTypes = map[string]attr.Type{"url": types.StringType, "name": types.StringType}
+
+func sgElement(url, name attr.Value) attr.Value {
+	return types.ObjectValueMust(sgAttrTypes, map[string]attr.Value{"url": url, "name": name})
+}
+
+func known(url, name string) attr.Value {
+	return sgElement(types.StringValue(url), types.StringValue(name))
+}
+
+// planned is an element as Terraform proposes it from config: url set, name unknown.
+func planned(url string) attr.Value {
+	return sgElement(types.StringValue(url), types.StringUnknown())
+}
+
+func sgSet(t *testing.T, elements ...attr.Value) types.Set {
+	t.Helper()
+	v, diags := types.SetValue(types.ObjectType{AttrTypes: sgAttrTypes}, elements)
+	if diags.HasError() {
+		t.Fatalf("building set: %v", diags)
+	}
+	return v
+}
+
+func namesByURL(t *testing.T, s types.Set) map[string]attr.Value {
+	t.Helper()
+	out := map[string]attr.Value{}
+	for _, el := range s.Elements() {
+		attrs := el.(types.Object).Attributes()
+		out[attrs["url"].(types.String).ValueString()] = attrs["name"]
+	}
+	return out
+}
+
+func TestSetElementsFromState(t *testing.T) {
+	ctx := context.Background()
+	state := sgSet(t, known("u-default", "default"), known("u-ssh", "ssh"))
+
+	tests := []struct {
+		name string
+		plan types.Set
+		want map[string]attr.Value
+	}{
+		{
+			// The regression: elements must keep their own computed values,
+			// not those of whichever prior element shares their position.
+			name: "unchanged elements keep their own state",
+			plan: sgSet(t, planned("u-ssh"), planned("u-default")),
+			want: map[string]attr.Value{"u-ssh": types.StringValue("ssh"), "u-default": types.StringValue("default")},
+		},
+		{
+			name: "a new element stays unknown",
+			plan: sgSet(t, planned("u-ssh"), planned("u-web")),
+			want: map[string]attr.Value{"u-ssh": types.StringValue("ssh"), "u-web": types.StringUnknown()},
+		},
+		{
+			name: "a removed element is not brought back",
+			plan: sgSet(t, planned("u-default")),
+			want: map[string]attr.Value{"u-default": types.StringValue("default")},
+		},
+		{
+			name: "an element whose key is unknown is left alone",
+			plan: sgSet(t, sgElement(types.StringUnknown(), types.StringUnknown())),
+			want: map[string]attr.Value{"": types.StringUnknown()},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := planmodifier.SetRequest{StateValue: state, PlanValue: tt.plan, ConfigValue: tt.plan}
+			resp := &planmodifier.SetResponse{PlanValue: tt.plan}
+			SetElementsFromState{Keys: []string{"url"}}.PlanModifySet(ctx, req, resp)
+			if resp.Diagnostics.HasError() {
+				t.Fatalf("diagnostics: %v", resp.Diagnostics)
+			}
+			got := namesByURL(t, resp.PlanValue)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for url, name := range tt.want {
+				if !got[url].Equal(name) {
+					t.Errorf("%s: name = %v, want %v", url, got[url], name)
+				}
+			}
+		})
+	}
+}
+
+func TestSetElementsFromState_NullState(t *testing.T) {
+	plan := sgSet(t, planned("u-ssh"))
+	req := planmodifier.SetRequest{StateValue: types.SetNull(types.ObjectType{AttrTypes: sgAttrTypes}), PlanValue: plan}
+	resp := &planmodifier.SetResponse{PlanValue: plan}
+	SetElementsFromState{Keys: []string{"url"}}.PlanModifySet(context.Background(), req, resp)
+	if !resp.PlanValue.Equal(plan) {
+		t.Errorf("on create the plan must be left as proposed, got %v", resp.PlanValue)
+	}
+}

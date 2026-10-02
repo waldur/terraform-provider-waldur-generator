@@ -21,7 +21,10 @@ type FieldInfo struct {
 	ForceNew           bool   // Whether field requires replacement on change (immutable)
 	ServerComputed     bool   // Whether value can be set by server (readOnly or response-only)
 	UseStateForUnknown bool   // Whether to use UseStateForUnknown plan modifier
-	IsPathParam        bool   // Whether field is a path parameter (should not be in JSON body)
+	// SetMatchKeys names the item attributes that identify an element of a
+	// configurable set, so the plan can keep that element's prior state.
+	SetMatchKeys []string
+	IsPathParam  bool // Whether field is a path parameter (should not be in JSON body)
 
 	// Complex type support
 	Enum       []string    // For enums: allowed values (only for string type)

@@ -241,6 +241,7 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 	}
 
 	common.CalculateSchemaStatusRecursive(modelFields, createFields, responseFields)
+	common.PrepareSetElementMatching(modelFields)
 
 	// Update responseFields to use merged field definitions
 	modelMap := make(map[string]common.FieldInfo)

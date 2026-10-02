@@ -21,11 +21,14 @@
     {{- if .UnknownIfNull }}
     common.UnknownIfNullModifier{},
     {{- end -}}
+    {{- if .SetMatchKeys }}
+    common.SetElementsFromState{Keys: []string{ {{- quoteJoin .SetMatchKeys -}} }},
+    {{- end -}}
 {{- end -}}
  
 {{- define "attr_plan_modifiers" -}}
     {{- if not .IsDataSource -}}
-    {{- if or .ForceNew .ServerComputed .ReadOnly }}
+    {{- if or .ForceNew .ServerComputed .ReadOnly .SetMatchKeys }}
     PlanModifiers: []{{ .TypeMeta.PlanModType }}{
         {{ template "plan_modifier_list" . }}
     },

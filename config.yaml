@@ -88,11 +88,9 @@ resources:
       update_limits:
         operation: "marketplace_resources_update_limits"
         param: "limits"
-        compare_key: "limits"
       update_options:
         operation: "marketplace_resources_update_options"
         param: "options"
-        compare_key: "options"
     actions:
       - "pull"
       - "terminate"
@@ -108,7 +106,6 @@ resources:
       push_security_groups:
         operation: "openstack_tenants_push_security_groups"
         param: "security_groups"
-        compare_key: "security_groups"
     actions:
       - "pull"
       - "unlink"
@@ -121,11 +118,10 @@ resources:
       retype:
         operation: "openstack_volumes_retype"
         param: "type"
-        compare_key: "type"
       extend:
         operation: "openstack_volumes_extend"
         param: "size"
-        compare_key: "size"
+        request_param: "disk_size"
     actions:
       - "pull"
       - "unlink"
@@ -157,15 +153,12 @@ resources:
       update_ports:
         operation: "openstack_instances_update_ports"
         param: "ports"
-        compare_key: "ports"
       update_security_groups:
         operation: "openstack_instances_update_security_groups"
         param: "security_groups"
-        compare_key: "security_groups"
       update_floating_ips:
         operation: "openstack_instances_update_floating_ips"
         param: "floating_ips"
-        compare_key: "floating_ips"
     actions:
       - "start"
       - "stop"
@@ -267,7 +260,6 @@ resources:
       update_security_groups:
         operation: "openstack_ports_update_security_groups"
         param: "security_groups"
-        compare_key: "security_groups"
     actions:
       - "enable_port"
       - "disable_port"

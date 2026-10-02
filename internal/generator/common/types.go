@@ -95,11 +95,14 @@ type ResourceData struct {
 
 // UpdateAction represents an enriched update action with resolved API path
 type UpdateAction struct {
-	Name       string // Action name (e.g., "update_limits")
-	Operation  string // OpenAPI operation ID
-	Param      string // Parameter name for payload
-	CompareKey string // Field to compare for changes
-	Path       string // Resolved API path from OpenAPI
+	Name      string // Action name (e.g., "update_limits")
+	Operation string // OpenAPI operation ID
+	Param     string // Terraform attribute whose change triggers the action
+	// RequestParam is the key the attribute's value is sent under. It differs
+	// from Param when the API names it differently, e.g. extend takes the
+	// volume's size as disk_size.
+	RequestParam string
+	Path         string // Resolved API path from OpenAPI
 	// BodyIsArray reports whether the operation's request body is a bare JSON
 	// array rather than an object wrapping the param. Both shapes exist in the
 	// Waldur API: openstack_security_groups_set_rules takes a bare array, while

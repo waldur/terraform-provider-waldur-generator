@@ -74,9 +74,14 @@ If a resource has "Action" endpoints (POST to a sub-resource) that should be map
 update_actions:
   update_limits:
     operation: "marketplace_resources_update_limits"
-    param: "limits"       # The field in Terraform
-    compare_key: "limits" # Used to detect drift
+    param: "limits"            # The Terraform attribute; changing it calls the action
+  extend:
+    operation: "openstack_volumes_extend"
+    param: "size"
+    request_param: "disk_size" # The request body key, when the API names it differently (defaults to param)
 ```
+
+Generation fails if the request key is not a property of the operation's request body.
 
 ### 5. Standalone Actions
 

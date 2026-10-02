@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/config"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/plugins"
@@ -94,13 +95,13 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 	for _, actionName := range actionNames {
 		actionConfig := resource.UpdateActions[actionName]
 		action := common.UpdateAction{
-			Name:       actionName,
-			Operation:  actionConfig.Operation,
-			Param:      actionConfig.Param,
-			CompareKey: actionConfig.CompareKey,
+			Name:         actionName,
+			Operation:    actionConfig.Operation,
+			Param:        actionConfig.Param,
+			RequestParam: actionConfig.RequestParam,
 		}
-		if action.CompareKey == "" {
-			action.CompareKey = action.Param
+		if action.RequestParam == "" {
+			action.RequestParam = action.Param
 		}
 		if _, actionPath, _, err := parser.GetOperation(actionConfig.Operation); err == nil {
 			action.Path = actionPath
@@ -125,6 +126,9 @@ func PrepareData(cfg *config.Config, parser *openapi.Parser, resource *config.Re
 						}
 					}
 				}
+			}
+			if err := checkActionRequestKey(resource.Name, action, reqSchema.Value); err != nil {
+				return nil, err
 			}
 		}
 		updateActions = append(updateActions, action)
@@ -328,4 +332,23 @@ func GenerateModel(cfg *config.Config, renderer common.Renderer, res *common.Res
 		filepath.Join(cfg.Generator.OutputDir, "services", res.Service, res.CleanName),
 		"model.go",
 	)
+}
+
+// checkActionRequestKey fails generation when an update action would send its
+// value under a key its object request body does not have. The API rejects such
+// a request with a 400 that only shows up at apply time.
+func checkActionRequestKey(resourceName string, action common.UpdateAction, reqSchema *openapi3.Schema) error {
+	if reqSchema == nil || reqSchema.Type == nil || (*reqSchema.Type)[0] != "object" || len(reqSchema.Properties) == 0 {
+		return nil
+	}
+	if _, ok := reqSchema.Properties[action.RequestParam]; ok {
+		return nil
+	}
+	props := make([]string, 0, len(reqSchema.Properties))
+	for name := range reqSchema.Properties {
+		props = append(props, name)
+	}
+	sort.Strings(props)
+	return fmt.Errorf("resource %s: update action %s sends %q, but %s takes %s; set request_param",
+		resourceName, action.Name, action.RequestParam, action.Operation, strings.Join(props, ", "))
 }

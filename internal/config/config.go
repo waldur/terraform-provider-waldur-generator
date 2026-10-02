@@ -74,9 +74,9 @@ type CreateOperationConfig struct {
 
 // UpdateActionConfig defines a custom update action
 type UpdateActionConfig struct {
-	Operation  string `yaml:"operation"`   // The OpenAPI operation ID (e.g., "marketplace_resources_update_limits")
-	Param      string `yaml:"param"`       // The parameter name to send in the action payload
-	CompareKey string `yaml:"compare_key"` // The response field to compare for changes (defaults to Param if not specified)
+	Operation    string `yaml:"operation"`     // The OpenAPI operation ID (e.g., "marketplace_resources_update_limits")
+	Param        string `yaml:"param"`         // The Terraform attribute whose change triggers the action
+	RequestParam string `yaml:"request_param"` // The key in the action's request body (defaults to Param)
 }
 
 // ParameterConfig defines a parameter configuration

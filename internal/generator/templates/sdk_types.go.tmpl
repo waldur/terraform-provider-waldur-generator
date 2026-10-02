@@ -68,7 +68,7 @@ func (r {{ $resName | title }}{{ $action.Name | title }}ActionRequest) MarshalJS
 	for i, item := range r.{{ $actionParamField.Name | title }} {
 		urls[i] = item.{{ $action.ItemURLField | title }}
 	}
-	return json.Marshal(map[string][]*string{"{{ $actionParamField.Name }}": urls})
+	return json.Marshal(map[string][]*string{"{{ $action.RequestParam }}": urls})
 }
 {{- end }}
 

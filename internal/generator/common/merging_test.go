@@ -79,6 +79,28 @@ func TestMergeFields_Recursive(t *testing.T) {
 	}
 }
 
+func TestMergeDataSourceFields_KeepsNestedWritable(t *testing.T) {
+	resource := []FieldInfo{
+		{
+			Name:       "security_groups",
+			GoType:     TFTypeSet,
+			ItemSchema: &FieldInfo{Properties: []FieldInfo{{Name: "url", Type: "string"}}},
+		},
+	}
+	dataSource := []FieldInfo{
+		{
+			Name:       "security_groups",
+			GoType:     TFTypeSet,
+			ItemSchema: &FieldInfo{Properties: []FieldInfo{{Name: "url", Type: "string", ReadOnly: true}}},
+		},
+	}
+
+	merged := MergeDataSourceFields(resource, dataSource)
+	if merged[0].ItemSchema.Properties[0].ReadOnly {
+		t.Error("security_groups.url should stay writable after merging data source fields")
+	}
+}
+
 func TestMergeOrderFields(t *testing.T) {
 	input := []FieldInfo{
 		{Name: "plan", Type: "string"},

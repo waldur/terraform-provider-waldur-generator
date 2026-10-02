@@ -31,8 +31,15 @@ type Entity struct {
 	Attributes []Attribute `json:"attributes"`
 }
 
+// Format is bumped whenever the meaning of a recorded field changes, so that a
+// diff against an older baseline does not report the reinterpretation as
+// changes to the provider. Format 2 records modes as the schema renders them:
+// read-only attributes are Computed only, and Optional+Computed is recorded.
+const Format = 2
+
 // Manifest is the full set of entities the generated provider exposes.
 type Manifest struct {
+	Format   int               `json:"format,omitempty"`
 	Provider string            `json:"provider"`
 	Entities map[string]Entity `json:"entities"`
 }
@@ -68,7 +75,7 @@ func (m *Manifest) Marshal() ([]byte, error) {
 func Load(path string) (*Manifest, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return &Manifest{Entities: map[string]Entity{}}, nil
+		return &Manifest{Format: Format, Entities: map[string]Entity{}}, nil
 	}
 	if err != nil {
 		return nil, err

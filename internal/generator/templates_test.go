@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
-
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
@@ -123,7 +122,8 @@ func TestRenderGoType_LenientStringMap(t *testing.T) {
 
 // An array whose items $ref an enum (MergedPluginOptions.instance_metrics) is a list of
 // strings. Only object refs are emitted as shared structs, so prefixing the enum name
-// with common. referenced a type that was never generated.
+// with common. referenced a type that was never generated. Inline object items get a
+// context-named struct and no prefix.
 func TestRenderGoType_ArrayOfEnumRefs(t *testing.T) {
 	renderGoType := renderGoTypeFunc(t)
 
@@ -159,6 +159,21 @@ func TestRenderGoType_ArrayOfEnumRefs(t *testing.T) {
 						},
 					},
 				},
+				"endpoints": &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: &openapi3.Types{"array"},
+						Items: &openapi3.SchemaRef{
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"object"},
+								Properties: openapi3.Schemas{
+									"url": &openapi3.SchemaRef{
+										Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -173,21 +188,24 @@ func TestRenderGoType_ArrayOfEnumRefs(t *testing.T) {
 	}
 
 	tests := []struct {
+		name     string
 		field    string
 		pkgName  string
 		suffix   string
 		expected string
 	}{
-		{"instance_metrics", "offering", "Response", "*[]string"},
-		{"instance_metrics", "offering", "Request", "*[]string"},
-		{"instance_metrics", "common", "", "*[]string"},
-		{"components", "offering", "Response", "*[]common.OfferingComponent"},
-		{"components", "offering", "Request", "*[]common.OfferingComponent"},
-		{"components", "common", "", "*[]OfferingComponent"},
+		{"enum items in a service response struct", "instance_metrics", "offering", "Response", "*[]string"},
+		{"enum items in a service request struct", "instance_metrics", "offering", "Request", "*[]string"},
+		{"enum items in a shared common struct", "instance_metrics", "common", "", "*[]string"},
+		{"object ref items in a service response struct", "components", "offering", "Response", "*[]common.OfferingComponent"},
+		{"object ref items in a service request struct", "components", "offering", "Request", "*[]common.OfferingComponent"},
+		{"object ref items in a shared common struct", "components", "common", "", "*[]OfferingComponent"},
+		{"inline object items in a service response struct", "endpoints", "offering", "Response", "*[]MarketplaceOfferingEndpointsResponse"},
+		{"inline object items in a service request struct", "endpoints", "offering", "Request", "*[]MarketplaceOfferingEndpointsRequest"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.field+"/"+tt.pkgName+tt.suffix, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			f, ok := byName[tt.field]
 			if !ok {
 				t.Fatalf("field %q was not extracted", tt.field)

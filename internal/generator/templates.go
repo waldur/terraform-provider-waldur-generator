@@ -169,12 +169,13 @@ func GetFuncMap() template.FuncMap {
 			}
 
 			// Handle package prefixes for references. Only object refs become shared
-			// structs; a ref to an enum is a plain string, scalar or as an array item.
+			// structs, and only those carry an ItemSchema; a ref to an enum renders as
+			// its primitive type, scalar or as an array item.
 			if pkgName != "common" {
 				if f.Type == common.OpenAPITypeObject && f.RefName != "" {
 					sdkType = "common." + f.RefName
-				} else if f.Type == common.OpenAPITypeArray && f.ItemType == common.OpenAPITypeObject && f.ItemRefName != "" {
-					sdkType = "[]common." + f.ItemRefName
+				} else if f.Type == common.OpenAPITypeArray && f.ItemSchema != nil && f.ItemSchema.RefName != "" {
+					sdkType = "[]common." + f.ItemSchema.RefName
 				}
 			}
 

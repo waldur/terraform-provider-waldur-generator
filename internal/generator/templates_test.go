@@ -3,6 +3,8 @@ package generator
 import (
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
@@ -125,29 +127,74 @@ func TestRenderGoType_LenientStringMap(t *testing.T) {
 func TestRenderGoType_ArrayOfEnumRefs(t *testing.T) {
 	renderGoType := renderGoTypeFunc(t)
 
-	enumList := common.FieldInfo{
-		Name:        "instance_metrics",
-		Type:        common.OpenAPITypeArray,
-		GoType:      common.TFTypeList,
-		ItemType:    common.OpenAPITypeString,
-		ItemRefName: "InstanceMetricsEnum",
+	schema := &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			Type: &openapi3.Types{"object"},
+			Properties: openapi3.Schemas{
+				"instance_metrics": &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: &openapi3.Types{"array"},
+						Items: &openapi3.SchemaRef{
+							Ref: "#/components/schemas/InstanceMetricsEnum",
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"string"},
+								Enum: []interface{}{"vm.cpu.utilization", "volume.io"},
+							},
+						},
+					},
+				},
+				"components": &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: &openapi3.Types{"array"},
+						Items: &openapi3.SchemaRef{
+							Ref: "#/components/schemas/OfferingComponent",
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"object"},
+								Properties: openapi3.Schemas{
+									"type": &openapi3.SchemaRef{
+										Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
-	common.CalculateSDKType(&enumList)
 
-	if got := renderGoType(enumList, "offering", "MarketplaceOffering", "Response"); got != "*[]string" {
-		t.Errorf("array of enum refs = %q, want *[]string", got)
+	fields, err := common.ExtractFields(common.SchemaConfig{}, schema, false)
+	if err != nil {
+		t.Fatalf("ExtractFields failed: %v", err)
+	}
+	byName := make(map[string]common.FieldInfo, len(fields))
+	for _, f := range fields {
+		byName[f.Name] = f
 	}
 
-	objectList := common.FieldInfo{
-		Name:        "components",
-		Type:        common.OpenAPITypeArray,
-		GoType:      common.TFTypeList,
-		ItemType:    common.OpenAPITypeObject,
-		ItemRefName: "OfferingComponent",
+	tests := []struct {
+		field    string
+		pkgName  string
+		suffix   string
+		expected string
+	}{
+		{"instance_metrics", "offering", "Response", "*[]string"},
+		{"instance_metrics", "offering", "Request", "*[]string"},
+		{"instance_metrics", "common", "", "*[]string"},
+		{"components", "offering", "Response", "*[]common.OfferingComponent"},
+		{"components", "offering", "Request", "*[]common.OfferingComponent"},
+		{"components", "common", "", "*[]OfferingComponent"},
 	}
-	common.CalculateSDKType(&objectList)
 
-	if got := renderGoType(objectList, "offering", "MarketplaceOffering", "Response"); got != "*[]common.OfferingComponent" {
-		t.Errorf("array of object refs = %q, want *[]common.OfferingComponent", got)
+	for _, tt := range tests {
+		t.Run(tt.field+"/"+tt.pkgName+tt.suffix, func(t *testing.T) {
+			f, ok := byName[tt.field]
+			if !ok {
+				t.Fatalf("field %q was not extracted", tt.field)
+			}
+			if got := renderGoType(f, tt.pkgName, "MarketplaceOffering", tt.suffix); got != tt.expected {
+				t.Errorf("renderGoType() = %q, want %q", got, tt.expected)
+			}
+		})
 	}
 }

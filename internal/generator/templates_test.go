@@ -118,3 +118,36 @@ func TestRenderGoType_LenientStringMap(t *testing.T) {
 		t.Errorf("request = %q, want map[string]string", got)
 	}
 }
+
+// An array whose items $ref an enum (MergedPluginOptions.instance_metrics) is a list of
+// strings. Only object refs are emitted as shared structs, so prefixing the enum name
+// with common. referenced a type that was never generated.
+func TestRenderGoType_ArrayOfEnumRefs(t *testing.T) {
+	renderGoType := renderGoTypeFunc(t)
+
+	enumList := common.FieldInfo{
+		Name:        "instance_metrics",
+		Type:        common.OpenAPITypeArray,
+		GoType:      common.TFTypeList,
+		ItemType:    common.OpenAPITypeString,
+		ItemRefName: "InstanceMetricsEnum",
+	}
+	common.CalculateSDKType(&enumList)
+
+	if got := renderGoType(enumList, "offering", "MarketplaceOffering", "Response"); got != "*[]string" {
+		t.Errorf("array of enum refs = %q, want *[]string", got)
+	}
+
+	objectList := common.FieldInfo{
+		Name:        "components",
+		Type:        common.OpenAPITypeArray,
+		GoType:      common.TFTypeList,
+		ItemType:    common.OpenAPITypeObject,
+		ItemRefName: "OfferingComponent",
+	}
+	common.CalculateSDKType(&objectList)
+
+	if got := renderGoType(objectList, "offering", "MarketplaceOffering", "Response"); got != "*[]common.OfferingComponent" {
+		t.Errorf("array of object refs = %q, want *[]common.OfferingComponent", got)
+	}
+}

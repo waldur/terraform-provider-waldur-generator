@@ -162,12 +162,6 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 				itemType := GetSchemaType(prop.Items.Value)
 				field.ItemType = itemType
 
-				// Extract item ref name
-				if prop.Items.Ref != "" {
-					parts := strings.Split(prop.Items.Ref, "/")
-					field.ItemRefName = parts[len(parts)-1]
-				}
-
 				if itemType == OpenAPITypeString {
 					if IsSetField(cfg, propName) {
 						field.GoType = TFTypeSet
@@ -178,6 +172,13 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 					CalculateSDKType(&field)
 					fields = append(fields, field)
 				} else if itemType == OpenAPITypeObject {
+					// Extract item ref name
+					itemRefName := ""
+					if prop.Items.Ref != "" {
+						parts := strings.Split(prop.Items.Ref, "/")
+						itemRefName = parts[len(parts)-1]
+					}
+
 					// Array of objects - extract nested schema
 					if nestedFields, err := extractFieldsRecursive(cfg, prop.Items, fullPath, depth+1, maxDepth, false); err == nil && len(nestedFields) > 0 {
 						// Store first nested field as representative schema
@@ -186,7 +187,7 @@ func extractFieldsRecursive(cfg SchemaConfig, schemaRef *openapi3.SchemaRef, pat
 								Type:       OpenAPITypeObject,
 								GoType:     TFTypeObject,
 								Properties: nestedFields,
-								RefName:    field.ItemRefName, // Propagate ref name to item schema
+								RefName:    itemRefName, // Propagate ref name to item schema
 							}
 							CalculateSDKType(field.ItemSchema)
 						}

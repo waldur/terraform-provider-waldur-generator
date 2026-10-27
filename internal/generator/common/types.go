@@ -44,7 +44,6 @@ type FieldInfo struct {
 
 	// Ref support
 	RefName       string // Ref name for object type
-	ItemRefName   string // Ref name for array item type
 	SchemaSkip    bool   // Whether to skip this field in Terraform schema generation
 	IsDataSource  bool   // Whether this field is part of a Data Source schema
 	AttrTypeRef   string // Reference name for attribute type (helper function name)

@@ -3,6 +3,7 @@ package generator
 import (
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 )
 
@@ -116,5 +117,102 @@ func TestRenderGoType_LenientStringMap(t *testing.T) {
 	// The write path must keep taking a plain string map.
 	if got := renderGoType(lenient, "order", "MarketplaceOrder", "Request"); got != "map[string]string" {
 		t.Errorf("request = %q, want map[string]string", got)
+	}
+}
+
+// An array whose items $ref an enum (MergedPluginOptions.instance_metrics) is a list of
+// strings. Only object refs are emitted as shared structs, so prefixing the enum name
+// with common. referenced a type that was never generated. Inline object items get a
+// context-named struct and no prefix.
+func TestRenderGoType_ArrayOfEnumRefs(t *testing.T) {
+	renderGoType := renderGoTypeFunc(t)
+
+	schema := &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			Type: &openapi3.Types{"object"},
+			Properties: openapi3.Schemas{
+				"instance_metrics": &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: &openapi3.Types{"array"},
+						Items: &openapi3.SchemaRef{
+							Ref: "#/components/schemas/InstanceMetricsEnum",
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"string"},
+								Enum: []interface{}{"vm.cpu.utilization", "volume.io"},
+							},
+						},
+					},
+				},
+				"components": &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: &openapi3.Types{"array"},
+						Items: &openapi3.SchemaRef{
+							Ref: "#/components/schemas/OfferingComponent",
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"object"},
+								Properties: openapi3.Schemas{
+									"type": &openapi3.SchemaRef{
+										Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+									},
+								},
+							},
+						},
+					},
+				},
+				"endpoints": &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: &openapi3.Types{"array"},
+						Items: &openapi3.SchemaRef{
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"object"},
+								Properties: openapi3.Schemas{
+									"url": &openapi3.SchemaRef{
+										Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	fields, err := common.ExtractFields(common.SchemaConfig{}, schema, false)
+	if err != nil {
+		t.Fatalf("ExtractFields failed: %v", err)
+	}
+	byName := make(map[string]common.FieldInfo, len(fields))
+	for _, f := range fields {
+		byName[f.Name] = f
+	}
+
+	tests := []struct {
+		name     string
+		field    string
+		pkgName  string
+		suffix   string
+		expected string
+	}{
+		{"enum items in a service response struct", "instance_metrics", "offering", "Response", "*[]string"},
+		{"enum items in a service request struct", "instance_metrics", "offering", "Request", "*[]string"},
+		{"enum items in a shared common struct", "instance_metrics", "common", "", "*[]string"},
+		{"object ref items in a service response struct", "components", "offering", "Response", "*[]common.OfferingComponent"},
+		{"object ref items in a service request struct", "components", "offering", "Request", "*[]common.OfferingComponent"},
+		{"object ref items in a shared common struct", "components", "common", "", "*[]OfferingComponent"},
+		{"inline object items in a service response struct", "endpoints", "offering", "Response", "*[]MarketplaceOfferingEndpointsResponse"},
+		{"inline object items in a service request struct", "endpoints", "offering", "Request", "*[]MarketplaceOfferingEndpointsRequest"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, ok := byName[tt.field]
+			if !ok {
+				t.Fatalf("field %q was not extracted", tt.field)
+			}
+			if got := renderGoType(f, tt.pkgName, "MarketplaceOffering", tt.suffix); got != tt.expected {
+				t.Errorf("renderGoType() = %q, want %q", got, tt.expected)
+			}
+		})
 	}
 }

@@ -235,6 +235,8 @@ resources:
 
   - name: "openstack_network_rbac_policy"
     base_operation_id: "openstack_network_rbac_policies"
+    skip_operations:
+      - "partial_update"  # A share is immutable: a change is a delete and a create
     composite_keys:
       - "network"
       - "target_tenant"

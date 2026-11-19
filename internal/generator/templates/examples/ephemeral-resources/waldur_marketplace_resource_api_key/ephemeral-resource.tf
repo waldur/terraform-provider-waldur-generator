@@ -6,8 +6,10 @@ ephemeral "waldur_marketplace_resource_api_key" "s3" {
   id = data.waldur_marketplace_resource_api_keys.s3.items[0].id
 }
 
+# Rewritten on every apply: a rotated key keeps its id, so only a fresh
+# reveal picks up its new secret.
 resource "terraform_data" "credentials_file" {
-  triggers_replace = [data.waldur_marketplace_resource_api_keys.s3.items[0].id]
+  triggers_replace = [plantimestamp()]
 
   provisioner "local-exec" {
     command = <<-EOT

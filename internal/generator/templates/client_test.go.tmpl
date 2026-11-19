@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -32,16 +33,38 @@ func TestAuthorizationHeader(t *testing.T) {
 	}
 }
 
-func TestListAll_FollowsPages(t *testing.T) {
-	total := listPageSize + 3
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// waldurListServer serves total items the way the Waldur API paginates them:
+// a Link header with rel="next" while more pages remain, X-Result-Count, and
+// 404 "Invalid page." past the last page. It counts the requests it gets.
+func waldurListServer(t *testing.T, total int, requests *int) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*requests++
 		if r.URL.Query().Get("state") != "OK" {
 			t.Errorf("Expected state=OK, got %q", r.URL.Query().Get("state"))
 		}
-		var page, size int
-		fmt.Sscanf(r.URL.Query().Get("page"), "%d", &page)
-		fmt.Sscanf(r.URL.Query().Get("page_size"), "%d", &size)
+		page, size := 1, 10
+		if v := r.URL.Query().Get("page"); v != "" {
+			fmt.Sscanf(v, "%d", &page)
+		}
+		if v := r.URL.Query().Get("page_size"); v != "" {
+			fmt.Sscanf(v, "%d", &size)
+		}
+		pages := (total + size - 1) / size
+		if pages == 0 {
+			pages = 1
+		}
+		if page > pages {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"detail": "Invalid page."}`))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Result-Count", fmt.Sprintf("%d", total))
+		links := []string{fmt.Sprintf(`<http://%s%s?page_size=%d>; rel="first"`, r.Host, r.URL.Path, size)}
+		if page < pages {
+			links = append(links, fmt.Sprintf(`<http://%s%s?page=%d&page_size=%d>; rel="next"`, r.Host, r.URL.Path, page+1, size))
+		}
+		w.Header().Set("Link", strings.Join(links, ", "))
 		w.Write([]byte("["))
 		for i := (page - 1) * size; i < page*size && i < total; i++ {
 			if i > (page-1)*size {
@@ -51,6 +74,96 @@ func TestListAll_FollowsPages(t *testing.T) {
 		}
 		w.Write([]byte("]"))
 	}))
+}
+
+func TestListAll_FollowsPages(t *testing.T) {
+	cases := []struct {
+		total    int
+		requests int
+	}{
+		{0, 1},
+		{3, 1},
+		{listPageSize, 1}, // a full last page: asking for the next one would 404
+		{listPageSize + 3, 2},
+		{2 * listPageSize, 2},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("%d items", tc.total), func(t *testing.T) {
+			requests := 0
+			server := waldurListServer(t, tc.total, &requests)
+			defer server.Close()
+
+			c, err := NewClient(&Config{Endpoint: server.URL, Token: "test-token"})
+			if err != nil {
+				t.Fatalf("Failed to create client: %v", err)
+			}
+			var results []map[string]interface{}
+			if err := c.ListAll(context.Background(), "/api/things/", map[string]string{"state": "OK"}, &results); err != nil {
+				t.Fatalf("ListAll failed: %v", err)
+			}
+			if len(results) != tc.total {
+				t.Fatalf("Expected %d results, got %d", tc.total, len(results))
+			}
+			if tc.total > 0 && results[tc.total-1]["uuid"] != fmt.Sprintf("item-%d", tc.total-1) {
+				t.Errorf("Unexpected last item %v", results[tc.total-1])
+			}
+			if requests != tc.requests {
+				t.Errorf("Expected %d requests, got %d", tc.requests, requests)
+			}
+		})
+	}
+}
+
+// An endpoint that ignores the page parameter returns its whole list every
+// time. Without a next link it is read once; one that links a next page
+// regardless is stopped when a page repeats the previous one.
+func TestListAll_UnpaginatedEndpoint(t *testing.T) {
+	for _, linkNext := range []bool{false, true} {
+		t.Run(fmt.Sprintf("next link %v", linkNext), func(t *testing.T) {
+			total, requests := 150, 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				if linkNext {
+					w.Header().Set("Link", `<http://example/api/things/?page=2>; rel="next"`)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte("["))
+				for i := 0; i < total; i++ {
+					if i > 0 {
+						w.Write([]byte(","))
+					}
+					fmt.Fprintf(w, `{"uuid": "item-%d"}`, i)
+				}
+				w.Write([]byte("]"))
+			}))
+			defer server.Close()
+
+			c, err := NewClient(&Config{Endpoint: server.URL, Token: "test-token"})
+			if err != nil {
+				t.Fatalf("Failed to create client: %v", err)
+			}
+			var results []map[string]interface{}
+			if err := c.ListAll(context.Background(), "/api/things/", nil, &results); err != nil {
+				t.Fatalf("ListAll failed: %v", err)
+			}
+			if len(results) != total {
+				t.Errorf("Expected %d results, got %d", total, len(results))
+			}
+			if requests > 2 {
+				t.Errorf("Expected at most 2 requests, got %d", requests)
+			}
+		})
+	}
+}
+
+// A server that always links a next page with new items is cut off by the
+// page cap with an error rather than read forever.
+func TestListAll_PageCap(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", `<http://example/next>; rel="next"`)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `[{"uuid": "page-%s"}]`, r.URL.Query().Get("page"))
+	}))
 	defer server.Close()
 
 	c, err := NewClient(&Config{Endpoint: server.URL, Token: "test-token"})
@@ -58,14 +171,24 @@ func TestListAll_FollowsPages(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	var results []map[string]interface{}
-	if err := c.ListAll(context.Background(), "/api/things/", map[string]string{"state": "OK"}, &results); err != nil {
-		t.Fatalf("ListAll failed: %v", err)
+	err = c.ListAll(context.Background(), "/api/things/", nil, &results)
+	if err == nil || !strings.Contains(err.Error(), "more than") {
+		t.Fatalf("Expected a page cap error, got %v", err)
 	}
-	if len(results) != total {
-		t.Fatalf("Expected %d results, got %d", total, len(results))
+}
+
+func TestHasNextLink(t *testing.T) {
+	cases := map[string]bool{
+		``: false,
+		`<http://x/?page_size=5>; rel="first", <http://x/?page=11&page_size=5>; rel="last"`:                              false,
+		`<http://x/?page_size=5>; rel="first", <http://x/?page=2&page_size=5>; rel="next", <http://x/?page=11>; rel="last"`: true,
+		`<http://x/?page=2>;rel="next"`: true,
+		`<http://x/?page=1>; rel="prev"`: false,
 	}
-	if results[total-1]["uuid"] != fmt.Sprintf("item-%d", total-1) {
-		t.Errorf("Unexpected last item %v", results[total-1])
+	for link, want := range cases {
+		if got := hasNextLink(link); got != want {
+			t.Errorf("hasNextLink(%q) = %v, want %v", link, got, want)
+		}
 	}
 }
 

@@ -47,6 +47,10 @@ func (g *Generator) generateProvider() error {
 		service, _ := common.SplitResourceName(ds.Name)
 		services[service] = true
 	}
+	for _, e := range g.config.EphemeralResources {
+		service, _ := common.SplitResourceName(e.Name)
+		services[service] = true
+	}
 
 	var serviceList []string
 	for s := range services {
@@ -73,8 +77,7 @@ func (g *Generator) generateServiceRegistrations() error {
 	serviceResources := make(map[string][]*common.ResourceData)
 
 	// Process all prepared resources
-	for _, name := range g.ResourceOrder {
-		rd := g.Resources[name]
+	for _, rd := range g.allEntities() {
 		serviceResources[rd.Service] = append(serviceResources[rd.Service], rd)
 	}
 
@@ -217,9 +220,10 @@ func (g *Generator) generateRegistryManifest() error {
 // generateReadme creates the README.md file for the generated provider
 func (g *Generator) generateReadme() error {
 	data := map[string]interface{}{
-		"ProviderName": g.config.Generator.ProviderName,
-		"Resources":    g.config.Resources,
-		"DataSources":  g.config.DataSources,
+		"ProviderName":       g.config.Generator.ProviderName,
+		"Resources":          g.config.Resources,
+		"DataSources":        g.config.DataSources,
+		"EphemeralResources": g.config.EphemeralResources,
 	}
 
 	return g.RenderTemplate(

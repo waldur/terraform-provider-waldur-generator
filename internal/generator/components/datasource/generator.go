@@ -59,6 +59,7 @@ func GenerateImplementation(cfg *config.Config, renderer common.Renderer, rd *co
 
 	data := DataSourceTemplateData{
 		Name:           rd.Name,
+		PluralName:     dataSource.PluralName,
 		Service:        rd.Service,
 		CleanName:      rd.CleanName,
 		Operations:     rd.Operations,
@@ -69,12 +70,26 @@ func GenerateImplementation(cfg *config.Config, renderer common.Renderer, rd *co
 		ModelFields:    modelFields,
 	}
 
-	return renderer.RenderTemplate(
+	outputDir := filepath.Join(cfg.Generator.OutputDir, "services", rd.Service, rd.CleanName)
+	if err := renderer.RenderTemplate(
 		"datasource.go.tmpl",
 		[]string{"templates/shared/*.tmpl", "components/datasource/datasource.go.tmpl"},
 		data,
-		filepath.Join(cfg.Generator.OutputDir, "services", rd.Service, rd.CleanName),
+		outputDir,
 		"datasource.go",
+	); err != nil {
+		return err
+	}
+
+	if dataSource.PluralName == "" {
+		return nil
+	}
+	return renderer.RenderTemplate(
+		"datasource_list.go.tmpl",
+		[]string{"templates/shared/*.tmpl", "components/datasource/datasource_list.go.tmpl"},
+		data,
+		outputDir,
+		"datasource_list.go",
 	)
 }
 
@@ -132,14 +147,15 @@ func PrepareData(parser *openapi.Parser, dataSource *config.DataSource, schemaCf
 	service, cleanName := common.SplitResourceName(dataSource.Name)
 
 	return &common.ResourceData{
-		Name:             dataSource.Name,
-		Service:          service,
-		CleanName:        cleanName,
-		ResponseFields:   responseFields,
-		ModelFields:      modelFields,
-		IsDatasourceOnly: true,
-		HasDataSource:    true,
-		FilterParams:     filterParams,
+		Name:                 dataSource.Name,
+		Service:              service,
+		CleanName:            cleanName,
+		ResponseFields:       responseFields,
+		ModelFields:          modelFields,
+		IsDatasourceOnly:     true,
+		HasDataSource:        true,
+		PluralDataSourceName: dataSource.PluralName,
+		FilterParams:         filterParams,
 		APIPaths: map[string]string{
 			"Base":     listPath,
 			"Retrieve": retrievePath,

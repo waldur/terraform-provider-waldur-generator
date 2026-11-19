@@ -38,7 +38,7 @@
  
 {{- define "attr_description" -}}
     MarkdownDescription: "{{ .Description }}",
-    {{- if contains (lower .Name) "password" }}
+    {{- if or .Sensitive (contains (lower .Name) "password") }}
     Sensitive: true,
     {{- end -}}
 {{- end -}}

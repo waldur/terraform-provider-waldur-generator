@@ -227,3 +227,23 @@ func TestOlderFormatBaselineSkipsModeChanges(t *testing.T) {
 		t.Fatalf("removed attributes must still be reported across formats, got %+v", e)
 	}
 }
+
+func TestEphemeralResourceSharesNameWithDataSource(t *testing.T) {
+	old := manifest(map[string]Entity{})
+	nw := manifest(map[string]Entity{
+		"api_key": {Kind: "data_source", Attributes: []Attribute{compAttr("client_id", "types.String")}},
+		EphemeralKey("api_key"): {Kind: KindEphemeralResource, Attributes: []Attribute{
+			reqAttr("id", "types.String"), compAttr("api_key", "types.String"),
+		}},
+	})
+	r := Diff(old, nw)
+	if r.HasBreaking() || len(r.AddedEntities) != 2 {
+		t.Fatalf("expected two added entities, got %+v", r)
+	}
+	md := r.Markdown("2026-11-19")
+	for _, want := range []string{"New data source `api_key`", "New ephemeral resource `ephemeral.api_key`"} {
+		if !strings.Contains(md, want) {
+			t.Fatalf("markdown missing %q:\n%s", want, md)
+		}
+	}
+}

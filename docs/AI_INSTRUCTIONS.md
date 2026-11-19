@@ -22,6 +22,7 @@ Each component encapsulates its own template data preparation and rendering logi
 - **`datasource`**: Handles Read-only data sources.
 - **`list`**: Handles plural resource listing (ListResources).
 - **`action`**: Handles standalone API actions (POST operations on existing resources).
+- **`ephemeral`**: Handles ephemeral resources (one GET/POST operation whose result is never stored in state, e.g. a revealed secret).
 
 ### 2.2. Plugin Builders (`internal/generator/plugins/`)
 

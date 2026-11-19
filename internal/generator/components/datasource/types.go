@@ -8,6 +8,7 @@ import (
 // DataSourceTemplateData holds data for generating data source files
 type DataSourceTemplateData struct {
 	Name           string
+	PluralName     string
 	Service        string
 	CleanName      string
 	Operations     config.OperationSet

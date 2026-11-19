@@ -1,0 +1,121 @@
+package {{ .CleanName }}
+
+import (
+	"context"
+	"regexp"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
+	"github.com/hashicorp/terraform-plugin-framework-timetypes/timetypes"
+
+	"github.com/waldur/terraform-provider-waldur/internal/sdk/common"
+)
+
+// Ensure provider defined types fully satisfy framework interfaces.
+var _ datasource.DataSource = &{{ .Name | title }}ListDataSource{}
+
+func New{{ .Name | title }}ListDataSource() datasource.DataSource {
+	return &{{ .Name | title }}ListDataSource{}
+}
+
+// {{ .Name | title }}ListDataSource is the plural form of the {{ .Name }} data
+// source: it returns every match of its filters, across all pages, where the
+// singular data source requires exactly one.
+type {{ .Name | title }}ListDataSource struct {
+	client *{{ .Name | title }}Client
+}
+
+type {{ .Name | title }}ListDataSourceModel struct {
+	{{- if .FilterParams }}
+	Filters *{{ .Name | title }}FiltersModel `tfsdk:"filters"`
+	{{- end }}
+	Items []{{ .Name | title }}Model `tfsdk:"items"`
+}
+
+func (d *{{ .Name | title }}ListDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_{{ .PluralName }}"
+}
+
+func (d *{{ .Name | title }}ListDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "List of {{ .Name | humanize }} matching the filters",
+
+		Attributes: map[string]schema.Attribute{
+			{{- if .FilterParams }}
+			"filters": (&{{ .Name | title }}FiltersModel{}).GetSchema(),
+			{{- end }}
+			"items": schema.ListNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "{{ .Name | humanize }} objects matching the filters, in the order the API returns them",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.StringAttribute{
+							Computed:            true,
+							MarkdownDescription: "{{ .Name | humanize }} UUID",
+						},
+						{{- range .ResponseFields }}
+						{{- if not .SchemaSkip }}
+						"{{ .Name }}": {{ template "schemaAttribute" . }}
+						{{- end }}
+						{{- end }}
+					},
+				},
+			},
+		},
+	}
+}
+
+func (d *{{ .Name | title }}ListDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
+	d.client = &{{ .Name | title }}Client{}
+	if err := d.client.Configure(ctx, req.ProviderData); err != nil {
+		resp.Diagnostics.AddError(
+			"Unexpected Data Source Configure Type",
+			err.Error(),
+		)
+		return
+	}
+}
+
+func (d *{{ .Name | title }}ListDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var data {{ .Name | title }}ListDataSourceModel
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	{{- if .FilterParams }}
+	filters := common.BuildQueryFilters(data.Filters)
+	{{- else }}
+	filters := map[string]string{}
+	{{- end }}
+
+	results, err := d.client.ListAll(ctx, filters)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to List {{ .Name | humanize }}",
+			"An error occurred while listing {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	data.Items = make([]{{ .Name | title }}Model, len(results))
+	for i := range results {
+		resp.Diagnostics.Append(data.Items[i].CopyFrom(ctx, results[i])...)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}

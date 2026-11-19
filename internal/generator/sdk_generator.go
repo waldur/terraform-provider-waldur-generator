@@ -142,8 +142,7 @@ func (g *Generator) collectUsedTypes() (map[string]bool, error) {
 	// Explicitly add types used in utils.go
 	usedTypes["OrderDetails"] = true
 
-	for _, name := range g.ResourceOrder {
-		rd := g.Resources[name]
+	for _, rd := range g.allEntities() {
 		collectTypes(rd.CreateFields)
 		collectTypes(rd.UpdateFields)
 		collectTypes(rd.ResponseFields)
@@ -238,8 +237,7 @@ func (g *Generator) calculateIgnoredFields() map[string]map[string]common.FieldI
 		}
 	}
 
-	for _, name := range g.ResourceOrder {
-		rd := g.Resources[name]
+	for _, rd := range g.allEntities() {
 		scanForExtraFields(rd.ModelFields)
 	}
 

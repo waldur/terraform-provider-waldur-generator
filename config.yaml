@@ -306,6 +306,10 @@ data_sources:
   - name: "marketplace_resource"
     base_operation_id: "marketplace_resources"
 
+  - name: "marketplace_resource_api_key"
+    base_operation_id: "marketplace_resource_api_keys"
+    plural_name: "marketplace_resource_api_keys"
+
   # OpenStack
   - name: "openstack_tenant"
     base_operation_id: "openstack_tenants"
@@ -345,3 +349,13 @@ data_sources:
 
   - name: "openstack_floating_ip"
     base_operation_id: "openstack_floating_ips"
+
+ephemeral_resources:
+
+  # Marketplace
+  - name: "marketplace_resource_api_key"
+    operation_id: "marketplace_resource_api_keys_reveal"
+    path_params:
+      uuid: "id"
+    sensitive_fields:
+      - "api_key"

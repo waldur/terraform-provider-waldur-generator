@@ -97,6 +97,26 @@ func (c *{{ .Name | title }}Client) Create(ctx context.Context{{ if .CreateOpera
 {{- end }}
 {{- end }}
 
+{{- if .IsEphemeral }}
+
+// Open calls the operation behind the ephemeral resource.
+func (c *{{ .Name | title }}Client) Open(ctx context.Context{{ range .EphemeralPathParams }}, {{ .ArgName }} string{{ end }}) (*{{ .Name | title }}Response, error) {
+	path := "{{ .APIPaths.Ephemeral }}"
+	{{- range .EphemeralPathParams }}
+	path = strings.Replace(path, "{{ "{" }}{{ .Param }}{{ "}" }}", {{ .ArgName }}, 1)
+	{{- end }}
+	var apiResp {{ .Name | title }}Response
+	{{- if eq .EphemeralMethod "POST" }}
+	err := c.Client.Post(ctx, path, nil, &apiResp)
+	{{- else }}
+	err := c.Client.GetURL(ctx, path, &apiResp)
+	{{- end }}
+	if err != nil {
+		return nil, err
+	}
+	return &apiResp, nil
+}
+{{- else }}
 
 func (c *{{ .Name | title }}Client) Get(ctx context.Context, id string) (*{{ .Name | title }}Response, error) {
 	var apiResp {{ .Name | title }}Response
@@ -135,6 +155,20 @@ func (c *{{ .Name | title }}Client) List(ctx context.Context, filter map[string]
 	}
 	return listResult, nil
 }
+
+{{- end }}
+{{- if .PluralDataSourceName }}
+
+// ListAll returns every match of the filter, across all pages.
+func (c *{{ .Name | title }}Client) ListAll(ctx context.Context, filter map[string]string) ([]{{ .Name | title }}Response, error) {
+	var listResult []{{ .Name | title }}Response
+	err := c.Client.ListAll(ctx, "{{ .APIPaths.Base }}", filter, &listResult)
+	if err != nil {
+		return nil, err
+	}
+	return listResult, nil
+}
+{{- end }}
 
 
 

@@ -34,7 +34,7 @@ provider "{{ .ProviderName }}" {
 | Argument | Description | Required | Default |
 |----------|-------------|----------|---------|
 | `endpoint` | The {{ .ProviderName | title }} API endpoint URL | No | `WALDUR_API_URL` env var |
-| `token` | API authentication token | No | `WALDUR_ACCESS_TOKEN` env var |
+| `token` | API token: an account token, or a personal access token (`w_…`, sent as a Bearer token) | No | `WALDUR_ACCESS_TOKEN` env var |
 
 ## Resources
 
@@ -61,6 +61,21 @@ provider "{{ .ProviderName }}" {
 |-------------|-------------|
 {{- range .DataSources }}
 | `{{ $.ProviderName }}_{{ .Name }}` | Retrieves {{ .Name | displayName }} data |
+{{- if .PluralName }}
+| `{{ $.ProviderName }}_{{ .PluralName }}` | Lists {{ .Name | displayName }} objects matching filters |
+{{- end }}
+{{- end }}
+{{- if .EphemeralResources }}
+
+## Ephemeral Resources
+
+Their values are fetched on every run and never written to the plan or the state (Terraform 1.10+).
+
+| Ephemeral Resource | Description |
+|--------------------|-------------|
+{{- range .EphemeralResources }}
+| `{{ $.ProviderName }}_{{ .Name }}` | Fetches {{ .Name | displayName }} without storing it |
+{{- end }}
 {{- end }}
 
 ## Documentation

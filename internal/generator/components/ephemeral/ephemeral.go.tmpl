@@ -1,0 +1,118 @@
+package {{ .CleanName }}
+
+import (
+	"context"
+	"regexp"
+
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
+	"github.com/hashicorp/terraform-plugin-framework-timetypes/timetypes"
+)
+
+// Ensure provider defined types fully satisfy framework interfaces.
+var _ ephemeral.EphemeralResource = &{{ .Name | title }}EphemeralResource{}
+var _ ephemeral.EphemeralResourceWithConfigure = &{{ .Name | title }}EphemeralResource{}
+
+func New{{ .Name | title }}EphemeralResource() ephemeral.EphemeralResource {
+	return &{{ .Name | title }}EphemeralResource{}
+}
+
+// {{ .Name | title }}EphemeralResource calls the API each time Terraform opens
+// it. Its result lives for one run only: Terraform does not write it to the
+// plan or the state.
+type {{ .Name | title }}EphemeralResource struct {
+	client *{{ .Name | title }}Client
+}
+
+type {{ .Name | title }}EphemeralModel struct {
+	{{ .Name | title }}Model
+	{{- range .EphemeralPathParams }}
+	{{- if not .InModel }}
+	{{ .FieldName }} types.String `tfsdk:"{{ .Attribute }}"`
+	{{- end }}
+	{{- end }}
+}
+
+func (e *{{ .Name | title }}EphemeralResource) Metadata(ctx context.Context, req ephemeral.MetadataRequest, resp *ephemeral.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_{{ .EphemeralTypeName }}"
+}
+
+func (e *{{ .Name | title }}EphemeralResource) Schema(ctx context.Context, req ephemeral.SchemaRequest, resp *ephemeral.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "{{ .Name | humanize }} ephemeral resource. Its values are fetched on every run and never stored in the Terraform plan or state.",
+
+		Attributes: map[string]schema.Attribute{
+			{{- $idBound := false }}
+			{{- range .EphemeralPathParams }}
+			{{- if .InModel }}{{ $idBound = true }}{{ end }}
+			"{{ .Attribute }}": schema.StringAttribute{
+				Required:            true,
+				{{- if .InModel }}
+				MarkdownDescription: "{{ $.Name | humanize }} UUID",
+				{{- else }}
+				MarkdownDescription: "Sent as the `{{ .Param }}` path parameter",
+				{{- end }}
+			},
+			{{- end }}
+			{{- if not $idBound }}
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "{{ .Name | humanize }} UUID",
+			},
+			{{- end }}
+			{{- range .ResponseFields }}
+			{{- if not .SchemaSkip }}
+			"{{ .Name }}": {{ template "schemaAttribute" . }}
+			{{- end }}
+			{{- end }}
+		},
+	}
+}
+
+func (e *{{ .Name | title }}EphemeralResource) Configure(ctx context.Context, req ephemeral.ConfigureRequest, resp *ephemeral.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
+	e.client = &{{ .Name | title }}Client{}
+	if err := e.client.Configure(ctx, req.ProviderData); err != nil {
+		resp.Diagnostics.AddError(
+			"Unexpected Ephemeral Resource Configure Type",
+			err.Error(),
+		)
+		return
+	}
+}
+
+func (e *{{ .Name | title }}EphemeralResource) Open(ctx context.Context, req ephemeral.OpenRequest, resp *ephemeral.OpenResponse) {
+	var data {{ .Name | title }}EphemeralModel
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configured := data
+
+	apiResp, err := e.client.Open(ctx{{ range .EphemeralPathParams }}, data.{{ .FieldName }}.ValueString(){{ end }})
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Open {{ .Name | humanize }}",
+			"An error occurred while reading the {{ .Name | humanize }}: "+err.Error(),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(data.CopyFrom(ctx, *apiResp)...)
+	// The arguments stay as configured, whatever the response carries.
+	{{- range .EphemeralPathParams }}
+	data.{{ .FieldName }} = configured.{{ .FieldName }}
+	{{- end }}
+
+	resp.Diagnostics.Append(resp.Result.Set(ctx, &data)...)
+}

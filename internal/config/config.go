@@ -9,9 +9,10 @@ import (
 
 // Config represents the generator configuration
 type Config struct {
-	Generator   GeneratorConfig `yaml:"generator"`
-	Resources   []Resource      `yaml:"resources"`
-	DataSources []DataSource    `yaml:"data_sources"`
+	Generator          GeneratorConfig     `yaml:"generator"`
+	Resources          []Resource          `yaml:"resources"`
+	DataSources        []DataSource        `yaml:"data_sources"`
+	EphemeralResources []EphemeralResource `yaml:"ephemeral_resources"`
 }
 
 // GeneratorConfig contains global generator settings
@@ -89,6 +90,24 @@ type ParameterConfig struct {
 type DataSource struct {
 	Name            string `yaml:"name"`
 	BaseOperationID string `yaml:"base_operation_id"`
+	// PluralName, when set, also generates a data source of that name which
+	// returns every object the filters match as a list under `items`, where the
+	// singular data source insists on exactly one.
+	PluralName string `yaml:"plural_name"`
+}
+
+// EphemeralResource defines a Terraform ephemeral resource: a value fetched by
+// one API operation on every run and never written to the plan or the state.
+// It suits secrets an operation reveals, such as an API key.
+type EphemeralResource struct {
+	Name        string `yaml:"name"`         // Terraform type name, without the provider prefix
+	OperationID string `yaml:"operation_id"` // GET or POST operation without a request body
+	// PathParams maps each path parameter of the operation to the required
+	// Terraform argument that supplies it (e.g. uuid: id).
+	PathParams map[string]string `yaml:"path_params"`
+	// SensitiveFields are response attributes marked sensitive, so Terraform
+	// redacts them wherever they are shown.
+	SensitiveFields []string `yaml:"sensitive_fields"`
 }
 
 // OperationIDs returns the inferred operation IDs for a resource
@@ -176,6 +195,31 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("duplicate data source name: %s", d.Name)
 		}
 		dataSourceNames[d.Name] = true
+	}
+	for _, d := range c.DataSources {
+		if d.PluralName == "" {
+			continue
+		}
+		if d.PluralName == d.Name || dataSourceNames[d.PluralName] {
+			return fmt.Errorf("data source %s: plural_name %s is already a data source name", d.Name, d.PluralName)
+		}
+		dataSourceNames[d.PluralName] = true
+	}
+
+	// Ephemeral resources have their own namespace in Terraform: one may share
+	// its name with a data source or a resource.
+	ephemeralNames := make(map[string]bool)
+	for _, e := range c.EphemeralResources {
+		if e.Name == "" {
+			return fmt.Errorf("ephemeral resource name cannot be empty")
+		}
+		if e.OperationID == "" {
+			return fmt.Errorf("ephemeral resource %s: operation_id cannot be empty", e.Name)
+		}
+		if ephemeralNames[e.Name] {
+			return fmt.Errorf("duplicate ephemeral resource name: %s", e.Name)
+		}
+		ephemeralNames[e.Name] = true
 	}
 
 	return nil

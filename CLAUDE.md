@@ -36,6 +36,7 @@ so the published history does record what changed.
 - `datasource` — read-only data sources
 - `list` — plural listing (ListResources)
 - `action` — standalone POST actions on existing resources
+- `ephemeral` — ephemeral resources: one operation (e.g. revealing a secret) run on every plan/apply, never stored in state
 
 **Plugin builders** (`internal/generator/plugins/`) — resource "flavors":
 

@@ -56,6 +56,19 @@ func NewClient(config *Config) (*Client, error) {
 	}, nil
 }
 
+// personalAccessTokenPrefix starts every Waldur personal access token.
+const personalAccessTokenPrefix = "w_"
+
+// AuthorizationHeader returns the Authorization header value for a token.
+// Waldur takes a personal access token as a Bearer token and an account token
+// under the Token scheme; sent under the other scheme, either is refused with 401.
+func AuthorizationHeader(token string) string {
+	if strings.HasPrefix(token, personalAccessTokenPrefix) {
+		return "Bearer " + token
+	}
+	return "Token " + token
+}
+
 // doRequest performs an HTTP request with authentication
 func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	// Construct full URL, avoiding double slashes and double 'api' segments
@@ -81,7 +94,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 	}
 
 	// Set headers
-	req.Header.Set("Authorization", "Token "+c.token)
+	req.Header.Set("Authorization", AuthorizationHeader(c.token))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
@@ -201,6 +214,40 @@ func (c *Client) List(ctx context.Context, path string, filters map[string]strin
 		path = path + "?" + query.Encode()
 	}
 	return c.GetURL(ctx, path, result)
+}
+
+// listPageSize is the page size ListAll asks for.
+const listPageSize = 100
+
+// ListAll is List across every page: the API returns one page per request, so
+// List alone sees at most the first page of a long result.
+func (c *Client) ListAll(ctx context.Context, path string, filters map[string]string, result interface{}) error {
+	var all []json.RawMessage
+	for page := 1; ; page++ {
+		query := url.Values{}
+		for key, value := range filters {
+			query.Set(key, value)
+		}
+		query.Set("page", fmt.Sprintf("%d", page))
+		query.Set("page_size", fmt.Sprintf("%d", listPageSize))
+
+		var items []json.RawMessage
+		if err := c.GetURL(ctx, path+"?"+query.Encode(), &items); err != nil {
+			return err
+		}
+		all = append(all, items...)
+		if len(items) < listPageSize {
+			break
+		}
+	}
+	if all == nil {
+		all = []json.RawMessage{}
+	}
+	data, err := json.Marshal(all)
+	if err != nil {
+		return fmt.Errorf("failed to collect list results: %w", err)
+	}
+	return json.Unmarshal(data, result)
 }
 
 // Get retrieves a single resource by UUID

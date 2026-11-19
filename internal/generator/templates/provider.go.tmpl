@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -26,6 +27,7 @@ import (
 var _ provider.Provider = &{{ .ProviderName }}Provider{}
 var _ provider.ProviderWithActions = &{{ .ProviderName }}Provider{}
 var _ provider.ProviderWithListResources = &{{ .ProviderName }}Provider{}
+var _ provider.ProviderWithEphemeralResources = &{{ .ProviderName }}Provider{}
 
 // {{ .ProviderName }}Provider defines the provider implementation.
 type {{ .ProviderName }}Provider struct {
@@ -76,7 +78,7 @@ func (p *{{ .ProviderName }}Provider) Schema(ctx context.Context, req provider.S
 				Optional:            true,
 			},
 			"token": schema.StringAttribute{
-				MarkdownDescription: "API authentication token. Can also be set via the `WALDUR_ACCESS_TOKEN` environment variable.",
+				MarkdownDescription: "API authentication token: an account token, or a personal access token (starting with `w_`), which is sent as a Bearer token. Can also be set via the `WALDUR_ACCESS_TOKEN` environment variable.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -140,6 +142,7 @@ func (p *{{ .ProviderName }}Provider) Configure(ctx context.Context, req provide
 	// Make client available to resources and data sources
 	resp.DataSourceData = apiClient
 	resp.ResourceData = apiClient
+	resp.EphemeralResourceData = apiClient
 }
 
 func (p *{{ .ProviderName }}Provider) Resources(ctx context.Context) []func() resource.Resource {
@@ -156,6 +159,14 @@ func (p *{{ .ProviderName }}Provider) DataSources(ctx context.Context) []func() 
 	ds = append(ds, {{ . }}.GetDataSources()...)
 	{{- end }}
 	return ds
+}
+
+func (p *{{ .ProviderName }}Provider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
+	var er []func() ephemeral.EphemeralResource
+	{{- range .Services }}
+	er = append(er, {{ . }}.GetEphemeralResources()...)
+	{{- end }}
+	return er
 }
 
 func (p *{{ .ProviderName }}Provider) Actions(ctx context.Context) []func() action.Action {

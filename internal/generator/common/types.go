@@ -57,6 +57,9 @@ type FieldInfo struct {
 	// through JSONStringMap, so object, array and scalar values do not fail JSON
 	// decoding. See the marketplace_order override in components/resource.
 	LenientStringMap bool
+
+	// Sensitive marks an attribute Terraform redacts in its output.
+	Sensitive bool
 }
 
 // ResourceData holds all data required to generate resource/sdk code
@@ -86,10 +89,25 @@ type ResourceData struct {
 	FilterParams          []FilterParam
 	BaseOperationID       string // Base operation ID for actions
 	HasDataSource         bool   // True if a corresponding data source exists
-	SkipPolling           bool   // True if resource does not need polling (e.g. Structure Project)
+	PluralDataSourceName  string // Name of the plural (list) data source, if one is generated
+	IsEphemeral           bool   // True for an ephemeral resource (its own package, nothing else)
+	EphemeralTypeName     string // Terraform type name of an ephemeral resource
+	EphemeralMethod       string // HTTP method of the ephemeral resource's operation
+	EphemeralPathParams   []EphemeralPathParam
+	SkipPolling           bool // True if resource does not need polling (e.g. Structure Project)
 	TemplateFiles         []string
 	ScopeType             string // For scoped_permission: API collection prefix, e.g. "projects"
 	ScopeField            string // For scoped_permission: Terraform attribute name, e.g. "project"
+}
+
+// EphemeralPathParam binds a path parameter of an ephemeral resource's
+// operation to the required Terraform argument that supplies it.
+type EphemeralPathParam struct {
+	Param     string // Path parameter, e.g. "uuid"
+	Attribute string // Terraform argument, e.g. "id"
+	FieldName string // Go field name of the argument in the model
+	ArgName   string // Go parameter name in the generated client method
+	InModel   bool   // The argument is already a field of the response model ("id")
 }
 
 // UpdateAction represents an enriched update action with resolved API path

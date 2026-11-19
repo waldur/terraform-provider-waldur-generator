@@ -25,10 +25,20 @@ type Attribute struct {
 	Attributes []Attribute `json:"attributes,omitempty"`
 }
 
-// Entity is a resource or data source exposed by the provider.
+// Entity is a resource, data source or ephemeral resource exposed by the provider.
 type Entity struct {
-	Kind       string      `json:"kind"` // "resource" or "data_source"
+	Kind       string      `json:"kind"` // "resource", "data_source" or "ephemeral_resource"
 	Attributes []Attribute `json:"attributes"`
+}
+
+// KindEphemeralResource is the Entity kind of an ephemeral resource.
+const KindEphemeralResource = "ephemeral_resource"
+
+// EphemeralKey is the manifest key of an ephemeral resource. Ephemeral
+// resources have a namespace of their own in Terraform, so one may share its
+// name with a data source; the prefix mirrors the `ephemeral.` address.
+func EphemeralKey(name string) string {
+	return "ephemeral." + name
 }
 
 // Format is bumped whenever the meaning of a recorded field changes, so that a

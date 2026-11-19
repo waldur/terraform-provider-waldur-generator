@@ -288,14 +288,21 @@ func ExtractFilterParams(op *openapi3.Operation, resourceName string) []FilterPa
 				continue
 			}
 			if param.Schema != nil && param.Schema.Value != nil {
-				typeStr := GetSchemaType(param.Schema.Value)
+				valueSchema := param.Schema.Value
+				// A multiple-choice filter (?state=OK&state=Erred) is an array of
+				// scalars. It is offered as a single-valued filter: one value is
+				// a valid query for it, and filters stay a flat string map.
+				if GetSchemaType(valueSchema) == OpenAPITypeArray && valueSchema.Items != nil && valueSchema.Items.Value != nil {
+					valueSchema = valueSchema.Items.Value
+				}
+				typeStr := GetSchemaType(valueSchema)
 				goType := GetGoType(typeStr)
 				if goType == "" || strings.HasPrefix(goType, TFTypeList) || strings.HasPrefix(goType, TFTypeObject) {
 					continue
 				}
 
 				var enumValues []string
-				for _, val := range param.Schema.Value.Enum {
+				for _, val := range valueSchema.Enum {
 					enumValues = append(enumValues, fmt.Sprintf("%v", val))
 				}
 

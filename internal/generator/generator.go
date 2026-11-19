@@ -8,6 +8,7 @@ import (
 	"github.com/waldur/terraform-provider-waldur-generator/internal/generator/common"
 	actgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/action"
 	dsgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/datasource"
+	ephgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/ephemeral"
 	lsgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/list"
 	resgen "github.com/waldur/terraform-provider-waldur-generator/internal/generator/components/resource"
 	"github.com/waldur/terraform-provider-waldur-generator/internal/openapi"
@@ -22,6 +23,9 @@ type Generator struct {
 	parser        *openapi.Parser
 	Resources     map[string]*common.ResourceData
 	ResourceOrder []string
+	// Ephemerals are kept apart from Resources: an ephemeral resource may share
+	// its name with a data source, and lives in a package of its own.
+	Ephemerals []*common.ResourceData
 }
 
 // New creates a new generator instance
@@ -68,6 +72,7 @@ func (g *Generator) Generate() error {
 			existing.ResponseFields = common.MergeDataSourceFields(existing.ResponseFields, dd.ResponseFields)
 			existing.ModelFields = common.MergeDataSourceFields(existing.ModelFields, dd.ModelFields)
 			existing.HasDataSource = true
+			existing.PluralDataSourceName = ds.PluralName
 			if dd.APIPaths != nil {
 				if existing.APIPaths == nil {
 					existing.APIPaths = make(map[string]string)
@@ -82,6 +87,14 @@ func (g *Generator) Generate() error {
 			g.Resources[ds.Name] = dd
 			g.ResourceOrder = append(g.ResourceOrder, ds.Name)
 		}
+	}
+
+	for i := range g.config.EphemeralResources {
+		ed, err := ephgen.PrepareData(g.parser, &g.config.EphemeralResources[i], g.GetSchemaConfig())
+		if err != nil {
+			return err
+		}
+		g.Ephemerals = append(g.Ephemerals, ed)
 	}
 
 	// 2. Generate provider files
@@ -144,6 +157,18 @@ func (g *Generator) Generate() error {
 		}
 	}
 
+	for _, ed := range g.Ephemerals {
+		if err := resgen.GenerateModel(g.config, g, ed); err != nil {
+			return fmt.Errorf("failed to generate model for ephemeral resource %s: %w", ed.Name, err)
+		}
+		if err := g.generateResourceSDK(ed); err != nil {
+			return fmt.Errorf("failed to generate SDK for ephemeral resource %s: %w", ed.Name, err)
+		}
+		if err := ephgen.GenerateImplementation(g.config, g, ed); err != nil {
+			return fmt.Errorf("failed to generate ephemeral resource %s: %w", ed.Name, err)
+		}
+	}
+
 	// 5. Generate supporting files
 	if err := g.generateSupportingFiles(); err != nil {
 		return fmt.Errorf("failed to generate supporting files: %w", err)
@@ -194,4 +219,14 @@ func (g *Generator) hasDataSource(resourceName string) bool {
 		}
 	}
 	return false
+}
+
+// allEntities returns every prepared entity, resources and data sources in
+// configuration order followed by ephemeral resources.
+func (g *Generator) allEntities() []*common.ResourceData {
+	all := make([]*common.ResourceData, 0, len(g.ResourceOrder)+len(g.Ephemerals))
+	for _, name := range g.ResourceOrder {
+		all = append(all, g.Resources[name])
+	}
+	return append(all, g.Ephemerals...)
 }

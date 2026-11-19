@@ -31,6 +31,29 @@ func (g *Generator) WriteManifest() error {
 			Kind:       kind,
 			Attributes: manifestAttributes(rd.ModelFields, rd.IsDatasourceOnly),
 		}
+		if rd.PluralDataSourceName != "" {
+			m.Entities[rd.PluralDataSourceName] = changelog.Entity{
+				Kind: "data_source",
+				Attributes: []changelog.Attribute{{
+					Name:       "items",
+					Type:       "types.List<object>",
+					Computed:   true,
+					Attributes: manifestAttributes(rd.ModelFields, true),
+				}},
+			}
+		}
+	}
+	// Ephemeral resources have their own namespace, so one may share its name
+	// with a data source; the key carries the kind, as Terraform's address does.
+	for _, ed := range g.Ephemerals {
+		attrs := manifestAttributes(ed.ModelFields, true)
+		for _, p := range ed.EphemeralPathParams {
+			attrs = append(attrs, changelog.Attribute{Name: p.Attribute, Type: "types.String", Required: true})
+		}
+		m.Entities[changelog.EphemeralKey(ed.EphemeralTypeName)] = changelog.Entity{
+			Kind:       changelog.KindEphemeralResource,
+			Attributes: attrs,
+		}
 	}
 	data, err := m.Marshal()
 	if err != nil {

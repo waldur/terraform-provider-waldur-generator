@@ -2,10 +2,72 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func TestAuthorizationHeader(t *testing.T) {
+	cases := map[string]string{
+		"w_abc123":  "Bearer w_abc123",
+		"c44bb36d6": "Token c44bb36d6",
+	}
+	for token, want := range cases {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got := r.Header.Get("Authorization"); got != want {
+				t.Errorf("token %q: expected Authorization %q, got %q", token, want, got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{}`))
+		}))
+		c, err := NewClient(&Config{Endpoint: server.URL, Token: token})
+		if err != nil {
+			t.Fatalf("Failed to create client: %v", err)
+		}
+		if err := c.GetURL(context.Background(), "/api/", nil); err != nil {
+			t.Errorf("token %q: request failed: %v", token, err)
+		}
+		server.Close()
+	}
+}
+
+func TestListAll_FollowsPages(t *testing.T) {
+	total := listPageSize + 3
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != "OK" {
+			t.Errorf("Expected state=OK, got %q", r.URL.Query().Get("state"))
+		}
+		var page, size int
+		fmt.Sscanf(r.URL.Query().Get("page"), "%d", &page)
+		fmt.Sscanf(r.URL.Query().Get("page_size"), "%d", &size)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("["))
+		for i := (page - 1) * size; i < page*size && i < total; i++ {
+			if i > (page-1)*size {
+				w.Write([]byte(","))
+			}
+			fmt.Fprintf(w, `{"uuid": "item-%d"}`, i)
+		}
+		w.Write([]byte("]"))
+	}))
+	defer server.Close()
+
+	c, err := NewClient(&Config{Endpoint: server.URL, Token: "test-token"})
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	var results []map[string]interface{}
+	if err := c.ListAll(context.Background(), "/api/things/", map[string]string{"state": "OK"}, &results); err != nil {
+		t.Fatalf("ListAll failed: %v", err)
+	}
+	if len(results) != total {
+		t.Fatalf("Expected %d results, got %d", total, len(results))
+	}
+	if results[total-1]["uuid"] != fmt.Sprintf("item-%d", total-1) {
+		t.Errorf("Unexpected last item %v", results[total-1])
+	}
+}
 
 func TestList(t *testing.T) {
 	// Create a test server

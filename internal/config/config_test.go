@@ -101,6 +101,61 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "plural data source name",
+			config: &Config{
+				Generator:   GeneratorConfig{OpenAPISchema: "schema.yaml", ProviderName: "waldur"},
+				DataSources: []DataSource{{Name: "api_key", BaseOperationID: "api_keys", PluralName: "api_keys"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "plural name taken by another data source",
+			config: &Config{
+				Generator: GeneratorConfig{OpenAPISchema: "schema.yaml", ProviderName: "waldur"},
+				DataSources: []DataSource{
+					{Name: "api_key", BaseOperationID: "api_keys", PluralName: "api_keys"},
+					{Name: "api_keys", BaseOperationID: "api_keys"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "plural name equal to the singular",
+			config: &Config{
+				Generator:   GeneratorConfig{OpenAPISchema: "schema.yaml", ProviderName: "waldur"},
+				DataSources: []DataSource{{Name: "api_key", BaseOperationID: "api_keys", PluralName: "api_key"}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "ephemeral resource sharing a data source name",
+			config: &Config{
+				Generator:          GeneratorConfig{OpenAPISchema: "schema.yaml", ProviderName: "waldur"},
+				DataSources:        []DataSource{{Name: "api_key", BaseOperationID: "api_keys"}},
+				EphemeralResources: []EphemeralResource{{Name: "api_key", OperationID: "api_keys_reveal"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "ephemeral resource without an operation",
+			config: &Config{
+				Generator:          GeneratorConfig{OpenAPISchema: "schema.yaml", ProviderName: "waldur"},
+				EphemeralResources: []EphemeralResource{{Name: "api_key"}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate ephemeral resource",
+			config: &Config{
+				Generator: GeneratorConfig{OpenAPISchema: "schema.yaml", ProviderName: "waldur"},
+				EphemeralResources: []EphemeralResource{
+					{Name: "api_key", OperationID: "api_keys_reveal"},
+					{Name: "api_key", OperationID: "api_keys_reveal"},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

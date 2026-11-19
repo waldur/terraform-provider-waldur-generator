@@ -282,8 +282,11 @@ func plural(n int, one, many string) string {
 }
 
 func kindLabel(kind string) string {
-	if kind == "data_source" {
+	switch kind {
+	case "data_source":
 		return "data source"
+	case KindEphemeralResource:
+		return "ephemeral resource"
 	}
 	return "resource"
 }

@@ -134,6 +134,52 @@ data_sources:
     base_operation_id: "openstack_flavors"
 ```
 
+The data source looks one object up, by `id` or by `filters`, and fails unless exactly one matches.
+Its `filters` are the list operation's query parameters. A multiple-choice parameter (an array of
+scalars, such as `?state=OK&state=Erred`) is offered as a single-valued filter of the item type.
+
+### Plural Data Source
+
+Set `plural_name` to also generate a data source that returns every match of its filters, across
+all pages, as a list under `items`:
+
+```yaml
+data_sources:
+  - name: "marketplace_resource_api_key"
+    base_operation_id: "marketplace_resource_api_keys"
+    plural_name: "marketplace_resource_api_keys"
+```
+
+```hcl
+data "waldur_marketplace_resource_api_keys" "s3" {
+  filters = {
+    resource_uuid = waldur_marketplace_order.s3.marketplace_resource_uuid
+    state         = "OK"
+  }
+}
+```
+
+## Ephemeral Resource Configuration
+
+An ephemeral resource (Terraform 1.10+) calls one operation every time Terraform opens it, and its
+result is never written to the plan or the state. Use it for an operation that reveals a secret.
+
+```yaml
+ephemeral_resources:
+  - name: "marketplace_resource_api_key"                # Terraform type, without the provider prefix
+    operation_id: "marketplace_resource_api_keys_reveal"
+    path_params:
+      uuid: "id"                                        # path parameter -> required argument
+    sensitive_fields:
+      - "api_key"                                       # response attributes Terraform redacts
+```
+
+* The operation is a GET or a POST without a request body. Its response becomes computed attributes.
+* Every path parameter must be bound to an argument, and every binding must name a path parameter.
+  Binding to `id` uses the object's UUID attribute; any other argument must not be a response attribute.
+* An ephemeral resource has its own namespace in Terraform, so it may share its name with a data
+  source. It is generated into a package of its own (`services/<service>/<name>_ephemeral`).
+
 ## Tips for Best Results
 
 1. **Iterative Generation**: Start with a minimal config, run the generator, check the `output/`, and then add overrides as needed.
